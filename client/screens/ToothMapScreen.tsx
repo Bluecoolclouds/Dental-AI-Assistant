@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from "react";
-import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import Svg, { Path, G } from "react-native-svg";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -14,16 +15,11 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { PROBLEM_TYPES, ProblemType } from "@shared/schema";
 
-const QUADRANTS = {
-  upperRight: [18, 17, 16, 15, 14, 13, 12, 11],
-  upperLeft: [21, 22, 23, 24, 25, 26, 27, 28],
-  lowerLeft: [31, 32, 33, 34, 35, 36, 37, 38],
-  lowerRight: [48, 47, 46, 45, 44, 43, 42, 41],
-};
+const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
+const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 
 const getSimpleNumber = (toothNumber: number): number => {
-  const lastDigit = toothNumber % 10;
-  return lastDigit;
+  return toothNumber % 10;
 };
 
 const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Feather.glyphMap; color: string }> = {
@@ -35,6 +31,19 @@ const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Fe
   cavity: { label: "Кариес", icon: "circle", color: "#795548" },
 };
 
+const MOLAR_PATH = "M2,8 C2,3 5,0 10,0 C15,0 18,3 18,8 L18,18 C18,20 16,22 14,22 L6,22 C4,22 2,20 2,18 Z";
+const PREMOLAR_PATH = "M3,7 C3,3 6,0 10,0 C14,0 17,3 17,7 L17,18 C17,20 15,22 13,22 L7,22 C5,22 3,20 3,18 Z";
+const CANINE_PATH = "M4,6 C4,2 7,0 10,0 C13,0 16,2 16,6 L16,20 C16,22 14,24 12,24 L8,24 C6,24 4,22 4,20 Z";
+const INCISOR_PATH = "M4,5 C4,2 6,0 10,0 C14,0 16,2 16,5 L16,19 C16,21 14,23 12,23 L8,23 C6,23 4,21 4,19 Z";
+
+function getToothPath(toothNumber: number): string {
+  const digit = toothNumber % 10;
+  if (digit >= 6 && digit <= 8) return MOLAR_PATH;
+  if (digit >= 4 && digit <= 5) return PREMOLAR_PATH;
+  if (digit === 3) return CANINE_PATH;
+  return INCISOR_PATH;
+}
+
 export default function ToothMapScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
@@ -42,9 +51,9 @@ export default function ToothMapScreen() {
   const { theme } = useTheme();
   const { user } = useAuthContext();
   const queryClient = useQueryClient();
+  const { width: screenWidth } = useWindowDimensions();
 
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
-  const [selectedProblem, setSelectedProblem] = useState<ProblemType | null>(null);
 
   const { data: toothData = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/tooth-data/${user?.id}`],
@@ -65,11 +74,11 @@ export default function ToothMapScreen() {
     return (tooth?.problems as string[]) || [];
   }, [toothData]);
 
-  const getToothColor = useCallback((toothNumber: number) => {
+  const getToothFill = useCallback((toothNumber: number) => {
     const problems = getToothProblems(toothNumber);
-    if (problems.length === 0) return theme.backgroundDefault;
+    if (problems.length === 0) return theme.backgroundSecondary;
     const firstProblem = problems[0] as ProblemType;
-    return PROBLEM_CONFIG[firstProblem]?.color + "30" || theme.backgroundDefault;
+    return PROBLEM_CONFIG[firstProblem]?.color + "40" || theme.backgroundSecondary;
   }, [getToothProblems, theme]);
 
   const handleToothPress = (toothNumber: number) => {
@@ -95,6 +104,10 @@ export default function ToothMapScreen() {
     );
   }
 
+  const mapWidth = Math.min(screenWidth - Spacing.lg * 2, 340);
+  const toothWidth = Math.floor((mapWidth - 15 * 2) / 16);
+  const toothHeight = Math.floor(toothWidth * 1.4);
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
@@ -112,84 +125,111 @@ export default function ToothMapScreen() {
             Верхняя челюсть
           </ThemedText>
           
-          <View style={styles.jawRow}>
-            <View style={styles.quadrant}>
-              <ThemedText type="small" style={[styles.quadrantLabel, { color: theme.textSecondary }]}>
-                Правая
-              </ThemedText>
-              <View style={styles.teethRow}>
-                {QUADRANTS.upperRight.map((num) => (
-                  <ToothButton
-                    key={num}
-                    toothId={num}
-                    displayNumber={getSimpleNumber(num)}
-                    isSelected={selectedTooth === num}
-                    problems={getToothProblems(num)}
-                    backgroundColor={getToothColor(num)}
-                    onPress={() => handleToothPress(num)}
-                  />
-                ))}
-              </View>
-            </View>
-            
-            <View style={[styles.centerLine, { backgroundColor: theme.border }]} />
-            
-            <View style={styles.quadrant}>
-              <ThemedText type="small" style={[styles.quadrantLabel, { color: theme.textSecondary }]}>
-                Левая
-              </ThemedText>
-              <View style={styles.teethRow}>
-                {QUADRANTS.upperLeft.map((num) => (
-                  <ToothButton
-                    key={num}
-                    toothId={num}
-                    displayNumber={getSimpleNumber(num)}
-                    isSelected={selectedTooth === num}
-                    problems={getToothProblems(num)}
-                    backgroundColor={getToothColor(num)}
-                    onPress={() => handleToothPress(num)}
-                  />
-                ))}
-              </View>
+          <View style={[styles.teethArc, { width: mapWidth }]}>
+            <Svg width={mapWidth} height={toothHeight + 10} viewBox={`0 0 ${mapWidth} ${toothHeight + 10}`}>
+              <G>
+                {UPPER_TEETH.map((toothNum, index) => {
+                  const x = index * (toothWidth + 2) + 1;
+                  const isSelected = selectedTooth === toothNum;
+                  const problems = getToothProblems(toothNum);
+                  const fill = getToothFill(toothNum);
+                  const strokeColor = isSelected ? theme.primary : theme.border;
+                  const strokeWidth = isSelected ? 2 : 1;
+                  
+                  return (
+                    <G key={toothNum} transform={`translate(${x}, 2)`}>
+                      <Path
+                        d={getToothPath(toothNum)}
+                        fill={fill}
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
+                        scaleX={toothWidth / 20}
+                        scaleY={toothHeight / 24}
+                      />
+                    </G>
+                  );
+                })}
+              </G>
+            </Svg>
+            <View style={styles.teethNumbersRow}>
+              {UPPER_TEETH.map((toothNum, index) => (
+                <Pressable
+                  key={toothNum}
+                  onPress={() => handleToothPress(toothNum)}
+                  style={[
+                    styles.toothHitArea,
+                    { width: toothWidth + 2, height: toothHeight + 20 }
+                  ]}
+                >
+                  <ThemedText 
+                    type="small" 
+                    style={[
+                      styles.toothNumber,
+                      selectedTooth === toothNum && { color: theme.primary, fontWeight: "700" }
+                    ]}
+                  >
+                    {getSimpleNumber(toothNum)}
+                  </ThemedText>
+                  {getToothProblems(toothNum).length > 0 ? (
+                    <View style={[styles.problemDot, { backgroundColor: theme.danger }]} />
+                  ) : null}
+                </Pressable>
+              ))}
             </View>
           </View>
 
-          <View style={[styles.gumLine, { backgroundColor: theme.primary + "20" }]} />
+          <View style={[styles.gumLine, { backgroundColor: theme.primary + "30", width: mapWidth }]} />
 
-          <View style={styles.jawRow}>
-            <View style={styles.quadrant}>
-              <View style={styles.teethRow}>
-                {QUADRANTS.lowerRight.map((num) => (
-                  <ToothButton
-                    key={num}
-                    toothId={num}
-                    displayNumber={getSimpleNumber(num)}
-                    isSelected={selectedTooth === num}
-                    problems={getToothProblems(num)}
-                    backgroundColor={getToothColor(num)}
-                    onPress={() => handleToothPress(num)}
-                  />
-                ))}
-              </View>
+          <View style={[styles.teethArc, { width: mapWidth }]}>
+            <View style={styles.teethNumbersRow}>
+              {LOWER_TEETH.map((toothNum, index) => (
+                <Pressable
+                  key={toothNum}
+                  onPress={() => handleToothPress(toothNum)}
+                  style={[
+                    styles.toothHitArea,
+                    { width: toothWidth + 2, height: toothHeight + 20 }
+                  ]}
+                >
+                  <ThemedText 
+                    type="small" 
+                    style={[
+                      styles.toothNumber,
+                      selectedTooth === toothNum && { color: theme.primary, fontWeight: "700" }
+                    ]}
+                  >
+                    {getSimpleNumber(toothNum)}
+                  </ThemedText>
+                  {getToothProblems(toothNum).length > 0 ? (
+                    <View style={[styles.problemDot, { backgroundColor: theme.danger }]} />
+                  ) : null}
+                </Pressable>
+              ))}
             </View>
-            
-            <View style={[styles.centerLine, { backgroundColor: theme.border }]} />
-            
-            <View style={styles.quadrant}>
-              <View style={styles.teethRow}>
-                {QUADRANTS.lowerLeft.map((num) => (
-                  <ToothButton
-                    key={num}
-                    toothId={num}
-                    displayNumber={getSimpleNumber(num)}
-                    isSelected={selectedTooth === num}
-                    problems={getToothProblems(num)}
-                    backgroundColor={getToothColor(num)}
-                    onPress={() => handleToothPress(num)}
-                  />
-                ))}
-              </View>
-            </View>
+            <Svg width={mapWidth} height={toothHeight + 10} viewBox={`0 0 ${mapWidth} ${toothHeight + 10}`}>
+              <G>
+                {LOWER_TEETH.map((toothNum, index) => {
+                  const x = index * (toothWidth + 2) + 1;
+                  const isSelected = selectedTooth === toothNum;
+                  const fill = getToothFill(toothNum);
+                  const strokeColor = isSelected ? theme.primary : theme.border;
+                  const strokeWidth = isSelected ? 2 : 1;
+                  
+                  return (
+                    <G key={toothNum} transform={`translate(${x}, 2) scale(1, -1) translate(0, -${toothHeight})`}>
+                      <Path
+                        d={getToothPath(toothNum)}
+                        fill={fill}
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth}
+                        scaleX={toothWidth / 20}
+                        scaleY={toothHeight / 24}
+                      />
+                    </G>
+                  );
+                })}
+              </G>
+            </Svg>
           </View>
           
           <ThemedText type="small" style={[styles.jawLabel, { color: theme.textSecondary }]}>
@@ -227,10 +267,10 @@ export default function ToothMapScreen() {
                       }
                     ]}
                   >
-                    <Feather name={config.icon} size={20} color={isActive ? config.color : theme.textSecondary} />
+                    <Feather name={config.icon} size={18} color={isActive ? config.color : theme.textSecondary} />
                     <ThemedText
                       type="small"
-                      style={{ color: isActive ? config.color : theme.text }}
+                      style={{ color: isActive ? config.color : theme.text, fontSize: 12 }}
                     >
                       {config.label}
                     </ThemedText>
@@ -245,24 +285,24 @@ export default function ToothMapScreen() {
           </View>
         ) : (
           <View style={[styles.hintCard, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name="info" size={20} color={theme.primary} />
-            <ThemedText type="body" style={{ color: theme.textSecondary, flex: 1 }}>
+            <Feather name="info" size={18} color={theme.primary} />
+            <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
               Нажмите на зуб, чтобы отметить проблему
             </ThemedText>
           </View>
         )}
 
         <View style={styles.legendSection}>
-          <ThemedText type="h4" style={styles.legendTitle}>Обозначения</ThemedText>
+          <ThemedText type="body" style={[styles.legendTitle, { fontWeight: "600" }]}>Обозначения</ThemedText>
           <View style={styles.legendGrid}>
             {PROBLEM_TYPES.map((problem) => {
               const config = PROBLEM_CONFIG[problem];
               return (
                 <View key={problem} style={styles.legendItem}>
                   <View style={[styles.legendColor, { backgroundColor: config.color + "30" }]}>
-                    <Feather name={config.icon} size={14} color={config.color} />
+                    <Feather name={config.icon} size={12} color={config.color} />
                   </View>
-                  <ThemedText type="small">{config.label}</ThemedText>
+                  <ThemedText type="small" style={{ fontSize: 11 }}>{config.label}</ThemedText>
                 </View>
               );
             })}
@@ -270,50 +310,6 @@ export default function ToothMapScreen() {
         </View>
       </ScrollView>
     </ThemedView>
-  );
-}
-
-function ToothButton({
-  toothId,
-  displayNumber,
-  isSelected,
-  problems,
-  backgroundColor,
-  onPress,
-}: {
-  toothId: number;
-  displayNumber: number;
-  isSelected: boolean;
-  problems: string[];
-  backgroundColor: string;
-  onPress: () => void;
-}) {
-  const { theme } = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.tooth,
-        {
-          backgroundColor,
-          borderColor: isSelected ? theme.primary : theme.border,
-          borderWidth: isSelected ? 2 : 1,
-          opacity: pressed ? 0.7 : 1,
-        }
-      ]}
-    >
-      <ThemedText type="small" style={styles.toothNumber}>
-        {displayNumber}
-      </ThemedText>
-      {problems.length > 0 ? (
-        <View style={[styles.problemIndicator, { backgroundColor: theme.danger }]}>
-          <ThemedText type="small" style={styles.problemCount}>
-            {problems.length}
-          </ThemedText>
-        </View>
-      ) : null}
-    </Pressable>
   );
 }
 
@@ -327,78 +323,49 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
-    gap: Spacing.xl,
+    gap: Spacing.lg,
   },
   mapContainer: {
     alignItems: "center",
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   jawLabel: {
     textTransform: "uppercase",
     letterSpacing: 1,
-  },
-  jawRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-  quadrant: {
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  quadrantLabel: {
     fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
-  centerLine: {
-    width: 1,
-    height: 40,
-    marginHorizontal: 2,
-    alignSelf: "center",
+  teethArc: {
+    alignItems: "center",
   },
-  teethRow: {
+  teethNumbersRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 1,
   },
-  gumLine: {
-    width: "90%",
-    height: 6,
-    borderRadius: 3,
-    marginVertical: Spacing.sm,
-  },
-  tooth: {
-    width: 24,
-    height: 28,
-    borderRadius: BorderRadius.xs,
-    justifyContent: "center",
+  toothHitArea: {
     alignItems: "center",
-    position: "relative",
+    justifyContent: "center",
   },
   toothNumber: {
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 9,
+    fontWeight: "500",
   },
-  problemIndicator: {
+  problemDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     position: "absolute",
-    top: -3,
-    right: -3,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    justifyContent: "center",
-    alignItems: "center",
+    top: 0,
+    right: 2,
   },
-  problemCount: {
-    fontSize: 8,
-    color: "#FFFFFF",
-    fontWeight: "600",
+  gumLine: {
+    height: 4,
+    borderRadius: 2,
+    marginVertical: Spacing.xs,
   },
   detailsCard: {
-    padding: Spacing.xl,
+    padding: Spacing.lg,
     borderRadius: BorderRadius.lg,
-    gap: Spacing.lg,
+    gap: Spacing.md,
   },
   detailsHeader: {
     flexDirection: "row",
@@ -406,19 +373,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   detailsSubtitle: {
-    marginTop: -Spacing.sm,
+    marginTop: -Spacing.xs,
   },
   problemsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   problemButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
   },
@@ -428,12 +395,12 @@ const styles = StyleSheet.create({
   hintCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.lg,
+    padding: Spacing.md,
     borderRadius: BorderRadius.lg,
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   legendSection: {
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   legendTitle: {
     marginLeft: Spacing.xs,
@@ -441,17 +408,17 @@ const styles = StyleSheet.create({
   legendGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     width: "45%",
   },
   legendColor: {
-    width: 28,
-    height: 28,
+    width: 22,
+    height: 22,
     borderRadius: BorderRadius.xs,
     justifyContent: "center",
     alignItems: "center",
