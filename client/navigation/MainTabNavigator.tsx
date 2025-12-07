@@ -3,12 +3,18 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
-import HomeStackNavigator from "@/navigation/HomeStackNavigator";
-import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
+import { useScreenOptions } from "@/hooks/useScreenOptions";
+
+import HomeScreen from "@/screens/HomeScreen";
+import ToothMapScreen from "@/screens/ToothMapScreen";
+import AnalysisScreen from "@/screens/AnalysisScreen";
+import ProfileScreen from "@/screens/ProfileScreen";
 
 export type MainTabParamList = {
   HomeTab: undefined;
+  ToothMapTab: undefined;
+  AnalysisTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -16,6 +22,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
+  const screenOptions = useScreenOptions();
 
   return (
     <Tab.Navigator
@@ -40,24 +47,48 @@ export default function MainTabNavigator() {
               style={StyleSheet.absoluteFill}
             />
           ) : null,
-        headerShown: false,
+        ...screenOptions,
       }}
     >
       <Tab.Screen
         name="HomeTab"
-        component={HomeStackNavigator}
+        component={HomeScreen}
         options={{
-          title: "Home",
+          title: "Главная",
+          headerTitle: "Здоровье зубов",
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="ProfileTab"
-        component={ProfileStackNavigator}
+        name="ToothMapTab"
+        component={ToothMapScreen}
         options={{
-          title: "Profile",
+          title: "Карта",
+          headerTitle: "Карта зубов",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="grid" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="AnalysisTab"
+        component={AnalysisScreen}
+        options={{
+          title: "Анализ",
+          headerTitle: "Анализ",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="activity" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileScreen}
+        options={{
+          title: "Профиль",
+          headerTitle: "Профиль",
           tabBarIcon: ({ color, size }) => (
             <Feather name="user" size={size} color={color} />
           ),
