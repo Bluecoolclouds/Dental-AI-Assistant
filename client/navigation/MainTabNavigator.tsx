@@ -8,12 +8,14 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 import HomeScreen from "@/screens/HomeScreen";
 import ToothMapScreen from "@/screens/ToothMapScreen";
+import AIChatScreen from "@/screens/AIChatScreen";
 import AnalysisScreen from "@/screens/AnalysisScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
 
 export type MainTabParamList = {
   HomeTab: undefined;
   ToothMapTab: undefined;
+  AIChatTab: undefined;
   AnalysisTab: undefined;
   ProfileTab: undefined;
 };
@@ -69,6 +71,17 @@ export default function MainTabNavigator() {
           headerTitle: "Карта зубов",
           tabBarIcon: ({ color, size }) => (
             <Feather name="grid" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="AIChatTab"
+        component={AIChatScreen}
+        options={{
+          title: "ИИ",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="message-circle" size={size} color={color} />
           ),
         }}
       />

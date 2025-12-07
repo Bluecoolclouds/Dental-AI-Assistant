@@ -284,6 +284,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Chat Route
+  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+  app.post("/api/chat", async (req: Request, res: Response) => {
+    try {
+      const openai = getOpenAIClient();
+      if (!openai) {
+        return res.status(503).json({ 
+          error: "AI недоступен", 
+          response: "AI-консультант временно недоступен. Пожалуйста, попробуйте позже."
+        });
+      }
+
+      const { message, history } = req.body;
+
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ error: "Требуется сообщение" });
+      }
+
+      const systemPrompt = `Вы - виртуальный стоматологический консультант. Ваша задача - отвечать на вопросы о здоровье зубов и полости рта на русском языке.
+
+Правила:
+1. Давайте полезные и понятные советы о гигиене полости рта
+2. Отвечайте дружелюбно и профессионально
+3. При серьёзных симптомах рекомендуйте обратиться к стоматологу
+4. Не ставьте диагнозы - только общие рекомендации
+5. Отвечайте кратко и по существу (2-4 абзаца максимум)
+6. Если вопрос не связан со стоматологией, вежливо напомните, что вы специализируетесь на здоровье зубов`;
+
+      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        { role: "system", content: systemPrompt },
+      ];
+
+      if (Array.isArray(history)) {
+        for (const msg of history.slice(-8)) {
+          if (msg.role === "user" || msg.role === "assistant") {
+            messages.push({ role: msg.role, content: msg.content });
+          }
+        }
+      }
+
+      messages.push({ role: "user", content: message });
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages,
+        max_completion_tokens: 1024,
+      });
+
+      const content = response.choices[0].message.content || "Извините, не удалось получить ответ.";
+
+      return res.json({ response: content });
+    } catch (error) {
+      console.error("AI chat error:", error);
+      return res.status(500).json({ error: "Ошибка чата" });
+    }
+  });
+
   // Feedback Route
   app.post("/api/feedback", async (req: Request, res: Response) => {
     try {
