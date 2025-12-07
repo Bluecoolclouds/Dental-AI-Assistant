@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { StyleSheet, View, Pressable, Alert, ActivityIndicator } from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, View, Pressable, Alert, ActivityIndicator, Switch, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -7,6 +7,9 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -18,6 +21,50 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
+const NOTIFICATIONS_KEY = "@dental_notifications_enabled";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+async function scheduleDentalReminders() {
+  await Notifications.cancelAllScheduledNotificationsAsync();
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Утренняя чистка",
+      body: "Не забудьте почистить зубы утром!",
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: 8,
+      minute: 0,
+    },
+  });
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Вечерняя чистка",
+      body: "Время почистить зубы перед сном!",
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: 21,
+      minute: 0,
+    },
+  });
+}
+
+async function cancelDentalReminders() {
+  await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -26,11 +73,83 @@ export default function ProfileScreen() {
   const { theme } = useTheme();
   const { user, logout } = useAuthContext();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
 
   const { data: profile } = useQuery<any>({
     queryKey: [`/api/profile/${user?.id}`],
     enabled: !!user?.id,
   });
+
+  useEffect(() => {
+    checkNotificationStatus();
+  }, []);
+
+  const checkNotificationStatus = async () => {
+    try {
+      const savedValue = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
+      if (savedValue === "true") {
+        const { status } = await Notifications.getPermissionsAsync();
+        setNotificationsEnabled(status === "granted");
+      }
+    } catch (error) {
+      console.log("Error checking notification status:", error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const handleNotificationToggle = async (value: boolean) => {
+    setNotificationsLoading(true);
+    try {
+      if (value) {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        
+        if (existingStatus !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+
+        if (finalStatus !== "granted") {
+          if (Platform.OS !== "web") {
+            Alert.alert(
+              "Разрешение требуется",
+              "Для уведомлений нужно разрешение. Откройте настройки?",
+              [
+                { text: "Отмена", style: "cancel" },
+                { 
+                  text: "Открыть настройки", 
+                  onPress: async () => {
+                    try {
+                      await Linking.openSettings();
+                    } catch {}
+                  }
+                },
+              ]
+            );
+          }
+          setNotificationsEnabled(false);
+          await AsyncStorage.setItem(NOTIFICATIONS_KEY, "false");
+          return;
+        }
+
+        await scheduleDentalReminders();
+        setNotificationsEnabled(true);
+        await AsyncStorage.setItem(NOTIFICATIONS_KEY, "true");
+        Alert.alert("Готово", "Напоминания о чистке зубов включены!");
+      } else {
+        await cancelDentalReminders();
+        setNotificationsEnabled(false);
+        await AsyncStorage.setItem(NOTIFICATIONS_KEY, "false");
+      }
+    } catch (error) {
+      console.log("Error toggling notifications:", error);
+      Alert.alert("Ошибка", "Не удалось изменить настройки уведомлений");
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -86,6 +205,34 @@ export default function ProfileScreen() {
           </ThemedText>
         </View>
       </Card>
+
+      <View style={styles.section}>
+        <ThemedText type="h4" style={styles.sectionTitle}>
+          Уведомления
+        </ThemedText>
+
+        <View style={[styles.notificationItem, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={[styles.menuIcon, { backgroundColor: theme.primary + "15" }]}>
+            <Feather name="bell" size={20} color={theme.primary} />
+          </View>
+          <View style={styles.menuContent}>
+            <ThemedText type="body">Напоминания о чистке</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              В 8:00 и 21:00 каждый день
+            </ThemedText>
+          </View>
+          {notificationsLoading ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleNotificationToggle}
+              trackColor={{ false: theme.border, true: theme.primary + "80" }}
+              thumbColor={notificationsEnabled ? theme.primary : theme.textSecondary}
+            />
+          )}
+        </View>
+      </View>
 
       <View style={styles.section}>
         <ThemedText type="h4" style={styles.sectionTitle}>
@@ -253,6 +400,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginLeft: Spacing.xs,
+  },
+  notificationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.md,
   },
   profileCard: {
     padding: 0,

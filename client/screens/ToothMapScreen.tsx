@@ -5,7 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import Svg, { Path, G } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -105,8 +105,8 @@ export default function ToothMapScreen() {
   }
 
   const mapWidth = Math.min(screenWidth - Spacing.lg * 2, 340);
-  const toothWidth = Math.floor((mapWidth - 15 * 2) / 16);
-  const toothHeight = Math.floor(toothWidth * 1.4);
+  const toothWidth = Math.floor((mapWidth - 16) / 16);
+  const toothHeight = Math.floor(toothWidth * 1.3);
 
   return (
     <ThemedView style={styles.container}>
@@ -125,111 +125,84 @@ export default function ToothMapScreen() {
             Верхняя челюсть
           </ThemedText>
           
-          <View style={[styles.teethArc, { width: mapWidth }]}>
-            <Svg width={mapWidth} height={toothHeight + 10} viewBox={`0 0 ${mapWidth} ${toothHeight + 10}`}>
-              <G>
-                {UPPER_TEETH.map((toothNum, index) => {
-                  const x = index * (toothWidth + 2) + 1;
-                  const isSelected = selectedTooth === toothNum;
-                  const problems = getToothProblems(toothNum);
-                  const fill = getToothFill(toothNum);
-                  const strokeColor = isSelected ? theme.primary : theme.border;
-                  const strokeWidth = isSelected ? 2 : 1;
-                  
-                  return (
-                    <G key={toothNum} transform={`translate(${x}, 2)`}>
-                      <Path
-                        d={getToothPath(toothNum)}
-                        fill={fill}
-                        stroke={strokeColor}
-                        strokeWidth={strokeWidth}
-                        scaleX={toothWidth / 20}
-                        scaleY={toothHeight / 24}
-                      />
-                    </G>
-                  );
-                })}
-              </G>
-            </Svg>
-            <View style={styles.teethNumbersRow}>
-              {UPPER_TEETH.map((toothNum, index) => (
+          <View style={styles.toothRow}>
+            {UPPER_TEETH.map((toothNum) => {
+              const isSelected = selectedTooth === toothNum;
+              const fill = getToothFill(toothNum);
+              const strokeColor = isSelected ? theme.primary : theme.border;
+              const strokeWidth = isSelected ? 2 : 1;
+              const hasProblems = getToothProblems(toothNum).length > 0;
+              
+              return (
                 <Pressable
                   key={toothNum}
                   onPress={() => handleToothPress(toothNum)}
-                  style={[
-                    styles.toothHitArea,
-                    { width: toothWidth + 2, height: toothHeight + 20 }
-                  ]}
+                  style={styles.toothButton}
                 >
+                  <Svg width={toothWidth} height={toothHeight} viewBox="0 0 20 24">
+                    <Path
+                      d={getToothPath(toothNum)}
+                      fill={fill}
+                      stroke={strokeColor}
+                      strokeWidth={strokeWidth}
+                    />
+                  </Svg>
                   <ThemedText 
                     type="small" 
                     style={[
                       styles.toothNumber,
-                      selectedTooth === toothNum && { color: theme.primary, fontWeight: "700" }
+                      isSelected && { color: theme.primary, fontWeight: "700" }
                     ]}
                   >
                     {getSimpleNumber(toothNum)}
                   </ThemedText>
-                  {getToothProblems(toothNum).length > 0 ? (
+                  {hasProblems ? (
                     <View style={[styles.problemDot, { backgroundColor: theme.danger }]} />
                   ) : null}
                 </Pressable>
-              ))}
-            </View>
+              );
+            })}
           </View>
 
           <View style={[styles.gumLine, { backgroundColor: theme.primary + "30", width: mapWidth }]} />
 
-          <View style={[styles.teethArc, { width: mapWidth }]}>
-            <View style={styles.teethNumbersRow}>
-              {LOWER_TEETH.map((toothNum, index) => (
+          <View style={styles.toothRow}>
+            {LOWER_TEETH.map((toothNum) => {
+              const isSelected = selectedTooth === toothNum;
+              const fill = getToothFill(toothNum);
+              const strokeColor = isSelected ? theme.primary : theme.border;
+              const strokeWidth = isSelected ? 2 : 1;
+              const hasProblems = getToothProblems(toothNum).length > 0;
+              
+              return (
                 <Pressable
                   key={toothNum}
                   onPress={() => handleToothPress(toothNum)}
-                  style={[
-                    styles.toothHitArea,
-                    { width: toothWidth + 2, height: toothHeight + 20 }
-                  ]}
+                  style={styles.toothButton}
                 >
                   <ThemedText 
                     type="small" 
                     style={[
                       styles.toothNumber,
-                      selectedTooth === toothNum && { color: theme.primary, fontWeight: "700" }
+                      isSelected && { color: theme.primary, fontWeight: "700" }
                     ]}
                   >
                     {getSimpleNumber(toothNum)}
                   </ThemedText>
-                  {getToothProblems(toothNum).length > 0 ? (
+                  <Svg width={toothWidth} height={toothHeight} viewBox="0 0 20 24" style={{ transform: [{ scaleY: -1 }] }}>
+                    <Path
+                      d={getToothPath(toothNum)}
+                      fill={fill}
+                      stroke={strokeColor}
+                      strokeWidth={strokeWidth}
+                    />
+                  </Svg>
+                  {hasProblems ? (
                     <View style={[styles.problemDot, { backgroundColor: theme.danger }]} />
                   ) : null}
                 </Pressable>
-              ))}
-            </View>
-            <Svg width={mapWidth} height={toothHeight + 10} viewBox={`0 0 ${mapWidth} ${toothHeight + 10}`}>
-              <G>
-                {LOWER_TEETH.map((toothNum, index) => {
-                  const x = index * (toothWidth + 2) + 1;
-                  const isSelected = selectedTooth === toothNum;
-                  const fill = getToothFill(toothNum);
-                  const strokeColor = isSelected ? theme.primary : theme.border;
-                  const strokeWidth = isSelected ? 2 : 1;
-                  
-                  return (
-                    <G key={toothNum} transform={`translate(${x}, 2) scale(1, -1) translate(0, -${toothHeight})`}>
-                      <Path
-                        d={getToothPath(toothNum)}
-                        fill={fill}
-                        stroke={strokeColor}
-                        strokeWidth={strokeWidth}
-                        scaleX={toothWidth / 20}
-                        scaleY={toothHeight / 24}
-                      />
-                    </G>
-                  );
-                })}
-              </G>
-            </Svg>
+              );
+            })}
           </View>
           
           <ThemedText type="small" style={[styles.jawLabel, { color: theme.textSecondary }]}>
@@ -283,14 +256,16 @@ export default function ToothMapScreen() {
               <ActivityIndicator size="small" color={theme.primary} style={styles.saving} />
             ) : null}
           </View>
-        ) : (
-          <View style={[styles.hintCard, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name="info" size={18} color={theme.primary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
-              Нажмите на зуб, чтобы отметить проблему
-            </ThemedText>
-          </View>
-        )}
+        ) : null}
+
+        <View style={[styles.hintCard, { backgroundColor: theme.backgroundDefault }]}>
+          <Feather name="info" size={18} color={theme.primary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
+            {selectedTooth 
+              ? "Выберите проблемы для отмеченного зуба" 
+              : "Нажмите на зуб, чтобы отметить проблему"}
+          </ThemedText>
+        </View>
 
         <View style={styles.legendSection}>
           <ThemedText type="body" style={[styles.legendTitle, { fontWeight: "600" }]}>Обозначения</ThemedText>
@@ -334,28 +309,26 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontSize: 10,
   },
-  teethArc: {
-    alignItems: "center",
-  },
-  teethNumbersRow: {
+  toothRow: {
     flexDirection: "row",
     justifyContent: "center",
+    flexWrap: "nowrap",
   },
-  toothHitArea: {
+  toothButton: {
     alignItems: "center",
-    justifyContent: "center",
+    padding: 1,
   },
   toothNumber: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "500",
   },
   problemDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     position: "absolute",
     top: 0,
-    right: 2,
+    right: 0,
   },
   gumLine: {
     height: 4,
