@@ -27,17 +27,17 @@ export default function AIRecommendationsScreen() {
   const { theme } = useTheme();
   const { user } = useAuthContext();
 
-  const { data: testResult, isLoading } = useQuery<any>({
+  const { data: testResult, isLoading: isLoadingTest, isFetched: testFetched } = useQuery<any>({
     queryKey: [`/api/test-results/${user?.id}/latest`],
     enabled: !!user?.id,
   });
 
-  const { data: profile } = useQuery<any>({
+  const { data: profile, isFetched: profileFetched } = useQuery<any>({
     queryKey: [`/api/profile/${user?.id}`],
     enabled: !!user?.id,
   });
 
-  const { data: toothData } = useQuery<any[]>({
+  const { data: toothData, isFetched: toothFetched } = useQuery<any[]>({
     queryKey: [`/api/tooth-data/${user?.id}`],
     enabled: !!user?.id,
   });
@@ -54,16 +54,20 @@ export default function AIRecommendationsScreen() {
     },
   });
 
+  const allQueriesFetched = testFetched && profileFetched && toothFetched;
+  const hasRequiredData = !!user?.id && !!testResult && allQueriesFetched;
+
   React.useEffect(() => {
-    if (user?.id && testResult && !recommendationsMutation.data && !recommendationsMutation.isPending) {
+    if (hasRequiredData && !recommendationsMutation.data && !recommendationsMutation.isPending) {
       recommendationsMutation.mutate();
     }
-  }, [user?.id, testResult]);
+  }, [hasRequiredData, recommendationsMutation.data, recommendationsMutation.isPending]);
 
   const isLoadingAI = recommendationsMutation.isPending;
   const aiRecommendations = recommendationsMutation.data;
+  const isLoadingData = isLoadingTest || !allQueriesFetched;
 
-  if (isLoading || isLoadingAI) {
+  if (isLoadingData || isLoadingAI) {
     return (
       <ThemedView style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={theme.primary} />
