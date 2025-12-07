@@ -43,12 +43,18 @@ export function useAuth() {
       const response = await apiRequest("POST", "/api/auth/login", { email, password });
       const data = await response.json();
       
+      if (data.error) {
+        return { success: false, error: data.error };
+      }
+      
+      const userData: AuthUser = { id: data.id, email: data.email };
+      
       await Promise.all([
-        AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token),
-        AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(data.user)),
+        AsyncStorage.setItem(AUTH_TOKEN_KEY, data.id),
+        AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData)),
       ]);
       
-      setUser(data.user);
+      setUser(userData);
       setIsAuthenticated(true);
       return { success: true };
     } catch (error: any) {
@@ -61,12 +67,18 @@ export function useAuth() {
       const response = await apiRequest("POST", "/api/auth/register", { email, password });
       const data = await response.json();
       
+      if (data.error) {
+        return { success: false, error: data.error };
+      }
+      
+      const userData: AuthUser = { id: data.id, email: data.email };
+      
       await Promise.all([
-        AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token),
-        AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(data.user)),
+        AsyncStorage.setItem(AUTH_TOKEN_KEY, data.id),
+        AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData)),
       ]);
       
-      setUser(data.user);
+      setUser(userData);
       setIsAuthenticated(true);
       return { success: true };
     } catch (error: any) {

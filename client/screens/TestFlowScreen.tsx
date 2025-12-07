@@ -12,6 +12,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { apiRequest } from "@/lib/query-client";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const QUESTIONS = [
   {
@@ -80,17 +81,22 @@ export default function TestFlowScreen() {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, { value: string; score: number }>>({});
 
   const submitMutation = useMutation({
-    mutationFn: async (scores: { teethRiskScore: number; gumsRiskScore: number }) => {
-      const response = await apiRequest("POST", "/api/test-results", scores);
+    mutationFn: async (scores: { teethRiskScore: number; gumsRiskScore: number; overallRiskLevel: string }) => {
+      const response = await apiRequest("POST", "/api/test-results", {
+        userId: user?.id,
+        ...scores,
+        recommendations: [],
+      });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/test-results/latest"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/test-results/${user?.id}/latest`] });
       navigation.goBack();
     },
   });
@@ -113,7 +119,8 @@ export default function TestFlowScreen() {
       const teethRiskScore = Math.min(100, totalScore);
       const gumsRiskScore = Math.min(100, Math.round(totalScore * 0.8));
       
-      await submitMutation.mutateAsync({ teethRiskScore, gumsRiskScore });
+      const overallRiskLevel = teethRiskScore >= 60 ? "high" : teethRiskScore >= 30 ? "moderate" : "low";
+      await submitMutation.mutateAsync({ teethRiskScore, gumsRiskScore, overallRiskLevel });
     }
   };
 

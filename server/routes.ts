@@ -11,7 +11,12 @@ import {
 import { createHash } from "crypto";
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAIClient(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -209,6 +214,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
   app.post("/api/recommendations", async (req: Request, res: Response) => {
     try {
+      const openai = getOpenAIClient();
+      if (!openai) {
+        return res.status(503).json({ 
+          error: "AI недоступен", 
+          recommendations: [],
+          summary: "AI-рекомендации временно недоступны. Пожалуйста, попробуйте позже.",
+          urgentAction: null
+        });
+      }
+
       const { userId, profile, toothData, latestTest } = req.body;
 
       if (!userId) {

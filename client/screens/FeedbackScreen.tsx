@@ -11,6 +11,7 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
 const CATEGORIES = [
@@ -23,13 +24,14 @@ export default function FeedbackScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const { user } = useAuthContext();
 
   const [category, setCategory] = useState("other");
   const [message, setMessage] = useState("");
 
   const submitMutation = useMutation({
     mutationFn: async (data: { category: string; message: string }) => {
-      return apiRequest("POST", "/api/feedback", data);
+      return apiRequest("POST", "/api/feedback", { ...data, userId: user?.id });
     },
     onSuccess: () => {
       Alert.alert(

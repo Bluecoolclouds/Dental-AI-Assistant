@@ -28,7 +28,7 @@ export default function AnalysisScreen() {
   const { user } = useAuthContext();
 
   const { data: testResult, isLoading } = useQuery<any>({
-    queryKey: ["/api/test-results/latest"],
+    queryKey: [`/api/test-results/${user?.id}/latest`],
     enabled: !!user?.id,
   });
 

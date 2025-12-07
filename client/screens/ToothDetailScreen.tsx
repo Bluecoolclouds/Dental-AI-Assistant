@@ -10,6 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { ProblemType } from "@shared/schema";
 
@@ -28,10 +29,12 @@ export default function ToothDetailScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
+  const { user } = useAuthContext();
   const { toothNumber } = route.params;
 
   const { data: toothData } = useQuery<any[]>({
-    queryKey: ["/api/tooth-data"],
+    queryKey: [`/api/tooth-data/${user?.id}`],
+    enabled: !!user?.id,
   });
 
   const tooth = toothData?.find((t) => t.toothNumber === toothNumber);

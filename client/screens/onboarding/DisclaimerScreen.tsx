@@ -24,8 +24,7 @@ export default function DisclaimerScreen() {
 
     setIsLoading(true);
     try {
-      await apiRequest("PATCH", "/api/profile", {
-        userId: user?.id,
+      await apiRequest("PATCH", `/api/profile/${user?.id}`, {
         disclaimerAccepted: true,
         onboardingCompleted: true,
       });

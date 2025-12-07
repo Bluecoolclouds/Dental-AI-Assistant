@@ -38,16 +38,16 @@ export default function ToothMapScreen() {
   const [selectedProblem, setSelectedProblem] = useState<ProblemType | null>(null);
 
   const { data: toothData = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/tooth-data"],
+    queryKey: [`/api/tooth-data/${user?.id}`],
     enabled: !!user?.id,
   });
 
   const saveMutation = useMutation({
     mutationFn: async ({ toothNumber, problems }: { toothNumber: number; problems: string[] }) => {
-      return apiRequest("POST", "/api/tooth-data", { toothNumber, problems });
+      return apiRequest("POST", "/api/tooth-data", { userId: user?.id, toothNumber, problems });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tooth-data"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tooth-data/${user?.id}`] });
     },
   });
 

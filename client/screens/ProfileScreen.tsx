@@ -28,7 +28,7 @@ export default function ProfileScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const { data: profile } = useQuery<any>({
-    queryKey: ["/api/profile"],
+    queryKey: [`/api/profile/${user?.id}`],
     enabled: !!user?.id,
   });
 

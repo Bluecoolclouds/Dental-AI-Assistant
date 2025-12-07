@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -10,6 +10,7 @@ import { Card } from "@/components/Card";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 
 const RECOMMENDATION_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   brushing: "edit-3",
@@ -27,14 +28,40 @@ export default function AIRecommendationsScreen() {
   const { user } = useAuthContext();
 
   const { data: testResult, isLoading } = useQuery<any>({
-    queryKey: ["/api/test-results/latest"],
+    queryKey: [`/api/test-results/${user?.id}/latest`],
     enabled: !!user?.id,
   });
 
-  const { data: aiRecommendations, isLoading: isLoadingAI } = useQuery<any>({
-    queryKey: ["/api/recommendations"],
-    enabled: !!user?.id && !!testResult,
+  const { data: profile } = useQuery<any>({
+    queryKey: [`/api/profile/${user?.id}`],
+    enabled: !!user?.id,
   });
+
+  const { data: toothData } = useQuery<any[]>({
+    queryKey: [`/api/tooth-data/${user?.id}`],
+    enabled: !!user?.id,
+  });
+
+  const recommendationsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/recommendations", {
+        userId: user?.id,
+        profile,
+        toothData,
+        latestTest: testResult,
+      });
+      return response.json();
+    },
+  });
+
+  React.useEffect(() => {
+    if (user?.id && testResult && !recommendationsMutation.data && !recommendationsMutation.isPending) {
+      recommendationsMutation.mutate();
+    }
+  }, [user?.id, testResult]);
+
+  const isLoadingAI = recommendationsMutation.isPending;
+  const aiRecommendations = recommendationsMutation.data;
 
   if (isLoading || isLoadingAI) {
     return (
