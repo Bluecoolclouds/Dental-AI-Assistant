@@ -14,8 +14,17 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { PROBLEM_TYPES, ProblemType } from "@shared/schema";
 
-const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
-const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+const QUADRANTS = {
+  upperRight: [18, 17, 16, 15, 14, 13, 12, 11],
+  upperLeft: [21, 22, 23, 24, 25, 26, 27, 28],
+  lowerLeft: [31, 32, 33, 34, 35, 36, 37, 38],
+  lowerRight: [48, 47, 46, 45, 44, 43, 42, 41],
+};
+
+const getSimpleNumber = (toothNumber: number): number => {
+  const lastDigit = toothNumber % 10;
+  return lastDigit;
+};
 
 const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Feather.glyphMap; color: string }> = {
   pain: { label: "Боль", icon: "zap", color: "#E74C3C" },
@@ -102,33 +111,87 @@ export default function ToothMapScreen() {
           <ThemedText type="small" style={[styles.jawLabel, { color: theme.textSecondary }]}>
             Верхняя челюсть
           </ThemedText>
-          <View style={styles.teethRow}>
-            {UPPER_TEETH.map((num) => (
-              <ToothButton
-                key={num}
-                number={num}
-                isSelected={selectedTooth === num}
-                problems={getToothProblems(num)}
-                backgroundColor={getToothColor(num)}
-                onPress={() => handleToothPress(num)}
-              />
-            ))}
+          
+          <View style={styles.jawRow}>
+            <View style={styles.quadrant}>
+              <ThemedText type="small" style={[styles.quadrantLabel, { color: theme.textSecondary }]}>
+                Правая
+              </ThemedText>
+              <View style={styles.teethRow}>
+                {QUADRANTS.upperRight.map((num) => (
+                  <ToothButton
+                    key={num}
+                    toothId={num}
+                    displayNumber={getSimpleNumber(num)}
+                    isSelected={selectedTooth === num}
+                    problems={getToothProblems(num)}
+                    backgroundColor={getToothColor(num)}
+                    onPress={() => handleToothPress(num)}
+                  />
+                ))}
+              </View>
+            </View>
+            
+            <View style={[styles.centerLine, { backgroundColor: theme.border }]} />
+            
+            <View style={styles.quadrant}>
+              <ThemedText type="small" style={[styles.quadrantLabel, { color: theme.textSecondary }]}>
+                Левая
+              </ThemedText>
+              <View style={styles.teethRow}>
+                {QUADRANTS.upperLeft.map((num) => (
+                  <ToothButton
+                    key={num}
+                    toothId={num}
+                    displayNumber={getSimpleNumber(num)}
+                    isSelected={selectedTooth === num}
+                    problems={getToothProblems(num)}
+                    backgroundColor={getToothColor(num)}
+                    onPress={() => handleToothPress(num)}
+                  />
+                ))}
+              </View>
+            </View>
           </View>
 
           <View style={[styles.gumLine, { backgroundColor: theme.primary + "20" }]} />
 
-          <View style={styles.teethRow}>
-            {LOWER_TEETH.map((num) => (
-              <ToothButton
-                key={num}
-                number={num}
-                isSelected={selectedTooth === num}
-                problems={getToothProblems(num)}
-                backgroundColor={getToothColor(num)}
-                onPress={() => handleToothPress(num)}
-              />
-            ))}
+          <View style={styles.jawRow}>
+            <View style={styles.quadrant}>
+              <View style={styles.teethRow}>
+                {QUADRANTS.lowerRight.map((num) => (
+                  <ToothButton
+                    key={num}
+                    toothId={num}
+                    displayNumber={getSimpleNumber(num)}
+                    isSelected={selectedTooth === num}
+                    problems={getToothProblems(num)}
+                    backgroundColor={getToothColor(num)}
+                    onPress={() => handleToothPress(num)}
+                  />
+                ))}
+              </View>
+            </View>
+            
+            <View style={[styles.centerLine, { backgroundColor: theme.border }]} />
+            
+            <View style={styles.quadrant}>
+              <View style={styles.teethRow}>
+                {QUADRANTS.lowerLeft.map((num) => (
+                  <ToothButton
+                    key={num}
+                    toothId={num}
+                    displayNumber={getSimpleNumber(num)}
+                    isSelected={selectedTooth === num}
+                    problems={getToothProblems(num)}
+                    backgroundColor={getToothColor(num)}
+                    onPress={() => handleToothPress(num)}
+                  />
+                ))}
+              </View>
+            </View>
           </View>
+          
           <ThemedText type="small" style={[styles.jawLabel, { color: theme.textSecondary }]}>
             Нижняя челюсть
           </ThemedText>
@@ -137,7 +200,7 @@ export default function ToothMapScreen() {
         {selectedTooth ? (
           <View style={[styles.detailsCard, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.detailsHeader}>
-              <ThemedText type="h4">Зуб {selectedTooth}</ThemedText>
+              <ThemedText type="h4">Зуб {getSimpleNumber(selectedTooth)}</ThemedText>
               <Pressable onPress={() => setSelectedTooth(null)}>
                 <Feather name="x" size={24} color={theme.textSecondary} />
               </Pressable>
@@ -211,13 +274,15 @@ export default function ToothMapScreen() {
 }
 
 function ToothButton({
-  number,
+  toothId,
+  displayNumber,
   isSelected,
   problems,
   backgroundColor,
   onPress,
 }: {
-  number: number;
+  toothId: number;
+  displayNumber: number;
   isSelected: boolean;
   problems: string[];
   backgroundColor: string;
@@ -239,7 +304,7 @@ function ToothButton({
       ]}
     >
       <ThemedText type="small" style={styles.toothNumber}>
-        {number}
+        {displayNumber}
       </ThemedText>
       {problems.length > 0 ? (
         <View style={[styles.problemIndicator, { backgroundColor: theme.danger }]}>
@@ -271,6 +336,26 @@ const styles = StyleSheet.create({
   jawLabel: {
     textTransform: "uppercase",
     letterSpacing: 1,
+  },
+  jawRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  quadrant: {
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  quadrantLabel: {
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  centerLine: {
+    width: 1,
+    height: 60,
+    marginHorizontal: Spacing.xs,
+    alignSelf: "center",
   },
   teethRow: {
     flexDirection: "row",
