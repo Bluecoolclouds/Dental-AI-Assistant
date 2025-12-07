@@ -1,46 +1,53 @@
 import { Platform } from "react-native";
 
-// Dental Health App Colors - Medical Theme
-const primaryBlue = "#4A90E2";
-const primaryBlueDark = "#5B9FE8";
-const healthyGreen = "#50C878";
-const warningAmber = "#F5A623";
-const dangerRed = "#E74C3C";
+// Dentcor-style Dental App Colors - Modern Teal Theme
+const primaryTeal = "#0097A7";
+const primaryTealLight = "#00ACC1";
+const accentBlue = "#2196F3";
+const healthyGreen = "#4CAF50";
+const warningAmber = "#FF9800";
+const dangerRed = "#F44336";
 
 export const Colors = {
   light: {
-    text: "#2C3E50",
-    textSecondary: "#7F8C8D",
+    text: "#1A1A2E",
+    textSecondary: "#64748B",
     buttonText: "#FFFFFF",
-    tabIconDefault: "#7F8C8D",
-    tabIconSelected: primaryBlue,
-    link: primaryBlue,
-    backgroundRoot: "#F8F9FA",
+    tabIconDefault: "#94A3B8",
+    tabIconSelected: primaryTeal,
+    link: primaryTeal,
+    backgroundRoot: "#E8F4F8",
     backgroundDefault: "#FFFFFF",
-    backgroundSecondary: "#F2F2F2",
-    backgroundTertiary: "#E6E6E6",
-    border: "#E1E8ED",
-    primary: primaryBlue,
+    backgroundSecondary: "#F1F5F9",
+    backgroundTertiary: "#E2E8F0",
+    border: "#E2E8F0",
+    primary: primaryTeal,
+    primaryLight: primaryTealLight,
+    accent: accentBlue,
     success: healthyGreen,
     warning: warningAmber,
     danger: dangerRed,
+    cardShadow: "rgba(0, 151, 167, 0.08)",
   },
   dark: {
-    text: "#ECEDEE",
-    textSecondary: "#9BA1A6",
+    text: "#F1F5F9",
+    textSecondary: "#94A3B8",
     buttonText: "#FFFFFF",
-    tabIconDefault: "#9BA1A6",
-    tabIconSelected: primaryBlueDark,
-    link: primaryBlueDark,
-    backgroundRoot: "#1A1D1F",
-    backgroundDefault: "#2A2C2E",
-    backgroundSecondary: "#353739",
-    backgroundTertiary: "#404244",
-    border: "#404244",
-    primary: primaryBlueDark,
+    tabIconDefault: "#64748B",
+    tabIconSelected: primaryTealLight,
+    link: primaryTealLight,
+    backgroundRoot: "#0F172A",
+    backgroundDefault: "#1E293B",
+    backgroundSecondary: "#334155",
+    backgroundTertiary: "#475569",
+    border: "#334155",
+    primary: primaryTealLight,
+    primaryLight: primaryTeal,
+    accent: accentBlue,
     success: healthyGreen,
     warning: warningAmber,
     danger: dangerRed,
+    cardShadow: "rgba(0, 0, 0, 0.3)",
   },
 };
 
