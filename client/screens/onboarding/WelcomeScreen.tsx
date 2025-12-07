@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, Image, Pressable } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -21,29 +21,34 @@ export default function WelcomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.content, { paddingTop: insets.top + Spacing["4xl"] }]}>
+      <ScrollView 
+        contentContainerStyle={[
+          styles.scrollContent, 
+          { paddingTop: insets.top + Spacing.xl, paddingBottom: Spacing.lg }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={[styles.iconContainer, { backgroundColor: theme.primary }]}>
-          <Feather name="shield" size={64} color="#FFFFFF" />
+          <Feather name="shield" size={48} color="#FFFFFF" />
         </View>
         
-        <ThemedText type="h1" style={styles.title}>
+        <ThemedText type="h2" style={styles.title}>
           Добро пожаловать!
         </ThemedText>
         
         <ThemedText type="body" style={[styles.description, { color: theme.textSecondary }]}>
-          Это приложение поможет вам контролировать здоровье зубов и дёсен. 
-          Создайте карту своих зубов, пройдите тест и получите рекомендации от ИИ по уходу за полостью рта.
+          Контролируйте здоровье зубов и дёсен. Создайте карту зубов и получите рекомендации от ИИ.
         </ThemedText>
 
         <View style={styles.features}>
           <FeatureItem icon="check-circle" text="Интерактивная карта зубов" />
           <FeatureItem icon="clipboard" text="Тест здоровья полости рта" />
-          <FeatureItem icon="cpu" text="Персональные рекомендации от ИИ" />
-          <FeatureItem icon="calendar" text="Напоминания о визитах к стоматологу" />
+          <FeatureItem icon="cpu" text="Рекомендации от ИИ" />
+          <FeatureItem icon="calendar" text="Напоминания о визитах" />
         </View>
-      </View>
+      </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
         <Button
           onPress={() => navigation.navigate("Auth", { mode: "register" })}
           style={styles.button}
@@ -71,9 +76,9 @@ function FeatureItem({ icon, text }: { icon: keyof typeof Feather.glyphMap; text
   return (
     <View style={styles.featureItem}>
       <View style={[styles.featureIcon, { backgroundColor: theme.primary + "20" }]}>
-        <Feather name={icon} size={20} color={theme.primary} />
+        <Feather name={icon} size={18} color={theme.primary} />
       </View>
-      <ThemedText type="body" style={styles.featureText}>{text}</ThemedText>
+      <ThemedText type="small" style={styles.featureText}>{text}</ThemedText>
     </View>
   );
 }
@@ -82,39 +87,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: Spacing["2xl"],
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: Spacing.xl,
     alignItems: "center",
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: BorderRadius["3xl"],
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.xl,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing.xl,
   },
   title: {
     textAlign: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   description: {
     textAlign: "center",
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing.xl,
   },
   features: {
     alignSelf: "stretch",
-    gap: Spacing.lg,
+    gap: Spacing.md,
   },
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.lg,
+    gap: Spacing.md,
   },
   featureIcon: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     borderRadius: BorderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
@@ -123,15 +128,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    paddingHorizontal: Spacing["2xl"],
+    paddingHorizontal: Spacing.xl,
   },
   button: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   loginLink: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    padding: Spacing.md,
+    padding: Spacing.sm,
   },
 });
