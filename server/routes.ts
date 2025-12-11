@@ -325,55 +325,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const systemPrompt = `Ты — бэкенд‑модуль ИИ‑консультанта стоматологического приложения Toothy.
-Приложение всегда отправляет тебе запрос в строго заданной структуре, а ты обязан вернуть ответ в ТОМ ЖЕ СООТВЕТСТВИИ СО СХЕМОЙ JSON, без лишнего текста и без Markdown.
+      const systemPrompt = `Ты — виртуальный стоматологический консультант внутри мобильного приложения Toothy.
+Твоя задача — помогать пользователю понимать состояние зубов и дёсен, объяснять возможные причины симптомов простым языком и мотивировать своевременно обращаться к стоматологу. Ты НЕ ставишь диагноз и НЕ назначаешь лечение. Вся информация носит справочный характер.
 
-**1. Входные данные**
-Каждый запрос от приложения содержит:
-- user_profile: данные профиля пользователя
-- tooth_map: карта зубов с проблемами
-- analysis: результаты последнего теста
-- chat_context: история чата и текущее сообщение
+**Тематика и контекст**
+Отвечай ТОЛЬКО по теме стоматологии и полости рта: зубы, дёсны, слизистая, прикус, брекеты, гигиена. Если вопрос не по теме — вежливо откажись и скажи, что можешь помогать только по зубам и дёснам.
 
-**2. Задача ИИ‑модуля**
-На основе ВСЕХ входных данных ты должен:
-- понять запрос пользователя и его текущую ситуацию;
-- сгенерировать человекопонятный ответ для чата;
-- при необходимости предложить действия
+В контекст тебе передаётся:
+- карта зубов (по каждому зубу: боль, скол, пломба, кариес, кровоточивость, чувствительность и т.д.);
+- анкета здоровья (возраст, привычки гигиены, брекеты, кровоточивость дёсен, чувствительность и т.п.);
+- результаты теста состояния (риски для зубов/дёсен);
+- текущие жалобы и история чата.
 
-**3. Формат ответа**
-Ты ВСЕГДА возвращаешь СТРОГО валидный JSON следующей структуры:
+**Стиль общения**
+Пиши по-русски, дружелюбно, на «ты», простыми словами.
+Объясняй по шагам, без «воды», максимально конкретно.
+Избегай пугающих формулировок, но не занижай серьёзность.
+
+**Безопасность и ограничения**
+Не ставь окончательный диагноз, не обещай исход лечения.
+Не давай схем лечения, не назначай лекарства, дозировки, уколы, антибиотики.
+При признаках опасного состояния (сильная боль, отёк лица/шеи, затруднённое дыхание/глотание, высокая температура) — чётко рекомендуй срочно обратиться к врачу.
+
+**Структурированный вывод**
+Отвечай СТРОГО одним валидным JSON-объектом БЕЗ текста вне JSON. Структура:
 
 {
-  "assistant_message": "string - текст ответа ассистента для отображения в чате пользователю на русском языке",
-  "actions": {
-    "update_tooth_map": [],
-    "update_risks": {
-      "overall_risk_score": null,
-      "overall_risk_label": null,
-      "gum_risk": null,
-      "tooth_risk": null
-    },
-    "suggested_tasks": [],
-    "suggested_flows": {
-      "ask_user_to_update_test": false,
-      "ask_user_to_mark_teeth": false,
-      "teeth_to_mark_hint": []
-    }
+  "assistant_message": "string — ответ пользователю на русском языке",
+  "state_updates": {
+    "teeth_updates": [
+      {
+        "tooth_id": "26",
+        "mark_for_check": true,
+        "reason": "string — почему этот зуб нужно проверить",
+        "priority": "routine|soon|urgent"
+      }
+    ],
+    "reminders": [
+      {
+        "reminder_id": "string, например 'check_tooth_26'",
+        "title": "string — коротко, что сделать",
+        "description": "string — подробнее, что и зачем делать",
+        "due_time": "ISO8601, напр. '2025-12-20T09:00:00Z'",
+        "repeat": "none|daily|weekly|monthly",
+        "related_teeth": ["26"]
+      }
+    ]
   },
   "safety": {
     "needs_urgent_care": false,
-    "urgent_reason": null,
-    "disclaimer": "Это не диагноз. При любых проблемах обратитесь к стоматологу."
+    "urgent_reason": "string или null",
+    "disclaimer": "string — напоминание, что это не диагноз и нужна консультация врача"
   }
 }
 
-**Обязательные правила:**
-1. ВСЕГДА заполняй поле assistant_message понятным текстом по‑русски.
-2. Если есть признаки опасного состояния (сильная боль, отёк, температура), установи needs_urgent_care: true.
-3. Никогда не пиши дозировки, названия лекарств и точные схемы лечения.
-4. Ответ ДОЛЖЕН быть ВАЛИДНЫМ JSON‑объектом.
-5. Не используй Markdown в assistant_message.`;
+**Правила генерации:**
+- assistant_message заполняй ВСЕГДА.
+- Если нет зубов для отметки — "teeth_updates": [].
+- Если нет напоминаний — "reminders": [].
+- priority выбирай по серьёзности симптомов (routine / soon / urgent).
+- При тревожных симптомах поставь needs_urgent_care = true.
+- Всегда заполняй disclaimer кратким текстом.
+- JSON должен быть строго валидным: без комментариев, без лишнего текста до или после объекта.`;
 
       const userContext = {
         user_profile: userProfile ? {
@@ -454,9 +467,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const parsed = JSON.parse(content);
+        
+        if (userId && parsed.state_updates) {
+          const { teeth_updates, reminders } = parsed.state_updates;
+          
+          if (Array.isArray(teeth_updates) && teeth_updates.length > 0) {
+            for (const tooth of teeth_updates) {
+              if (tooth.mark_for_check && tooth.tooth_id) {
+                await storage.createAlert({
+                  userId,
+                  type: "teeth_at_risk",
+                  title: `Зуб ${tooth.tooth_id} требует внимания`,
+                  description: tooth.reason || "ИИ рекомендует проверить этот зуб",
+                  priority: tooth.priority || "routine",
+                  relatedTeeth: [tooth.tooth_id],
+                });
+              }
+            }
+          }
+          
+          if (Array.isArray(reminders) && reminders.length > 0) {
+            for (const reminder of reminders) {
+              await storage.createAlert({
+                userId,
+                type: "reminder",
+                title: reminder.title,
+                description: reminder.description,
+                priority: "routine",
+                relatedTeeth: reminder.related_teeth || [],
+                dueTime: reminder.due_time ? new Date(reminder.due_time) : undefined,
+              });
+            }
+          }
+        }
+        
+        if (userId && parsed.safety?.needs_urgent_care) {
+          await storage.createAlert({
+            userId,
+            type: "urgent",
+            title: "Требуется срочная консультация",
+            description: parsed.safety.urgent_reason || "ИИ рекомендует срочно обратиться к врачу",
+            priority: "urgent",
+            relatedTeeth: [],
+          });
+        }
+        
         return res.json({ 
           response: parsed.assistant_message || content,
-          actions: parsed.actions,
+          state_updates: parsed.state_updates,
           safety: parsed.safety
         });
       } catch {
@@ -465,6 +523,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI chat error:", error);
       return res.status(500).json({ error: "Ошибка чата" });
+    }
+  });
+
+  // Alerts Routes
+  app.get("/api/alerts/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const alerts = await storage.getActiveAlerts(userId);
+      return res.json(alerts);
+    } catch (error) {
+      console.error("Get alerts error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/alerts/:alertId/dismiss", async (req: Request, res: Response) => {
+    try {
+      const { alertId } = req.params;
+      await storage.dismissAlert(alertId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Dismiss alert error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/alerts/:alertId/read", async (req: Request, res: Response) => {
+    try {
+      const { alertId } = req.params;
+      await storage.markAlertRead(alertId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Mark alert read error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
     }
   });
 

@@ -5,7 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -16,6 +16,21 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { apiRequest } from "@/lib/query-client";
+
+type Alert = {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  description: string | null;
+  priority: string;
+  relatedTeeth: string[];
+  isRead: boolean;
+  isDismissed: boolean;
+  dueTime: string | null;
+  createdAt: string;
+};
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -66,13 +81,33 @@ export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user } = useAuthContext();
+  const queryClient = useQueryClient();
 
   const { data: testResult, isLoading } = useQuery<any>({
     queryKey: [`/api/test-results/${user?.id}/latest`],
     enabled: !!user?.id,
   });
 
+  const { data: alerts = [] } = useQuery<Alert[]>({
+    queryKey: [`/api/alerts/${user?.id}`],
+    enabled: !!user?.id,
+    refetchInterval: 30000,
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (alertId: string) => {
+      await apiRequest("POST", `/api/alerts/${alertId}/dismiss`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/alerts/${user?.id}`] });
+    },
+  });
+
   const userName = user?.email?.split("@")[0] || "Пациент";
+  
+  const urgentAlerts = alerts.filter((a: Alert) => a.type === "urgent" || a.priority === "urgent");
+  const teethAtRiskAlerts = alerts.filter((a: Alert) => a.type === "teeth_at_risk");
+  const reminderAlerts = alerts.filter((a: Alert) => a.type === "reminder");
 
   return (
     <ThemedView style={styles.container}>
@@ -136,6 +171,111 @@ export default function HomeScreen() {
             </View>
           </LinearGradient>
         </Pressable>
+
+        {urgentAlerts.length > 0 ? (
+          <View style={styles.alertsSection}>
+            {urgentAlerts.map((alert: Alert) => (
+              <View 
+                key={alert.id}
+                style={[styles.urgentAlertCard, { backgroundColor: "#FFEBEE" }]}
+              >
+                <View style={styles.alertHeader}>
+                  <View style={[styles.alertIcon, { backgroundColor: "#EF5350" }]}>
+                    <Feather name="alert-triangle" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.alertContent}>
+                    <ThemedText type="body" style={{ fontWeight: "600", color: "#C62828" }}>
+                      {alert.title}
+                    </ThemedText>
+                    {alert.description ? (
+                      <ThemedText type="small" style={{ color: "#C62828", opacity: 0.8 }}>
+                        {alert.description}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                  <Pressable 
+                    onPress={() => dismissMutation.mutate(alert.id)}
+                    style={styles.dismissButton}
+                  >
+                    <Feather name="x" size={18} color="#C62828" />
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {teethAtRiskAlerts.length > 0 ? (
+          <View style={styles.alertsSection}>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Зубы под риском</ThemedText>
+            {teethAtRiskAlerts.map((alert: Alert) => (
+              <Pressable 
+                key={alert.id}
+                onPress={() => navigation.getParent()?.navigate("ToothMapTab")}
+                style={[styles.teethRiskCard, { backgroundColor: "#FFF3E0" }]}
+              >
+                <View style={styles.alertHeader}>
+                  <View style={[styles.alertIcon, { backgroundColor: "#FF9800" }]}>
+                    <Feather name="alert-circle" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.alertContent}>
+                    <ThemedText type="body" style={{ fontWeight: "600", color: "#E65100" }}>
+                      {alert.title}
+                    </ThemedText>
+                    {alert.description ? (
+                      <ThemedText type="small" style={{ color: "#E65100", opacity: 0.8 }} numberOfLines={2}>
+                        {alert.description}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                  <Pressable 
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      dismissMutation.mutate(alert.id);
+                    }}
+                    style={styles.dismissButton}
+                  >
+                    <Feather name="x" size={18} color="#E65100" />
+                  </Pressable>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {reminderAlerts.length > 0 ? (
+          <View style={styles.alertsSection}>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Напоминания</ThemedText>
+            {reminderAlerts.slice(0, 3).map((alert: Alert) => (
+              <View 
+                key={alert.id}
+                style={[styles.reminderCard, { backgroundColor: "#E3F2FD" }]}
+              >
+                <View style={styles.alertHeader}>
+                  <View style={[styles.alertIcon, { backgroundColor: "#2196F3" }]}>
+                    <Feather name="bell" size={18} color="#FFF" />
+                  </View>
+                  <View style={styles.alertContent}>
+                    <ThemedText type="body" style={{ fontWeight: "500", color: "#1565C0" }}>
+                      {alert.title}
+                    </ThemedText>
+                    {alert.description ? (
+                      <ThemedText type="small" style={{ color: "#1565C0", opacity: 0.8 }} numberOfLines={2}>
+                        {alert.description}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                  <Pressable 
+                    onPress={() => dismissMutation.mutate(alert.id)}
+                    style={styles.dismissButton}
+                  >
+                    <Feather name="check" size={18} color="#1565C0" />
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Быстрые действия</ThemedText>
@@ -440,5 +580,45 @@ const styles = StyleSheet.create({
   feedbackContent: {
     flex: 1,
     gap: Spacing.xs,
+  },
+  alertsSection: {
+    gap: Spacing.sm,
+  },
+  urgentAlertCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: "#EF5350",
+  },
+  teethRiskCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF9800",
+  },
+  reminderCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: "#2196F3",
+  },
+  alertHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+  },
+  alertIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  alertContent: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  dismissButton: {
+    padding: Spacing.xs,
   },
 });

@@ -5,6 +5,7 @@ import {
   toothData,
   testResults,
   feedback,
+  alerts,
   type User,
   type InsertUser,
   type UserProfile,
@@ -15,6 +16,8 @@ import {
   type InsertTestResult,
   type Feedback,
   type InsertFeedback,
+  type Alert,
+  type InsertAlert,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -43,6 +46,13 @@ export interface IStorage {
 
   // Feedback
   createFeedback(data: InsertFeedback): Promise<Feedback>;
+
+  // Alerts
+  getAlerts(userId: string): Promise<Alert[]>;
+  getActiveAlerts(userId: string): Promise<Alert[]>;
+  createAlert(data: InsertAlert): Promise<Alert>;
+  dismissAlert(alertId: string): Promise<void>;
+  markAlertRead(alertId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -143,6 +153,36 @@ export class DatabaseStorage implements IStorage {
   async createFeedback(data: InsertFeedback): Promise<Feedback> {
     const [created] = await db.insert(feedback).values(data).returning();
     return created;
+  }
+
+  // Alerts
+  async getAlerts(userId: string): Promise<Alert[]> {
+    return db
+      .select()
+      .from(alerts)
+      .where(eq(alerts.userId, userId))
+      .orderBy(desc(alerts.createdAt));
+  }
+
+  async getActiveAlerts(userId: string): Promise<Alert[]> {
+    return db
+      .select()
+      .from(alerts)
+      .where(and(eq(alerts.userId, userId), eq(alerts.isDismissed, false)))
+      .orderBy(desc(alerts.createdAt));
+  }
+
+  async createAlert(data: InsertAlert): Promise<Alert> {
+    const [created] = await db.insert(alerts).values(data).returning();
+    return created;
+  }
+
+  async dismissAlert(alertId: string): Promise<void> {
+    await db.update(alerts).set({ isDismissed: true }).where(eq(alerts.id, alertId));
+  }
+
+  async markAlertRead(alertId: string): Promise<void> {
+    await db.update(alerts).set({ isRead: true }).where(eq(alerts.id, alertId));
   }
 }
 
