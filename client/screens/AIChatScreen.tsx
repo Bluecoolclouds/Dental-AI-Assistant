@@ -45,13 +45,18 @@ export default function AIChatScreen() {
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
+      const chatHistory = messages
+        .filter((m) => m.id !== "welcome")
+        .slice(-10)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+      
       const response = await apiRequest("POST", new URL("/api/chat", getApiUrl()).toString(), {
         message,
         userId: user?.id,
-        history: messages.slice(-10).map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        history: chatHistory,
       });
       return response.json();
     },

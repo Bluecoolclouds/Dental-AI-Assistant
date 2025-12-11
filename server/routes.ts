@@ -408,11 +408,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { role: "system", content: systemPrompt },
       ];
 
-      if (Array.isArray(history)) {
-        for (const msg of history.slice(-6)) {
-          if (msg.role === "user" || msg.role === "assistant") {
+      if (Array.isArray(history) && history.length > 0) {
+        const validHistory = history.slice(-6);
+        let lastRole: string | null = null;
+        
+        for (const msg of validHistory) {
+          if ((msg.role === "user" || msg.role === "assistant") && msg.role !== lastRole) {
             messages.push({ role: msg.role, content: msg.content });
+            lastRole = msg.role;
           }
+        }
+        
+        if (lastRole === "user") {
+          messages.push({ 
+            role: "assistant", 
+            content: "Понял, продолжаем." 
+          });
         }
       }
 
