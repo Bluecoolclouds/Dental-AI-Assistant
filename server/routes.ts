@@ -18,6 +18,16 @@ function getOpenAIClient(): OpenAI | null {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
+function getPerplexityClient(): OpenAI | null {
+  if (!process.env.PERPLEXITY_API_KEY) {
+    return null;
+  }
+  return new OpenAI({
+    apiKey: process.env.PERPLEXITY_API_KEY,
+    baseURL: "https://api.perplexity.ai",
+  });
+}
+
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
 }
@@ -284,57 +294,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Chat Route
-  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+  // AI Chat Route - using Perplexity API
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      const openai = getOpenAIClient();
-      if (!openai) {
+      const perplexity = getPerplexityClient();
+      if (!perplexity) {
         return res.status(503).json({ 
           error: "AI недоступен", 
           response: "AI-консультант временно недоступен. Пожалуйста, попробуйте позже."
         });
       }
 
-      const { message, history } = req.body;
+      const { message, history, userId } = req.body;
 
       if (!message || typeof message !== "string") {
         return res.status(400).json({ error: "Требуется сообщение" });
       }
 
-      const systemPrompt = `Вы - виртуальный стоматологический консультант. Ваша задача - отвечать на вопросы о здоровье зубов и полости рта на русском языке.
+      let userProfile = null;
+      let toothData: any[] = [];
+      let latestTest = null;
 
-Правила:
-1. Давайте полезные и понятные советы о гигиене полости рта
-2. Отвечайте дружелюбно и профессионально
-3. При серьёзных симптомах рекомендуйте обратиться к стоматологу
-4. Не ставьте диагнозы - только общие рекомендации
-5. Отвечайте кратко и по существу (2-4 абзаца максимум)
-6. Если вопрос не связан со стоматологией, вежливо напомните, что вы специализируетесь на здоровье зубов`;
+      if (userId) {
+        try {
+          userProfile = await storage.getProfile(userId);
+          toothData = await storage.getToothData(userId);
+          latestTest = await storage.getLatestTestResult(userId);
+        } catch (e) {
+          console.error("Error fetching user data for chat:", e);
+        }
+      }
+
+      const systemPrompt = `Ты — бэкенд‑модуль ИИ‑консультанта стоматологического приложения Toothy.
+Приложение всегда отправляет тебе запрос в строго заданной структуре, а ты обязан вернуть ответ в ТОМ ЖЕ СООТВЕТСТВИИ СО СХЕМОЙ JSON, без лишнего текста и без Markdown.
+
+**1. Входные данные**
+Каждый запрос от приложения содержит:
+- user_profile: данные профиля пользователя
+- tooth_map: карта зубов с проблемами
+- analysis: результаты последнего теста
+- chat_context: история чата и текущее сообщение
+
+**2. Задача ИИ‑модуля**
+На основе ВСЕХ входных данных ты должен:
+- понять запрос пользователя и его текущую ситуацию;
+- сгенерировать человекопонятный ответ для чата;
+- при необходимости предложить действия
+
+**3. Формат ответа**
+Ты ВСЕГДА возвращаешь СТРОГО валидный JSON следующей структуры:
+
+{
+  "assistant_message": "string - текст ответа ассистента для отображения в чате пользователю на русском языке",
+  "actions": {
+    "update_tooth_map": [],
+    "update_risks": {
+      "overall_risk_score": null,
+      "overall_risk_label": null,
+      "gum_risk": null,
+      "tooth_risk": null
+    },
+    "suggested_tasks": [],
+    "suggested_flows": {
+      "ask_user_to_update_test": false,
+      "ask_user_to_mark_teeth": false,
+      "teeth_to_mark_hint": []
+    }
+  },
+  "safety": {
+    "needs_urgent_care": false,
+    "urgent_reason": null,
+    "disclaimer": "Это не диагноз. При любых проблемах обратитесь к стоматологу."
+  }
+}
+
+**Обязательные правила:**
+1. ВСЕГДА заполняй поле assistant_message понятным текстом по‑русски.
+2. Если есть признаки опасного состояния (сильная боль, отёк, температура), установи needs_urgent_care: true.
+3. Никогда не пиши дозировки, названия лекарств и точные схемы лечения.
+4. Ответ ДОЛЖЕН быть ВАЛИДНЫМ JSON‑объектом.
+5. Не используй Markdown в assistant_message.`;
+
+      const userContext = {
+        user_profile: userProfile ? {
+          age: userProfile.age,
+          oral_hygiene: {
+            brush_frequency_per_day: userProfile.brushingFrequency === "twice" ? 2 : userProfile.brushingFrequency === "more" ? 3 : 1,
+            uses_floss: userProfile.usesFloss,
+            uses_irrigator: userProfile.usesIrrigator,
+            has_braces: userProfile.hasBraces,
+            sensitivity: userProfile.hasSensitivity ? "moderate" : "none",
+            bleeding_gums: userProfile.hasGumBleeding ? "sometimes" : "never"
+          }
+        } : null,
+        tooth_map: {
+          teeth: toothData.map((t: any) => ({
+            tooth_id: String(t.toothNumber),
+            problems: t.problems,
+            notes: t.notes
+          }))
+        },
+        analysis: latestTest ? {
+          gum_risk: latestTest.gumsRiskScore > 60 ? "high" : latestTest.gumsRiskScore > 30 ? "medium" : "low",
+          tooth_risk: latestTest.teethRiskScore > 60 ? "high" : latestTest.teethRiskScore > 30 ? "medium" : "low"
+        } : null,
+        chat_context: {
+          history: Array.isArray(history) ? history.slice(-8) : [],
+          user_message: message
+        }
+      };
 
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         { role: "system", content: systemPrompt },
       ];
 
       if (Array.isArray(history)) {
-        for (const msg of history.slice(-8)) {
+        for (const msg of history.slice(-6)) {
           if (msg.role === "user" || msg.role === "assistant") {
             messages.push({ role: msg.role, content: msg.content });
           }
         }
       }
 
-      messages.push({ role: "user", content: message });
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-5",
-        messages,
-        max_completion_tokens: 1024,
+      messages.push({ 
+        role: "user", 
+        content: `Контекст пользователя:\n${JSON.stringify(userContext, null, 2)}\n\nСообщение: ${message}` 
       });
 
-      const content = response.choices[0].message.content || "Извините, не удалось получить ответ.";
+      const response = await perplexity.chat.completions.create({
+        model: "sonar",
+        messages,
+      });
 
-      return res.json({ response: content });
+      const content = response.choices[0].message.content || "";
+      
+      try {
+        const parsed = JSON.parse(content);
+        return res.json({ 
+          response: parsed.assistant_message || content,
+          actions: parsed.actions,
+          safety: parsed.safety
+        });
+      } catch {
+        return res.json({ response: content });
+      }
     } catch (error) {
       console.error("AI chat error:", error);
       return res.status(500).json({ error: "Ошибка чата" });

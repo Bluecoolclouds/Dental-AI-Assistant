@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useMutation } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -27,6 +28,7 @@ interface Message {
 
 export default function AIChatScreen() {
   const { theme } = useTheme();
+  const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const flatListRef = useRef<FlatList>(null);
@@ -45,6 +47,7 @@ export default function AIChatScreen() {
     mutationFn: async (message: string) => {
       const response = await apiRequest("POST", new URL("/api/chat", getApiUrl()).toString(), {
         message,
+        userId: user?.id,
         history: messages.slice(-10).map((m) => ({
           role: m.role,
           content: m.content,
