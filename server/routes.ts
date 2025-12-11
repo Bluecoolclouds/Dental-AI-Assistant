@@ -410,20 +410,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (Array.isArray(history) && history.length > 0) {
         const validHistory = history.slice(-6);
-        let lastRole: string | null = null;
+        const alternatingMessages: Array<{ role: "user" | "assistant"; content: string }> = [];
         
         for (const msg of validHistory) {
-          if ((msg.role === "user" || msg.role === "assistant") && msg.role !== lastRole) {
-            messages.push({ role: msg.role, content: msg.content });
-            lastRole = msg.role;
+          if (msg.role === "user" || msg.role === "assistant") {
+            const lastMsg = alternatingMessages[alternatingMessages.length - 1];
+            if (!lastMsg || lastMsg.role !== msg.role) {
+              alternatingMessages.push({ role: msg.role, content: msg.content });
+            }
           }
         }
         
-        if (lastRole === "user") {
-          messages.push({ 
-            role: "assistant", 
-            content: "Понял, продолжаем." 
-          });
+        if (alternatingMessages.length > 0) {
+          if (alternatingMessages[0].role === "assistant") {
+            alternatingMessages.shift();
+          }
+          
+          if (alternatingMessages.length > 0) {
+            const last = alternatingMessages[alternatingMessages.length - 1];
+            if (last.role === "user") {
+              alternatingMessages.push({ 
+                role: "assistant", 
+                content: "Понял, продолжаем." 
+              });
+            }
+          }
+          
+          messages.push(...alternatingMessages);
         }
       }
 
