@@ -221,8 +221,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Recommendations Route - using Perplexity API
+  // Only generates recommendations if test was passed and recommendations not yet cached
   app.post("/api/recommendations", async (req: Request, res: Response) => {
     try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Требуется userId" });
+      }
+
+      // Check if user has a test result with cached AI recommendations
+      const latestTest = await storage.getLatestTestResult(userId);
+      
+      if (!latestTest) {
+        return res.status(400).json({ 
+          error: "Сначала пройдите тест",
+          recommendations: [],
+          summary: "Пройдите тест здоровья зубов, чтобы получить персонализированные рекомендации.",
+          urgentAction: null
+        });
+      }
+
+      // Return cached recommendations if available
+      if (latestTest.aiRecommendations) {
+        return res.json(latestTest.aiRecommendations);
+      }
+
+      // No cached recommendations - generate new ones
       const perplexity = getPerplexityClient();
       if (!perplexity) {
         return res.status(503).json({ 
@@ -233,11 +258,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { userId, profile, toothData, latestTest } = req.body;
-
-      if (!userId) {
-        return res.status(400).json({ error: "Требуется userId" });
-      }
+      // Fetch user data for AI context
+      const profile = await storage.getProfile(userId);
+      const toothData = await storage.getToothData(userId);
 
       const systemPrompt = `Вы - виртуальный стоматологический консультант. Анализируйте данные о здоровье зубов пользователя и предоставляйте персонализированные рекомендации на русском языке.
 
@@ -269,9 +292,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 Проблемы с зубами: ${JSON.stringify(toothData || [])}
 
 Последние результаты теста:
-- Риск для зубов: ${latestTest?.teethRiskScore || "не проходил"}%
-- Риск для дёсен: ${latestTest?.gumsRiskScore || "не проходил"}%
-- Общий уровень риска: ${latestTest?.overallRiskLevel || "не определён"}
+- Риск для зубов: ${latestTest.teethRiskScore}%
+- Риск для дёсен: ${latestTest.gumsRiskScore}%
+- Общий уровень риска: ${latestTest.overallRiskLevel}
 
 Предоставьте персонализированные рекомендации на основе этих данных. Ответьте ТОЛЬКО в формате JSON.`;
 
@@ -286,6 +309,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const content = response.choices[0].message.content;
       const jsonMatch = content?.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(jsonMatch?.[0] || "{}");
+
+      // Cache the AI recommendations in the database
+      await storage.updateTestResultAIRecommendations(latestTest.id, parsed);
 
       return res.json(parsed);
     } catch (error) {

@@ -53,6 +53,7 @@ export const testResults = pgTable("test_results", {
   gumsRiskScore: integer("gums_risk_score").notNull(), // 0-100
   overallRiskLevel: text("overall_risk_level").notNull(), // "low", "moderate", "high"
   recommendations: jsonb("recommendations").default([]).notNull(),
+  aiRecommendations: jsonb("ai_recommendations"), // Cached AI recommendations
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

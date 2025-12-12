@@ -43,6 +43,7 @@ export interface IStorage {
   getTestResults(userId: string): Promise<TestResult[]>;
   getLatestTestResult(userId: string): Promise<TestResult | undefined>;
   createTestResult(result: InsertTestResult): Promise<TestResult>;
+  updateTestResultAIRecommendations(testResultId: string, aiRecommendations: any): Promise<void>;
 
   // Feedback
   createFeedback(data: InsertFeedback): Promise<Feedback>;
@@ -147,6 +148,13 @@ export class DatabaseStorage implements IStorage {
   async createTestResult(result: InsertTestResult): Promise<TestResult> {
     const [created] = await db.insert(testResults).values(result).returning();
     return created;
+  }
+
+  async updateTestResultAIRecommendations(testResultId: string, aiRecommendations: any): Promise<void> {
+    await db
+      .update(testResults)
+      .set({ aiRecommendations })
+      .where(eq(testResults.id, testResultId));
   }
 
   // Feedback

@@ -46,16 +46,12 @@ export default function AIRecommendationsScreen() {
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/recommendations", {
         userId: user?.id,
-        profile,
-        toothData,
-        latestTest: testResult,
       });
       return response.json();
     },
   });
 
-  const allQueriesFetched = testFetched && profileFetched && toothFetched;
-  const hasRequiredData = !!user?.id && !!testResult && allQueriesFetched;
+  const hasRequiredData = !!user?.id && testFetched && !!testResult;
 
   React.useEffect(() => {
     if (hasRequiredData && !recommendationsMutation.data && !recommendationsMutation.isPending) {
@@ -65,7 +61,7 @@ export default function AIRecommendationsScreen() {
 
   const isLoadingAI = recommendationsMutation.isPending;
   const aiRecommendations = recommendationsMutation.data;
-  const isLoadingData = isLoadingTest || !allQueriesFetched;
+  const isLoadingData = isLoadingTest || !testFetched;
 
   if (isLoadingData || isLoadingAI) {
     return (
