@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform, TextInput, Alert } from "react-native";
+import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform, TextInput, Alert, Modal } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,13 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { PROBLEM_TYPES, ProblemType, ToothHistory, ToothFile } from "@shared/schema";
+
+const VALID_TOOTH_IDS = [
+  "18", "17", "16", "15", "14", "13", "12", "11",
+  "21", "22", "23", "24", "25", "26", "27", "28",
+  "31", "32", "33", "34", "35", "36", "37", "38",
+  "41", "42", "43", "44", "45", "46", "47", "48",
+];
 
 type DataTab = "history" | "files";
 
@@ -114,6 +121,18 @@ export default function ToothMapScreen() {
   const [hasCustomNote, setHasCustomNote] = useState(false);
   const [customNote, setCustomNote] = useState("");
   const [activeTab, setActiveTab] = useState<DataTab>("history");
+  
+  const [showAddHistoryModal, setShowAddHistoryModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedHistoryEvent, setSelectedHistoryEvent] = useState<ToothHistory | null>(null);
+  
+  const [newHistoryToothId, setNewHistoryToothId] = useState("");
+  const [newHistoryReason, setNewHistoryReason] = useState("");
+  const [newHistoryEventType, setNewHistoryEventType] = useState<"treatment" | "resolved" | "note">("treatment");
+  
+  const [detailsDoctorName, setDetailsDoctorName] = useState("");
+  const [detailsClinicName, setDetailsClinicName] = useState("");
+  const [detailsTreatment, setDetailsTreatment] = useState("");
 
   const { data: toothData = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/tooth-data/${user?.id}`],
@@ -147,6 +166,75 @@ export default function ToothMapScreen() {
       queryClient.invalidateQueries({ queryKey: [`/api/tooth-files/${user?.id}`] });
     },
   });
+
+  const createHistoryMutation = useMutation({
+    mutationFn: async (data: { toothId: string; reason: string; eventType: string }) => {
+      return apiRequest("POST", "/api/tooth-history", { 
+        userId: user?.id, 
+        toothId: data.toothId,
+        reason: data.reason,
+        eventType: data.eventType,
+        source: "user",
+        priority: "routine",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tooth-history/${user?.id}`] });
+      setShowAddHistoryModal(false);
+      setNewHistoryToothId("");
+      setNewHistoryReason("");
+      setNewHistoryEventType("treatment");
+    },
+  });
+
+  const updateHistoryMutation = useMutation({
+    mutationFn: async (data: { eventId: string; doctorName?: string; clinicName?: string; treatmentDetails?: string }) => {
+      return apiRequest("PATCH", `/api/tooth-history/${data.eventId}`, {
+        doctorName: data.doctorName,
+        clinicName: data.clinicName,
+        treatmentDetails: data.treatmentDetails,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tooth-history/${user?.id}`] });
+      setShowDetailsModal(false);
+      setSelectedHistoryEvent(null);
+    },
+  });
+
+  const handleOpenDetails = (event: ToothHistory) => {
+    setSelectedHistoryEvent(event);
+    setDetailsDoctorName(event.doctorName || "");
+    setDetailsClinicName(event.clinicName || "");
+    setDetailsTreatment(event.treatmentDetails || "");
+    setShowDetailsModal(true);
+  };
+
+  const handleSaveDetails = () => {
+    if (!selectedHistoryEvent) return;
+    updateHistoryMutation.mutate({
+      eventId: selectedHistoryEvent.id,
+      doctorName: detailsDoctorName || undefined,
+      clinicName: detailsClinicName || undefined,
+      treatmentDetails: detailsTreatment || undefined,
+    });
+  };
+
+  const handleAddHistory = () => {
+    if (!newHistoryToothId || !newHistoryReason) {
+      Alert.alert("Ошибка", "Укажите номер зуба и описание");
+      return;
+    }
+    if (!VALID_TOOTH_IDS.includes(newHistoryToothId)) {
+      Alert.alert("Ошибка", "Неверный номер зуба. Используйте номера от 11 до 48");
+      return;
+    }
+    createHistoryMutation.mutate({
+      toothId: newHistoryToothId,
+      reason: newHistoryReason,
+      eventType: newHistoryEventType,
+    });
+  };
 
   const handlePickDocument = async () => {
     try {
@@ -644,6 +732,22 @@ export default function ToothMapScreen() {
 
           {activeTab === "history" ? (
             <View style={styles.tabContent}>
+              <Pressable
+                onPress={() => setShowAddHistoryModal(true)}
+                style={({ pressed }) => [
+                  styles.uploadButton,
+                  { 
+                    backgroundColor: theme.primary,
+                    opacity: pressed ? 0.7 : 1
+                  }
+                ]}
+              >
+                <Feather name="plus" size={18} color="#FFF" />
+                <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
+                  Добавить запись
+                </ThemedText>
+              </Pressable>
+
               {historyData.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Feather name="clock" size={32} color={theme.textSecondary} />
@@ -667,16 +771,26 @@ export default function ToothMapScreen() {
                           styles.historyItem, 
                           { 
                             backgroundColor: theme.backgroundSecondary,
-                            borderLeftColor: event.priority === "urgent" ? "#F44336" : 
+                            borderLeftColor: event.eventType === "resolved" ? "#4CAF50" :
+                                            event.priority === "urgent" ? "#F44336" : 
                                             event.priority === "soon" ? "#FF9800" : theme.primary
                           }
                         ]}
                       >
                         <View style={styles.historyItemHeader}>
-                          <View style={[styles.toothBadge, { backgroundColor: theme.primary + "20" }]}>
-                            <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
-                              {event.toothId}
-                            </ThemedText>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                            <View style={[styles.toothBadge, { backgroundColor: theme.primary + "20" }]}>
+                              <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+                                {event.toothId}
+                              </ThemedText>
+                            </View>
+                            {event.eventType === "resolved" ? (
+                              <View style={[styles.toothBadge, { backgroundColor: "#4CAF50" + "20" }]}>
+                                <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>
+                                  Вылечен
+                                </ThemedText>
+                              </View>
+                            ) : null}
                           </View>
                           <ThemedText type="small" style={{ color: theme.textSecondary }}>
                             {event.source === "ai" ? "ИИ" : "Вы"}
@@ -685,6 +799,40 @@ export default function ToothMapScreen() {
                         <ThemedText type="body" style={{ marginTop: Spacing.xs }}>
                           {event.reason}
                         </ThemedText>
+                        {(event.doctorName || event.clinicName || event.treatmentDetails) ? (
+                          <View style={{ marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: theme.border }}>
+                            {event.doctorName ? (
+                              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                                Врач: {event.doctorName}
+                              </ThemedText>
+                            ) : null}
+                            {event.clinicName ? (
+                              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                                Клиника: {event.clinicName}
+                              </ThemedText>
+                            ) : null}
+                            {event.treatmentDetails ? (
+                              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                                Процедура: {event.treatmentDetails}
+                              </ThemedText>
+                            ) : null}
+                          </View>
+                        ) : null}
+                        <Pressable
+                          onPress={() => handleOpenDetails(event)}
+                          style={({ pressed }) => [
+                            styles.detailsButton,
+                            { 
+                              backgroundColor: theme.primary + "15",
+                              opacity: pressed ? 0.7 : 1
+                            }
+                          ]}
+                        >
+                          <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+                            Подробнее
+                          </ThemedText>
+                          <Feather name="chevron-right" size={14} color={theme.primary} />
+                        </Pressable>
                       </View>
                     ))}
                   </View>
@@ -769,6 +917,199 @@ export default function ToothMapScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showAddHistoryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddHistoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle">Новая запись</ThemedText>
+              <Pressable onPress={() => setShowAddHistoryModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
+                <Feather name="x" size={20} color={theme.textDefault} />
+              </Pressable>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
+                  Номер зуба (FDI)
+                </ThemedText>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  value={newHistoryToothId}
+                  onChangeText={setNewHistoryToothId}
+                  placeholder="Например: 26"
+                  placeholderTextColor={theme.textSecondary}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
+                  Тип события
+                </ThemedText>
+                <View style={styles.eventTypeButtons}>
+                  {([
+                    { value: "treatment", label: "Лечение" },
+                    { value: "resolved", label: "Вылечен" },
+                    { value: "note", label: "Заметка" },
+                  ] as const).map((type) => (
+                    <Pressable
+                      key={type.value}
+                      onPress={() => setNewHistoryEventType(type.value)}
+                      style={[
+                        styles.eventTypeButton,
+                        { 
+                          backgroundColor: newHistoryEventType === type.value ? theme.primary : theme.backgroundSecondary,
+                          borderColor: newHistoryEventType === type.value ? theme.primary : theme.border,
+                        }
+                      ]}
+                    >
+                      <ThemedText 
+                        type="small" 
+                        style={{ 
+                          color: newHistoryEventType === type.value ? "#FFF" : theme.textDefault,
+                          fontWeight: "600"
+                        }}
+                      >
+                        {type.label}
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
+                  Описание
+                </ThemedText>
+                <TextInput
+                  style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  value={newHistoryReason}
+                  onChangeText={setNewHistoryReason}
+                  placeholder="Что произошло с зубом..."
+                  placeholderTextColor={theme.textSecondary}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <Pressable
+                onPress={handleAddHistory}
+                disabled={createHistoryMutation.isPending}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  { 
+                    backgroundColor: theme.primary,
+                    opacity: pressed || createHistoryMutation.isPending ? 0.7 : 1
+                  }
+                ]}
+              >
+                <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
+                  {createHistoryMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showDetailsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDetailsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle">Детали визита</ThemedText>
+              <Pressable onPress={() => setShowDetailsModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
+                <Feather name="x" size={20} color={theme.textDefault} />
+              </Pressable>
+            </View>
+
+            <View style={styles.modalBody}>
+              {selectedHistoryEvent ? (
+                <View style={[styles.historyItem, { backgroundColor: theme.backgroundSecondary, borderLeftColor: theme.primary, marginBottom: Spacing.lg }]}>
+                  <View style={styles.historyItemHeader}>
+                    <View style={[styles.toothBadge, { backgroundColor: theme.primary + "20" }]}>
+                      <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+                        {selectedHistoryEvent.toothId}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <ThemedText type="body" style={{ marginTop: Spacing.xs }}>
+                    {selectedHistoryEvent.reason}
+                  </ThemedText>
+                </View>
+              ) : null}
+
+              <View style={styles.inputGroup}>
+                <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
+                  Врач
+                </ThemedText>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  value={detailsDoctorName}
+                  onChangeText={setDetailsDoctorName}
+                  placeholder="ФИО врача"
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
+                  Клиника
+                </ThemedText>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  value={detailsClinicName}
+                  onChangeText={setDetailsClinicName}
+                  placeholder="Название клиники"
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
+                  Что было сделано
+                </ThemedText>
+                <TextInput
+                  style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  value={detailsTreatment}
+                  onChangeText={setDetailsTreatment}
+                  placeholder="Описание процедуры..."
+                  placeholderTextColor={theme.textSecondary}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <Pressable
+                onPress={handleSaveDetails}
+                disabled={updateHistoryMutation.isPending}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  { 
+                    backgroundColor: theme.primary,
+                    opacity: pressed || updateHistoryMutation.isPending ? 0.7 : 1
+                  }
+                ]}
+              >
+                <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
+                  {updateHistoryMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -1093,5 +1434,68 @@ const styles = StyleSheet.create({
   },
   deleteFileButton: {
     padding: Spacing.sm,
+  },
+  detailsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "85%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  modalBody: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  inputGroup: {
+    gap: Spacing.xs,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: 16,
+  },
+  modalTextArea: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  modalButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+  },
+  eventTypeButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  eventTypeButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
   },
 });

@@ -755,6 +755,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/tooth-history/:eventId", async (req: Request, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const { doctorName, clinicName, treatmentDetails } = req.body;
+      
+      const event = await storage.updateToothHistoryEvent(eventId, {
+        doctorName,
+        clinicName,
+        treatmentDetails,
+      });
+      
+      if (!event) {
+        return res.status(404).json({ error: "Запись не найдена" });
+      }
+      
+      return res.json(event);
+    } catch (error) {
+      console.error("Update tooth history error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
   // Tooth Files Routes
   app.get("/api/tooth-files/:userId", async (req: Request, res: Response) => {
     try {

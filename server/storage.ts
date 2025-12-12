@@ -231,6 +231,18 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateToothHistoryEvent(
+    eventId: string,
+    data: { doctorName?: string; clinicName?: string; treatmentDetails?: string }
+  ): Promise<ToothHistory | null> {
+    const [updated] = await db
+      .update(toothHistory)
+      .set(data)
+      .where(eq(toothHistory.id, eventId))
+      .returning();
+    return updated || null;
+  }
+
   // Tooth Files
   async getToothFiles(userId: string): Promise<ToothFile[]> {
     return db

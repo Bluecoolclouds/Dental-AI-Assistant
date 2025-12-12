@@ -100,6 +100,9 @@ export const toothHistory = pgTable("tooth_history", {
   priority: text("priority").default("routine"), // "routine", "soon", "urgent"
   markForCheck: boolean("mark_for_check").default(false),
   source: text("source").default("user"), // "user", "ai", "system"
+  doctorName: text("doctor_name"), // Doctor who performed treatment
+  clinicName: text("clinic_name"), // Clinic where treatment was done
+  treatmentDetails: text("treatment_details"), // What was done
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
