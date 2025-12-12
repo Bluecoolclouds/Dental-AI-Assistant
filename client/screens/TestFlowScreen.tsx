@@ -14,7 +14,20 @@ import { useTheme } from "@/hooks/useTheme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuthContext } from "@/contexts/AuthContext";
 
-const QUESTIONS = [
+interface QuestionOption {
+  value: string;
+  label: string;
+  score: number;
+}
+
+interface Question {
+  id: number;
+  question: string;
+  options: QuestionOption[];
+  multiSelect?: boolean;
+}
+
+const QUESTIONS: Question[] = [
   {
     id: 1,
     question: "Как часто вы чистите зубы?",
@@ -74,6 +87,18 @@ const QUESTIONS = [
       { value: "constant", label: "Постоянно", score: 25 },
     ],
   },
+  {
+    id: 7,
+    question: "Есть ли у тебя что-то из этого во рту?",
+    multiSelect: true,
+    options: [
+      { value: "crowns_veneers", label: "Коронки / виниры / мосты", score: 5 },
+      { value: "removable_dentures", label: "Съёмные протезы", score: 10 },
+      { value: "braces_aligners", label: "Брекеты или элайнеры", score: 5 },
+      { value: "implants", label: "Импланты", score: 5 },
+      { value: "nothing", label: "Ничего из перечисленного / не знаю", score: 0 },
+    ],
+  },
 ];
 
 export default function TestFlowScreen() {
@@ -84,7 +109,7 @@ export default function TestFlowScreen() {
   const { user } = useAuthContext();
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, { value: string; score: number }>>({});
+  const [answers, setAnswers] = useState<Record<number, { value: string; score: number } | { values: string[]; score: number }>>({});
 
   const submitMutation = useMutation({
     mutationFn: async (scores: { teethRiskScore: number; gumsRiskScore: number; overallRiskLevel: string }) => {
@@ -104,11 +129,44 @@ export default function TestFlowScreen() {
   const question = QUESTIONS[currentQuestion];
   const progress = ((currentQuestion + 1) / QUESTIONS.length) * 100;
 
-  const handleAnswer = (option: { value: string; score: number }) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [question.id]: option,
-    }));
+  const handleAnswer = (option: QuestionOption) => {
+    if (question.multiSelect) {
+      setAnswers((prev) => {
+        const current = prev[question.id] as { values: string[]; score: number } | undefined;
+        const currentValues = current?.values || [];
+        
+        if (option.value === "nothing") {
+          return {
+            ...prev,
+            [question.id]: { values: ["nothing"], score: 0 },
+          };
+        }
+        
+        const withoutNothing = currentValues.filter((v) => v !== "nothing");
+        const isAlreadySelected = withoutNothing.includes(option.value);
+        
+        let newValues: string[];
+        if (isAlreadySelected) {
+          newValues = withoutNothing.filter((v) => v !== option.value);
+        } else {
+          newValues = [...withoutNothing, option.value];
+        }
+        
+        const newScore = question.options
+          .filter((o) => newValues.includes(o.value))
+          .reduce((sum, o) => sum + o.score, 0);
+        
+        return {
+          ...prev,
+          [question.id]: { values: newValues, score: newScore },
+        };
+      });
+    } else {
+      setAnswers((prev) => ({
+        ...prev,
+        [question.id]: { value: option.value, score: option.score },
+      }));
+    }
   };
 
   const handleNext = async () => {
@@ -131,7 +189,10 @@ export default function TestFlowScreen() {
   };
 
   const isLastQuestion = currentQuestion === QUESTIONS.length - 1;
-  const selectedAnswer = answers[question.id];
+  const currentAnswer = answers[question.id];
+  const hasAnswer = question.multiSelect
+    ? (currentAnswer as { values: string[] } | undefined)?.values?.length > 0
+    : !!currentAnswer;
 
   return (
     <ThemedView style={styles.container}>
@@ -156,7 +217,9 @@ export default function TestFlowScreen() {
 
         <View style={styles.options}>
           {question.options.map((option) => {
-            const isSelected = selectedAnswer?.value === option.value;
+            const isSelected = question.multiSelect
+              ? (currentAnswer as { values: string[] } | undefined)?.values?.includes(option.value)
+              : (currentAnswer as { value: string } | undefined)?.value === option.value;
             return (
               <Pressable
                 key={option.value}
@@ -172,7 +235,7 @@ export default function TestFlowScreen() {
               >
                 <View
                   style={[
-                    styles.radio,
+                    question.multiSelect ? styles.checkbox : styles.radio,
                     {
                       backgroundColor: isSelected ? "#FFFFFF" : "transparent",
                       borderColor: isSelected ? "#FFFFFF" : theme.border,
@@ -180,7 +243,11 @@ export default function TestFlowScreen() {
                   ]}
                 >
                   {isSelected ? (
-                    <View style={[styles.radioInner, { backgroundColor: theme.primary }]} />
+                    question.multiSelect ? (
+                      <Feather name="check" size={14} color={theme.primary} />
+                    ) : (
+                      <View style={[styles.radioInner, { backgroundColor: theme.primary }]} />
+                    )
                   ) : null}
                 </View>
                 <ThemedText
@@ -208,7 +275,7 @@ export default function TestFlowScreen() {
           
           <Button
             onPress={handleNext}
-            disabled={!selectedAnswer || submitMutation.isPending}
+            disabled={!hasAnswer || submitMutation.isPending}
             style={styles.nextButton}
           >
             {submitMutation.isPending ? (
@@ -268,6 +335,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",

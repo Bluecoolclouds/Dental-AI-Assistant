@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useMutation } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { ThemedText } from "@/components/ThemedText";
@@ -23,8 +24,17 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  timestamp: string;
 }
+
+const CHAT_STORAGE_KEY = "toothy_chat_history";
+
+const WELCOME_MESSAGE: Message = {
+  id: "welcome",
+  role: "assistant",
+  content: "Здравствуйте! Я ваш виртуальный стоматологический консультант. Задайте мне любой вопрос о здоровье зубов и полости рта, и я постараюсь помочь.",
+  timestamp: new Date().toISOString(),
+};
 
 export default function AIChatScreen() {
   const { theme } = useTheme();
@@ -33,15 +43,41 @@ export default function AIChatScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const flatListRef = useRef<FlatList>(null);
   
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: "Здравствуйте! Я ваш виртуальный стоматологический консультант. Задайте мне любой вопрос о здоровье зубов и полости рта, и я постараюсь помочь.",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(CHAT_STORAGE_KEY);
+        if (stored) {
+          const parsed: Message[] = JSON.parse(stored);
+          if (parsed.length > 0) {
+            setMessages([WELCOME_MESSAGE, ...parsed]);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading chat history:", error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+    loadChatHistory();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    const saveChatHistory = async () => {
+      try {
+        const toSave = messages.filter((m) => m.id !== "welcome");
+        await AsyncStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(toSave));
+      } catch (error) {
+        console.error("Error saving chat history:", error);
+      }
+    };
+    saveChatHistory();
+  }, [messages, isLoaded]);
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -65,7 +101,7 @@ export default function AIChatScreen() {
         id: Date.now().toString(),
         role: "assistant",
         content: data.response,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
     },
@@ -74,7 +110,7 @@ export default function AIChatScreen() {
         id: Date.now().toString(),
         role: "assistant",
         content: "Извините, произошла ошибка. Пожалуйста, попробуйте ещё раз.",
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
     },
@@ -88,7 +124,7 @@ export default function AIChatScreen() {
       id: Date.now().toString(),
       role: "user",
       content: text,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
