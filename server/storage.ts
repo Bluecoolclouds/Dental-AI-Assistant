@@ -6,6 +6,8 @@ import {
   testResults,
   feedback,
   alerts,
+  toothHistory,
+  toothFiles,
   type User,
   type InsertUser,
   type UserProfile,
@@ -18,6 +20,10 @@ import {
   type InsertFeedback,
   type Alert,
   type InsertAlert,
+  type ToothHistory,
+  type InsertToothHistory,
+  type ToothFile,
+  type InsertToothFile,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -54,6 +60,16 @@ export interface IStorage {
   createAlert(data: InsertAlert): Promise<Alert>;
   dismissAlert(alertId: string): Promise<void>;
   markAlertRead(alertId: string): Promise<void>;
+
+  // Tooth History
+  getToothHistory(userId: string): Promise<ToothHistory[]>;
+  getToothHistoryByTooth(userId: string, toothId: string): Promise<ToothHistory[]>;
+  createToothHistoryEvent(data: InsertToothHistory): Promise<ToothHistory>;
+
+  // Tooth Files
+  getToothFiles(userId: string): Promise<ToothFile[]>;
+  createToothFile(data: InsertToothFile): Promise<ToothFile>;
+  deleteToothFile(fileId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -191,6 +207,46 @@ export class DatabaseStorage implements IStorage {
 
   async markAlertRead(alertId: string): Promise<void> {
     await db.update(alerts).set({ isRead: true }).where(eq(alerts.id, alertId));
+  }
+
+  // Tooth History
+  async getToothHistory(userId: string): Promise<ToothHistory[]> {
+    return db
+      .select()
+      .from(toothHistory)
+      .where(eq(toothHistory.userId, userId))
+      .orderBy(desc(toothHistory.createdAt));
+  }
+
+  async getToothHistoryByTooth(userId: string, toothId: string): Promise<ToothHistory[]> {
+    return db
+      .select()
+      .from(toothHistory)
+      .where(and(eq(toothHistory.userId, userId), eq(toothHistory.toothId, toothId)))
+      .orderBy(desc(toothHistory.createdAt));
+  }
+
+  async createToothHistoryEvent(data: InsertToothHistory): Promise<ToothHistory> {
+    const [created] = await db.insert(toothHistory).values(data).returning();
+    return created;
+  }
+
+  // Tooth Files
+  async getToothFiles(userId: string): Promise<ToothFile[]> {
+    return db
+      .select()
+      .from(toothFiles)
+      .where(eq(toothFiles.userId, userId))
+      .orderBy(desc(toothFiles.createdAt));
+  }
+
+  async createToothFile(data: InsertToothFile): Promise<ToothFile> {
+    const [created] = await db.insert(toothFiles).values(data).returning();
+    return created;
+  }
+
+  async deleteToothFile(fileId: string): Promise<void> {
+    await db.delete(toothFiles).where(eq(toothFiles.id, fileId));
   }
 }
 

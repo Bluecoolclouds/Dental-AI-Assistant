@@ -6,7 +6,9 @@ import {
   insertUserProfileSchema, 
   insertToothDataSchema,
   insertTestResultSchema,
-  insertFeedbackSchema 
+  insertFeedbackSchema,
+  insertToothHistorySchema,
+  insertToothFileSchema,
 } from "@shared/schema";
 import { createHash } from "crypto";
 import OpenAI from "openai";
@@ -554,12 +556,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
             
             for (const tooth of teeth_updates) {
-              if (tooth.mark_for_check && tooth.tooth_id) {
-                const toothId = String(tooth.tooth_id);
-                if (!validToothNumbers.includes(toothId)) {
-                  console.warn(`Invalid tooth_id from AI: ${toothId}, skipping`);
-                  continue;
-                }
+              const toothId = String(tooth.tooth_id);
+              if (!validToothNumbers.includes(toothId)) {
+                console.warn(`Invalid tooth_id from AI: ${toothId}, skipping`);
+                continue;
+              }
+              
+              // Always save to tooth history
+              await storage.createToothHistoryEvent({
+                userId,
+                toothId,
+                eventType: tooth.mark_for_check ? "check_recommended" : "note",
+                reason: tooth.reason || "Событие от ИИ-консультанта",
+                priority: tooth.priority || "routine",
+                markForCheck: tooth.mark_for_check || false,
+                source: "ai",
+              });
+              
+              // Create alert if mark_for_check is true
+              if (tooth.mark_for_check) {
                 await storage.createAlert({
                   userId,
                   type: "teeth_at_risk",
@@ -658,6 +673,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(201).json(feedback);
     } catch (error) {
       console.error("Create feedback error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  // Tooth History Routes
+  app.get("/api/tooth-history/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const history = await storage.getToothHistory(userId);
+      return res.json(history);
+    } catch (error) {
+      console.error("Get tooth history error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.get("/api/tooth-history/:userId/:toothId", async (req: Request, res: Response) => {
+    try {
+      const { userId, toothId } = req.params;
+      const history = await storage.getToothHistoryByTooth(userId, toothId);
+      return res.json(history);
+    } catch (error) {
+      console.error("Get tooth history by tooth error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/tooth-history", async (req: Request, res: Response) => {
+    try {
+      const parsed = insertToothHistorySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Неверные данные" });
+      }
+
+      const event = await storage.createToothHistoryEvent(parsed.data);
+      return res.status(201).json(event);
+    } catch (error) {
+      console.error("Create tooth history error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  // Tooth Files Routes
+  app.get("/api/tooth-files/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const files = await storage.getToothFiles(userId);
+      return res.json(files);
+    } catch (error) {
+      console.error("Get tooth files error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/tooth-files", async (req: Request, res: Response) => {
+    try {
+      const parsed = insertToothFileSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Неверные данные" });
+      }
+
+      const file = await storage.createToothFile(parsed.data);
+      return res.status(201).json(file);
+    } catch (error) {
+      console.error("Create tooth file error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.delete("/api/tooth-files/:fileId", async (req: Request, res: Response) => {
+    try {
+      const { fileId } = req.params;
+      await storage.deleteToothFile(fileId);
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Delete tooth file error:", error);
       return res.status(500).json({ error: "Ошибка сервера" });
     }
   });
