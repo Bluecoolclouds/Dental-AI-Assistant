@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform } from "react-native";
+import React, { useState, useCallback, useEffect } from "react";
+import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform, TextInput } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -108,15 +108,33 @@ export default function ToothMapScreen() {
   const { width: screenWidth } = useWindowDimensions();
 
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
+  const [hasCustomNote, setHasCustomNote] = useState(false);
+  const [customNote, setCustomNote] = useState("");
 
   const { data: toothData = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/tooth-data/${user?.id}`],
     enabled: !!user?.id,
   });
 
+  const getToothNotes = useCallback((toothNumber: number): string => {
+    const tooth = toothData.find((t: any) => t.toothNumber === toothNumber);
+    return tooth?.notes || "";
+  }, [toothData]);
+
+  useEffect(() => {
+    if (selectedTooth) {
+      const notes = getToothNotes(selectedTooth);
+      setCustomNote(notes);
+      setHasCustomNote(!!notes);
+    } else {
+      setCustomNote("");
+      setHasCustomNote(false);
+    }
+  }, [selectedTooth, getToothNotes]);
+
   const saveMutation = useMutation({
-    mutationFn: async ({ toothNumber, problems }: { toothNumber: number; problems: string[] }) => {
-      return apiRequest("POST", "/api/tooth-data", { userId: user?.id, toothNumber, problems });
+    mutationFn: async ({ toothNumber, problems, notes }: { toothNumber: number; problems: string[]; notes?: string }) => {
+      return apiRequest("POST", "/api/tooth-data", { userId: user?.id, toothNumber, problems, notes });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/tooth-data/${user?.id}`] });
@@ -147,7 +165,24 @@ export default function ToothMapScreen() {
       ? currentProblems.filter((p) => p !== problem)
       : [...currentProblems, problem];
 
-    await saveMutation.mutateAsync({ toothNumber: selectedTooth, problems: newProblems });
+    const notes = hasCustomNote ? customNote : undefined;
+    await saveMutation.mutateAsync({ toothNumber: selectedTooth, problems: newProblems, notes });
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedTooth) return;
+    const currentProblems = getToothProblems(selectedTooth);
+    const notes = hasCustomNote ? customNote : "";
+    await saveMutation.mutateAsync({ toothNumber: selectedTooth, problems: currentProblems, notes });
+  };
+
+  const handleToggleCustomNote = async (enabled: boolean) => {
+    setHasCustomNote(enabled);
+    if (!enabled && selectedTooth) {
+      const currentProblems = getToothProblems(selectedTooth);
+      await saveMutation.mutateAsync({ toothNumber: selectedTooth, problems: currentProblems, notes: "" });
+      setCustomNote("");
+    }
   };
 
   if (isLoading) {
@@ -362,6 +397,69 @@ export default function ToothMapScreen() {
                   </Pressable>
                 );
               })}
+            </View>
+
+            <View style={styles.customNoteSection}>
+              <Pressable
+                onPress={() => handleToggleCustomNote(!hasCustomNote)}
+                style={styles.checkboxRow}
+              >
+                <View style={[
+                  styles.checkbox,
+                  { 
+                    borderColor: hasCustomNote ? theme.primary : theme.border,
+                    backgroundColor: hasCustomNote ? theme.primary : "transparent"
+                  }
+                ]}>
+                  {hasCustomNote ? (
+                    <Feather name="check" size={14} color="#FFF" />
+                  ) : null}
+                </View>
+                <ThemedText type="body" style={{ flex: 1 }}>
+                  Описать проблему своими словами
+                </ThemedText>
+              </Pressable>
+
+              {hasCustomNote ? (
+                <View style={styles.noteInputContainer}>
+                  <TextInput
+                    style={[
+                      styles.noteInput,
+                      {
+                        backgroundColor: theme.backgroundSecondary,
+                        color: theme.text,
+                        borderColor: theme.border,
+                      }
+                    ]}
+                    placeholder="Опишите что беспокоит, когда началось, как проявляется..."
+                    placeholderTextColor={theme.textSecondary}
+                    value={customNote}
+                    onChangeText={setCustomNote}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                  <Pressable
+                    onPress={handleSaveNotes}
+                    disabled={saveMutation.isPending}
+                    style={({ pressed }) => [
+                      styles.saveNoteButton,
+                      {
+                        backgroundColor: theme.primary,
+                        opacity: pressed || saveMutation.isPending ? 0.7 : 1,
+                      }
+                    ]}
+                  >
+                    <Feather name="save" size={16} color="#FFF" />
+                    <ThemedText type="small" style={{ color: "#FFF", fontWeight: "600" }}>
+                      Сохранить
+                    </ThemedText>
+                  </Pressable>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
+                    Эта информация будет использоваться ИИ-консультантом
+                  </ThemedText>
+                </View>
+              ) : null}
             </View>
 
             {saveMutation.isPending ? (
@@ -621,5 +719,46 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
+  },
+  customNoteSection: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  noteInputContainer: {
+    marginTop: Spacing.md,
+  },
+  noteInput: {
+    minHeight: 100,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  saveNoteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+    alignSelf: "flex-start",
   },
 });
