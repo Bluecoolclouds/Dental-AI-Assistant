@@ -191,7 +191,7 @@ export default function TestFlowScreen() {
   const isLastQuestion = currentQuestion === QUESTIONS.length - 1;
   const currentAnswer = answers[question.id];
   const hasAnswer = question.multiSelect
-    ? (currentAnswer as { values: string[] } | undefined)?.values?.length > 0
+    ? ((currentAnswer as { values: string[] } | undefined)?.values?.length ?? 0) > 0
     : !!currentAnswer;
 
   return (
