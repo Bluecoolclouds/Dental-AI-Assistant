@@ -464,11 +464,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 {
   "tooth_id": "string (FDI номер, например 26)",
   "mark_for_check": true/false,
+  "resolved": true/false,
   "reason": "краткое описание события для истории",
   "priority": "routine|soon|urgent"
 }
 
-Причину пиши так, чтобы её можно было сохранить в истории зуба без изменений текста (например: "Пользователь жалуется на короткую острую боль от холодного на этом зубе" или "Рекомендован осмотр этого зуба в ближайшие 7 дней из-за периодической боли при накусывании").
+Правила заполнения:
+- mark_for_check = true — когда появилась новая проблема или нужен осмотр
+- resolved = true — когда пользователь сообщил что зуб вылечен, проблема прошла, боль исчезла, лечение завершено
+- Оба поля могут быть false для обычных заметок
+
+Причину пиши так, чтобы её можно было сохранить в истории зуба без изменений текста.
+Примеры:
+- Новая проблема: "Пользователь жалуется на острую боль от холодного"
+- Вылечен: "Пользователь сообщил что зуб вылечен у стоматолога"
+- Прошло само: "Боль прошла, проблема больше не беспокоит"
 
 Каждую запись из teeth_updates бэкенд сохраняет как событие истории для соответствующего tooth_id и, если mark_for_check = true, ещё и создаёт напоминание.`;
 
@@ -584,11 +594,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
               
+              // Determine event type based on resolved/mark_for_check flags
+              let eventType = "note";
+              if (tooth.resolved) {
+                eventType = "resolved";
+              } else if (tooth.mark_for_check) {
+                eventType = "check_recommended";
+              }
+              
               // Always save to tooth history
               await storage.createToothHistoryEvent({
                 userId,
                 toothId,
-                eventType: tooth.mark_for_check ? "check_recommended" : "note",
+                eventType,
                 reason: tooth.reason || "Событие от ИИ-консультанта",
                 priority: tooth.priority || "routine",
                 markForCheck: tooth.mark_for_check || false,
