@@ -5,7 +5,6 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -14,7 +13,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { useTestResults } from "@/hooks/useLocalData";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -25,12 +24,8 @@ export default function AnalysisScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  const { user } = useAuthContext();
 
-  const { data: testResult, isLoading } = useQuery<any>({
-    queryKey: [`/api/test-results/${user?.id}/latest`],
-    enabled: !!user?.id,
-  });
+  const { latestResult: testResult, isLoading } = useTestResults();
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -98,7 +93,7 @@ export default function AnalysisScreen() {
                   Последняя оценка
                 </ThemedText>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  {formatDate(testResult.createdAt)}
+                  {formatDate(testResult.createdAt as unknown as string)}
                 </ThemedText>
               </View>
 

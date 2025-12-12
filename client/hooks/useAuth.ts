@@ -1,9 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest } from "@/lib/query-client";
-
-const AUTH_TOKEN_KEY = "@dental_auth_token";
-const USER_DATA_KEY = "@dental_user_data";
+import {
+  createUser,
+  getUserByEmail,
+  verifyPassword,
+  getUserById,
+} from "@/storage/repositories/userRepository";
+import {
+  saveCurrentUser,
+  getCurrentUserId,
+  getCurrentUserCredentials,
+  clearCurrentUser,
+} from "@/storage/secureStorage";
+import { createProfile } from "@/storage/repositories/profileRepository";
 
 export interface AuthUser {
   id: string;
@@ -17,15 +25,16 @@ export function useAuth() {
 
   const loadAuth = useCallback(async () => {
     try {
-      const [token, userData] = await Promise.all([
-        AsyncStorage.getItem(AUTH_TOKEN_KEY),
-        AsyncStorage.getItem(USER_DATA_KEY),
-      ]);
+      const credentials = await getCurrentUserCredentials();
       
-      if (token && userData) {
-        const parsedUser = JSON.parse(userData) as AuthUser;
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+      if (credentials) {
+        const dbUser = await getUserById(credentials.userId);
+        if (dbUser) {
+          setUser({ id: dbUser.id, email: dbUser.email });
+          setIsAuthenticated(true);
+        } else {
+          await clearCurrentUser();
+        }
       }
     } catch (error) {
       console.error("Error loading auth:", error);
@@ -40,21 +49,15 @@ export function useAuth() {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/login", { email, password });
-      const data = await response.json();
+      const dbUser = await verifyPassword(email, password);
       
-      if (data.error) {
-        return { success: false, error: data.error };
+      if (!dbUser) {
+        return { success: false, error: "Неверный email или пароль" };
       }
       
-      const userData: AuthUser = { id: data.id, email: data.email };
+      await saveCurrentUser(dbUser.id, dbUser.email);
       
-      await Promise.all([
-        AsyncStorage.setItem(AUTH_TOKEN_KEY, data.id),
-        AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData)),
-      ]);
-      
-      setUser(userData);
+      setUser({ id: dbUser.id, email: dbUser.email });
       setIsAuthenticated(true);
       return { success: true };
     } catch (error: any) {
@@ -64,21 +67,18 @@ export function useAuth() {
 
   const register = useCallback(async (email: string, password: string) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/register", { email, password });
-      const data = await response.json();
-      
-      if (data.error) {
-        return { success: false, error: data.error };
+      const existingUser = await getUserByEmail(email);
+      if (existingUser) {
+        return { success: false, error: "Пользователь с таким email уже существует" };
       }
       
-      const userData: AuthUser = { id: data.id, email: data.email };
+      const newUser = await createUser({ email, password });
       
-      await Promise.all([
-        AsyncStorage.setItem(AUTH_TOKEN_KEY, data.id),
-        AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData)),
-      ]);
+      await createProfile({ userId: newUser.id });
       
-      setUser(userData);
+      await saveCurrentUser(newUser.id, newUser.email);
+      
+      setUser({ id: newUser.id, email: newUser.email });
       setIsAuthenticated(true);
       return { success: true };
     } catch (error: any) {
@@ -88,10 +88,7 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     try {
-      await Promise.all([
-        AsyncStorage.removeItem(AUTH_TOKEN_KEY),
-        AsyncStorage.removeItem(USER_DATA_KEY),
-      ]);
+      await clearCurrentUser();
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
@@ -100,7 +97,7 @@ export function useAuth() {
   }, []);
 
   const getToken = useCallback(async () => {
-    return AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    return getCurrentUserId();
   }, []);
 
   return {

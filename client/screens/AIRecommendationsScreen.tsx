@@ -1,7 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -9,7 +8,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { useTestResults, useProfile, useToothData } from "@/hooks/useLocalData";
 import { apiRequest } from "@/lib/query-client";
 
 const RECOMMENDATION_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
@@ -25,43 +24,72 @@ const RECOMMENDATION_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
 export default function AIRecommendationsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { user } = useAuthContext();
 
-  const { data: testResult, isLoading: isLoadingTest, isFetched: testFetched } = useQuery<any>({
-    queryKey: [`/api/test-results/${user?.id}/latest`],
-    enabled: !!user?.id,
-  });
+  const { latestResult: testResult, isLoading: isLoadingTest, updateAIRecommendations } = useTestResults();
+  const { profile } = useProfile();
+  const { toothData } = useToothData();
 
-  const { data: profile, isFetched: profileFetched } = useQuery<any>({
-    queryKey: [`/api/profile/${user?.id}`],
-    enabled: !!user?.id,
-  });
+  const [aiRecommendations, setAiRecommendations] = useState<any>(null);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
-  const { data: toothData, isFetched: toothFetched } = useQuery<any[]>({
-    queryKey: [`/api/tooth-data/${user?.id}`],
-    enabled: !!user?.id,
-  });
-
-  const recommendationsMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/recommendations", {
-        userId: user?.id,
-      });
-      return response.json();
-    },
-  });
-
-  const hasRequiredData = !!user?.id && testFetched && !!testResult;
-
-  React.useEffect(() => {
-    if (hasRequiredData && !recommendationsMutation.data && !recommendationsMutation.isPending) {
-      recommendationsMutation.mutate();
+  useEffect(() => {
+    if (testResult && !testResult.aiRecommendations && !isLoadingAI) {
+      fetchAIRecommendations();
+    } else if (testResult?.aiRecommendations) {
+      setAiRecommendations(testResult.aiRecommendations);
     }
-  }, [hasRequiredData, recommendationsMutation.data, recommendationsMutation.isPending]);
+  }, [testResult]);
 
-  const isLoadingAI = recommendationsMutation.isPending;
-  const aiRecommendations = recommendationsMutation.data;
-  const isLoadingData = isLoadingTest || !testFetched;
+  const fetchAIRecommendations = async () => {
+    if (!testResult) return;
+    
+    setIsLoadingAI(true);
+    try {
+      const sanitizedTestResult = {
+        teethRiskScore: testResult.teethRiskScore,
+        gumsRiskScore: testResult.gumsRiskScore,
+        overallRiskLevel: testResult.overallRiskLevel,
+        recommendations: testResult.recommendations,
+      };
+
+      const sanitizedProfile = profile ? {
+        age: profile.age,
+        brushingFrequency: profile.brushingFrequency,
+        usesFloss: profile.usesFloss,
+        usesIrrigator: profile.usesIrrigator,
+        hasBraces: profile.hasBraces,
+        hasSensitivity: profile.hasSensitivity,
+        hasGumBleeding: profile.hasGumBleeding,
+        hasCrownsVeneers: profile.hasCrownsVeneers,
+        hasRemovableDentures: profile.hasRemovableDentures,
+        hasImplants: profile.hasImplants,
+      } : null;
+
+      const sanitizedToothData = toothData?.map((tooth) => ({
+        toothNumber: tooth.toothNumber,
+        problems: tooth.problems,
+        notes: tooth.notes,
+      })) || [];
+
+      const response = await apiRequest("POST", "/api/recommendations", {
+        testResult: sanitizedTestResult,
+        profile: sanitizedProfile,
+        toothData: sanitizedToothData,
+      });
+      const data = await response.json();
+      setAiRecommendations(data);
+      
+      if (testResult.id) {
+        await updateAIRecommendations(testResult.id, data);
+      }
+    } catch (error) {
+      console.error("Error fetching AI recommendations:", error);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
+  const isLoadingData = isLoadingTest;
 
   if (isLoadingData || isLoadingAI) {
     return (

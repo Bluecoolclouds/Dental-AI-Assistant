@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -11,8 +10,7 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { apiRequest } from "@/lib/query-client";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { useTestResults } from "@/hooks/useLocalData";
 
 interface QuestionOption {
   value: string;
@@ -105,26 +103,11 @@ export default function TestFlowScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { theme } = useTheme();
-  const queryClient = useQueryClient();
-  const { user } = useAuthContext();
+  const { createTestResult } = useTestResults();
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, { value: string; score: number } | { values: string[]; score: number }>>({});
-
-  const submitMutation = useMutation({
-    mutationFn: async (scores: { teethRiskScore: number; gumsRiskScore: number; overallRiskLevel: string }) => {
-      const response = await apiRequest("POST", "/api/test-results", {
-        userId: user?.id,
-        ...scores,
-        recommendations: [],
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/test-results/${user?.id}/latest`] });
-      navigation.goBack();
-    },
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const question = QUESTIONS[currentQuestion];
   const progress = ((currentQuestion + 1) / QUESTIONS.length) * 100;
@@ -173,12 +156,20 @@ export default function TestFlowScreen() {
     if (currentQuestion < QUESTIONS.length - 1) {
       setCurrentQuestion((prev) => prev + 1);
     } else {
-      const totalScore = Object.values(answers).reduce((sum, a) => sum + a.score, 0);
-      const teethRiskScore = Math.min(100, totalScore);
-      const gumsRiskScore = Math.min(100, Math.round(totalScore * 0.8));
-      
-      const overallRiskLevel = teethRiskScore >= 60 ? "high" : teethRiskScore >= 30 ? "moderate" : "low";
-      await submitMutation.mutateAsync({ teethRiskScore, gumsRiskScore, overallRiskLevel });
+      setIsSubmitting(true);
+      try {
+        const totalScore = Object.values(answers).reduce((sum, a) => sum + a.score, 0);
+        const teethRiskScore = Math.min(100, totalScore);
+        const gumsRiskScore = Math.min(100, Math.round(totalScore * 0.8));
+        
+        const overallRiskLevel = teethRiskScore >= 60 ? "high" : teethRiskScore >= 30 ? "moderate" : "low";
+        await createTestResult({ teethRiskScore, gumsRiskScore, overallRiskLevel, recommendations: [] });
+        navigation.goBack();
+      } catch (error) {
+        console.error("Error submitting test:", error);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -275,10 +266,10 @@ export default function TestFlowScreen() {
           
           <Button
             onPress={handleNext}
-            disabled={!hasAnswer || submitMutation.isPending}
+            disabled={!hasAnswer || isSubmitting}
             style={styles.nextButton}
           >
-            {submitMutation.isPending ? (
+            {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : isLastQuestion ? (
               "Завершить"

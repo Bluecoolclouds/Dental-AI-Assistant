@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { StyleSheet, View, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useMutation } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -11,8 +10,7 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { useFeedback } from "@/hooks/useLocalData";
 
 const CATEGORIES = [
   { value: "bug", label: "Ошибка", icon: "alert-circle" as const },
@@ -24,33 +22,31 @@ export default function FeedbackScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { theme } = useTheme();
-  const { user } = useAuthContext();
+  const { createFeedback } = useFeedback();
 
   const [category, setCategory] = useState("other");
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submitMutation = useMutation({
-    mutationFn: async (data: { category: string; message: string }) => {
-      return apiRequest("POST", "/api/feedback", { ...data, userId: user?.id });
-    },
-    onSuccess: () => {
-      Alert.alert(
-        "Спасибо!",
-        "Ваш отзыв успешно отправлен. Мы ценим вашу обратную связь!",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
-    },
-    onError: () => {
-      Alert.alert("Ошибка", "Не удалось отправить отзыв. Попробуйте позже.");
-    },
-  });
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!message.trim()) {
       Alert.alert("Ошибка", "Пожалуйста, введите сообщение");
       return;
     }
-    submitMutation.mutate({ category, message: message.trim() });
+    
+    setIsSubmitting(true);
+    try {
+      await createFeedback(category, message.trim());
+      Alert.alert(
+        "Спасибо!",
+        "Ваш отзыв успешно сохранён. Мы ценим вашу обратную связь!",
+        [{ text: "OK", onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось сохранить отзыв. Попробуйте позже.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -121,11 +117,11 @@ export default function FeedbackScreen() {
           />
         </View>
 
-        <Button onPress={handleSubmit} disabled={submitMutation.isPending}>
-          {submitMutation.isPending ? (
+        <Button onPress={handleSubmit} disabled={isSubmitting}>
+          {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            "Отправить"
+            "Сохранить"
           )}
         </Button>
       </KeyboardAwareScrollViewCompat>

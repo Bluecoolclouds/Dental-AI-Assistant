@@ -9,12 +9,13 @@ import { Button } from "@/components/Button";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { useProfile } from "@/hooks/useLocalData";
 
 export default function DisclaimerScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { user, refresh } = useAuthContext();
+  const { refresh } = useAuthContext();
+  const { updateProfile } = useProfile();
 
   const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +25,7 @@ export default function DisclaimerScreen() {
 
     setIsLoading(true);
     try {
-      await apiRequest("PATCH", `/api/profile/${user?.id}`, {
+      await updateProfile({
         disclaimerAccepted: true,
         onboardingCompleted: true,
       });
@@ -81,7 +82,7 @@ export default function DisclaimerScreen() {
               }
             ]}
           >
-            {accepted ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
+            {accepted ? <Feather name="check" size={18} color="#FFFFFF" /> : null}
           </View>
           <ThemedText type="body" style={styles.checkboxLabel}>
             Я понимаю и принимаю условия
@@ -91,7 +92,7 @@ export default function DisclaimerScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
         <Button onPress={handleComplete} disabled={!accepted || isLoading}>
-          {isLoading ? <ActivityIndicator color="#FFFFFF" /> : "Начать"}
+          {isLoading ? <ActivityIndicator color="#FFFFFF" /> : "Начать пользоваться"}
         </Button>
       </View>
     </ThemedView>
@@ -105,14 +106,12 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: Spacing["2xl"],
-    alignItems: "center",
   },
   progressContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    marginBottom: Spacing["3xl"],
-    alignSelf: "stretch",
+    marginBottom: Spacing["2xl"],
   },
   progressBar: {
     flex: 1,
@@ -127,14 +126,15 @@ const styles = StyleSheet.create({
   warningIcon: {
     width: 96,
     height: 96,
-    borderRadius: BorderRadius["3xl"],
+    borderRadius: 48,
     justifyContent: "center",
     alignItems: "center",
+    alignSelf: "center",
     marginBottom: Spacing["2xl"],
   },
   title: {
     textAlign: "center",
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.xl,
   },
   disclaimerBox: {
     padding: Spacing.xl,
@@ -144,19 +144,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing["2xl"],
   },
   disclaimerText: {
-    textAlign: "center",
+    lineHeight: 22,
   },
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    padding: Spacing.md,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -164,6 +163,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    paddingHorizontal: Spacing["2xl"],
+    padding: Spacing["2xl"],
   },
 });

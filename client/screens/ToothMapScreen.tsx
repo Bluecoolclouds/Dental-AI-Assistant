@@ -3,7 +3,6 @@ import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDi
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Ellipse, G } from "react-native-svg";
 import * as DocumentPicker from "expo-document-picker";
@@ -12,9 +11,10 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
-import { PROBLEM_TYPES, ProblemType, ToothHistory, ToothFile } from "@shared/schema";
+import { useToothData, useToothHistory, useToothFiles } from "@/hooks/useLocalData";
+import { PROBLEM_TYPES, ProblemType } from "@shared/schema";
+import type { ToothHistory } from "@/storage/repositories/toothHistoryRepository";
+import type { ToothFile } from "@/storage/repositories/toothFilesRepository";
 
 const VALID_TOOTH_IDS = [
   "18", "17", "16", "15", "14", "13", "12", "11",
@@ -113,8 +113,6 @@ export default function ToothMapScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { user } = useAuthContext();
-  const queryClient = useQueryClient();
   const { width: screenWidth } = useWindowDimensions();
 
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
@@ -134,73 +132,14 @@ export default function ToothMapScreen() {
   const [detailsClinicName, setDetailsClinicName] = useState("");
   const [detailsTreatment, setDetailsTreatment] = useState("");
 
-  const { data: toothData = [], isLoading } = useQuery<any[]>({
-    queryKey: [`/api/tooth-data/${user?.id}`],
-    enabled: !!user?.id,
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingHistory, setIsCreatingHistory] = useState(false);
+  const [isUpdatingHistory, setIsUpdatingHistory] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
-  const { data: historyData = [] } = useQuery<ToothHistory[]>({
-    queryKey: [`/api/tooth-history/${user?.id}`],
-    enabled: !!user?.id,
-  });
-
-  const { data: filesData = [] } = useQuery<ToothFile[]>({
-    queryKey: [`/api/tooth-files/${user?.id}`],
-    enabled: !!user?.id,
-  });
-
-  const uploadFileMutation = useMutation({
-    mutationFn: async (file: { fileName: string; fileType: string; fileUrl: string; fileSize?: number }) => {
-      return apiRequest("POST", "/api/tooth-files", { userId: user?.id, ...file });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tooth-files/${user?.id}`] });
-    },
-  });
-
-  const deleteFileMutation = useMutation({
-    mutationFn: async (fileId: string) => {
-      return apiRequest("DELETE", `/api/tooth-files/${fileId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tooth-files/${user?.id}`] });
-    },
-  });
-
-  const createHistoryMutation = useMutation({
-    mutationFn: async (data: { toothId: string; reason: string; eventType: string }) => {
-      return apiRequest("POST", "/api/tooth-history", { 
-        userId: user?.id, 
-        toothId: data.toothId,
-        reason: data.reason,
-        eventType: data.eventType,
-        source: "user",
-        priority: "routine",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tooth-history/${user?.id}`] });
-      setShowAddHistoryModal(false);
-      setNewHistoryToothId("");
-      setNewHistoryReason("");
-      setNewHistoryEventType("treatment");
-    },
-  });
-
-  const updateHistoryMutation = useMutation({
-    mutationFn: async (data: { eventId: string; doctorName?: string; clinicName?: string; treatmentDetails?: string }) => {
-      return apiRequest("PATCH", `/api/tooth-history/${data.eventId}`, {
-        doctorName: data.doctorName,
-        clinicName: data.clinicName,
-        treatmentDetails: data.treatmentDetails,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tooth-history/${user?.id}`] });
-      setShowDetailsModal(false);
-      setSelectedHistoryEvent(null);
-    },
-  });
+  const { toothData, isLoading, saveTooth } = useToothData();
+  const { history: historyData, createHistory, updateHistory } = useToothHistory();
+  const { files: filesData, uploadFile, deleteFile } = useToothFiles();
 
   const handleOpenDetails = (event: ToothHistory) => {
     setSelectedHistoryEvent(event);
@@ -210,17 +149,25 @@ export default function ToothMapScreen() {
     setShowDetailsModal(true);
   };
 
-  const handleSaveDetails = () => {
+  const handleSaveDetails = async () => {
     if (!selectedHistoryEvent) return;
-    updateHistoryMutation.mutate({
-      eventId: selectedHistoryEvent.id,
-      doctorName: detailsDoctorName || undefined,
-      clinicName: detailsClinicName || undefined,
-      treatmentDetails: detailsTreatment || undefined,
-    });
+    setIsUpdatingHistory(true);
+    try {
+      await updateHistory(selectedHistoryEvent.id, {
+        doctorName: detailsDoctorName || undefined,
+        clinicName: detailsClinicName || undefined,
+        treatmentDetails: detailsTreatment || undefined,
+      });
+      setShowDetailsModal(false);
+      setSelectedHistoryEvent(null);
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось сохранить детали");
+    } finally {
+      setIsUpdatingHistory(false);
+    }
   };
 
-  const handleAddHistory = () => {
+  const handleAddHistory = async () => {
     if (!newHistoryToothId || !newHistoryReason) {
       Alert.alert("Ошибка", "Укажите номер зуба и описание");
       return;
@@ -229,11 +176,24 @@ export default function ToothMapScreen() {
       Alert.alert("Ошибка", "Неверный номер зуба. Используйте номера от 11 до 48");
       return;
     }
-    createHistoryMutation.mutate({
-      toothId: newHistoryToothId,
-      reason: newHistoryReason,
-      eventType: newHistoryEventType,
-    });
+    setIsCreatingHistory(true);
+    try {
+      await createHistory({
+        toothId: newHistoryToothId,
+        reason: newHistoryReason,
+        eventType: newHistoryEventType,
+        source: "user",
+        priority: "routine",
+      });
+      setShowAddHistoryModal(false);
+      setNewHistoryToothId("");
+      setNewHistoryReason("");
+      setNewHistoryEventType("treatment");
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось добавить запись");
+    } finally {
+      setIsCreatingHistory(false);
+    }
   };
 
   const handlePickDocument = async () => {
@@ -248,12 +208,17 @@ export default function ToothMapScreen() {
         const fileType = asset.mimeType?.includes("pdf") ? "document" : 
                          asset.mimeType?.includes("image") ? "photo" : "other";
         
-        await uploadFileMutation.mutateAsync({
-          fileName: asset.name,
-          fileType,
-          fileUrl: asset.uri,
-          fileSize: asset.size,
-        });
+        setIsUploadingFile(true);
+        try {
+          await uploadFile({
+            fileName: asset.name,
+            fileType,
+            fileUrl: asset.uri,
+            fileSize: asset.size,
+          });
+        } finally {
+          setIsUploadingFile(false);
+        }
       }
     } catch (error) {
       Alert.alert("Ошибка", "Не удалось загрузить файл");
@@ -298,15 +263,6 @@ export default function ToothMapScreen() {
     }
   }, [selectedTooth, getToothNotes]);
 
-  const saveMutation = useMutation({
-    mutationFn: async ({ toothNumber, problems, notes }: { toothNumber: number; problems: string[]; notes?: string }) => {
-      return apiRequest("POST", "/api/tooth-data", { userId: user?.id, toothNumber, problems, notes });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tooth-data/${user?.id}`] });
-    },
-  });
-
   const getToothProblems = useCallback((toothNumber: number): string[] => {
     const tooth = toothData.find((t: any) => t.toothNumber === toothNumber);
     return (tooth?.problems as string[]) || [];
@@ -332,21 +288,36 @@ export default function ToothMapScreen() {
       : [...currentProblems, problem];
 
     const notes = hasCustomNote ? customNote : undefined;
-    await saveMutation.mutateAsync({ toothNumber: selectedTooth, problems: newProblems, notes });
+    setIsSaving(true);
+    try {
+      await saveTooth(selectedTooth, newProblems, notes);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveNotes = async () => {
     if (!selectedTooth) return;
     const currentProblems = getToothProblems(selectedTooth);
     const notes = hasCustomNote ? customNote : "";
-    await saveMutation.mutateAsync({ toothNumber: selectedTooth, problems: currentProblems, notes });
+    setIsSaving(true);
+    try {
+      await saveTooth(selectedTooth, currentProblems, notes);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleToggleCustomNote = async (enabled: boolean) => {
     setHasCustomNote(enabled);
     if (!enabled && selectedTooth) {
       const currentProblems = getToothProblems(selectedTooth);
-      await saveMutation.mutateAsync({ toothNumber: selectedTooth, problems: currentProblems, notes: "" });
+      setIsSaving(true);
+      try {
+        await saveTooth(selectedTooth, currentProblems, "");
+      } finally {
+        setIsSaving(false);
+      }
       setCustomNote("");
     }
   };
@@ -607,12 +578,12 @@ export default function ToothMapScreen() {
                   />
                   <Pressable
                     onPress={handleSaveNotes}
-                    disabled={saveMutation.isPending}
+                    disabled={isSaving}
                     style={({ pressed }) => [
                       styles.saveNoteButton,
                       {
                         backgroundColor: theme.primary,
-                        opacity: pressed || saveMutation.isPending ? 0.7 : 1,
+                        opacity: pressed || isSaving ? 0.7 : 1,
                       }
                     ]}
                   >
@@ -628,7 +599,7 @@ export default function ToothMapScreen() {
               ) : null}
             </View>
 
-            {saveMutation.isPending ? (
+            {isSaving ? (
               <View style={styles.savingIndicator}>
                 <ActivityIndicator size="small" color={theme.primary} />
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -843,18 +814,18 @@ export default function ToothMapScreen() {
             <View style={styles.tabContent}>
               <Pressable
                 onPress={handlePickDocument}
-                disabled={uploadFileMutation.isPending}
+                disabled={isUploadingFile}
                 style={({ pressed }) => [
                   styles.uploadButton,
                   { 
                     backgroundColor: theme.primary,
-                    opacity: pressed || uploadFileMutation.isPending ? 0.7 : 1
+                    opacity: pressed || isUploadingFile ? 0.7 : 1
                   }
                 ]}
               >
                 <Feather name="upload" size={18} color="#FFF" />
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
-                  {uploadFileMutation.isPending ? "Загрузка..." : "Загрузить файл"}
+                  {isUploadingFile ? "Загрузка..." : "Загрузить файл"}
                 </ThemedText>
               </Pressable>
               <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
@@ -900,7 +871,7 @@ export default function ToothMapScreen() {
                               { 
                                 text: "Удалить", 
                                 style: "destructive",
-                                onPress: () => deleteFileMutation.mutate(file.id)
+                                onPress: () => deleteFile(file.id)
                               }
                             ]
                           );
@@ -1001,17 +972,17 @@ export default function ToothMapScreen() {
 
               <Pressable
                 onPress={handleAddHistory}
-                disabled={createHistoryMutation.isPending}
+                disabled={isCreatingHistory}
                 style={({ pressed }) => [
                   styles.modalButton,
                   { 
                     backgroundColor: theme.primary,
-                    opacity: pressed || createHistoryMutation.isPending ? 0.7 : 1
+                    opacity: pressed || isCreatingHistory ? 0.7 : 1
                   }
                 ]}
               >
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
-                  {createHistoryMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  {isCreatingHistory ? "Сохранение..." : "Сохранить"}
                 </ThemedText>
               </Pressable>
             </View>
@@ -1093,17 +1064,17 @@ export default function ToothMapScreen() {
 
               <Pressable
                 onPress={handleSaveDetails}
-                disabled={updateHistoryMutation.isPending}
+                disabled={isUpdatingHistory}
                 style={({ pressed }) => [
                   styles.modalButton,
                   { 
                     backgroundColor: theme.primary,
-                    opacity: pressed || updateHistoryMutation.isPending ? 0.7 : 1
+                    opacity: pressed || isUpdatingHistory ? 0.7 : 1
                   }
                 ]}
               >
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
-                  {updateHistoryMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  {isUpdatingHistory ? "Сохранение..." : "Сохранить"}
                 </ThemedText>
               </Pressable>
             </View>

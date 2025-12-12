@@ -2,7 +2,6 @@ import React from "react";
 import { StyleSheet, View, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -10,7 +9,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { useToothData } from "@/hooks/useLocalData";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { ProblemType } from "@shared/schema";
 
@@ -29,13 +28,9 @@ export default function ToothDetailScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
-  const { user } = useAuthContext();
   const { toothNumber } = route.params;
 
-  const { data: toothData } = useQuery<any[]>({
-    queryKey: [`/api/tooth-data/${user?.id}`],
-    enabled: !!user?.id,
-  });
+  const { toothData } = useToothData();
 
   const tooth = toothData?.find((t) => t.toothNumber === toothNumber);
   const problems = (tooth?.problems as string[]) || [];
@@ -123,9 +118,9 @@ export default function ToothDetailScreen() {
         )}
 
         <View style={[styles.disclaimer, { backgroundColor: theme.backgroundDefault }]}>
-          <Feather name="info" size={20} color={theme.primary} />
+          <Feather name="info" size={20} color={theme.textSecondary} />
           <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
-            Вы можете обновить отметки для этого зуба на странице "Карта зубов"
+            Информация носит справочный характер. Для точной диагностики обратитесь к стоматологу.
           </ThemedText>
         </View>
       </ScrollView>
@@ -149,7 +144,7 @@ const styles = StyleSheet.create({
   toothIcon: {
     width: 80,
     height: 80,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -175,8 +170,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   problemIcon: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: BorderRadius.sm,
     justifyContent: "center",
     alignItems: "center",

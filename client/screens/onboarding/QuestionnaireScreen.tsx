@@ -11,8 +11,7 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { useProfile } from "@/hooks/useLocalData";
 import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Questionnaire">;
@@ -27,7 +26,7 @@ export default function QuestionnaireScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  const { user } = useAuthContext();
+  const { updateProfile } = useProfile();
 
   const [age, setAge] = useState("");
   const [brushingFrequency, setBrushingFrequency] = useState("");
@@ -41,9 +40,8 @@ export default function QuestionnaireScreen() {
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/profile", {
-        userId: user?.id,
-        age: age ? parseInt(age) : null,
+      await updateProfile({
+        age: age ? parseInt(age) : undefined,
         brushingFrequency,
         usesFloss,
         usesIrrigator,

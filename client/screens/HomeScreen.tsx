@@ -1,11 +1,8 @@
 import React from "react";
-import { StyleSheet, View, ScrollView, Pressable, ActivityIndicator, Platform, Image } from "react-native";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { StyleSheet, View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -16,21 +13,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { apiRequest } from "@/lib/query-client";
-
-type Alert = {
-  id: string;
-  userId: string;
-  type: string;
-  title: string;
-  description: string | null;
-  priority: string;
-  relatedTeeth: string[];
-  isRead: boolean;
-  isDismissed: boolean;
-  dueTime: string | null;
-  createdAt: string;
-};
+import { useTestResults, useAlerts } from "@/hooks/useLocalData";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -75,39 +58,19 @@ function ToothMascot() {
 
 
 export default function HomeScreen() {
-  const headerHeight = useHeaderHeight();
-  const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user } = useAuthContext();
-  const queryClient = useQueryClient();
 
-  const { data: testResult, isLoading } = useQuery<any>({
-    queryKey: [`/api/test-results/${user?.id}/latest`],
-    enabled: !!user?.id,
-  });
-
-  const { data: alerts = [] } = useQuery<Alert[]>({
-    queryKey: [`/api/alerts/${user?.id}`],
-    enabled: !!user?.id,
-    refetchInterval: 30000,
-  });
-
-  const dismissMutation = useMutation({
-    mutationFn: async (alertId: string) => {
-      await apiRequest("POST", `/api/alerts/${alertId}/dismiss`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/alerts/${user?.id}`] });
-    },
-  });
+  const { latestResult: testResult, isLoading } = useTestResults();
+  const { alerts, dismissAlert } = useAlerts();
 
   const userName = user?.email?.split("@")[0] || "Пациент";
   
-  const urgentAlerts = alerts.filter((a: Alert) => a.type === "urgent" || a.priority === "urgent");
-  const teethAtRiskAlerts = alerts.filter((a: Alert) => a.type === "teeth_at_risk");
-  const reminderAlerts = alerts.filter((a: Alert) => a.type === "reminder");
+  const urgentAlerts = alerts.filter((a) => a.type === "urgent" || a.priority === "urgent");
+  const teethAtRiskAlerts = alerts.filter((a) => a.type === "teeth_at_risk");
+  const reminderAlerts = alerts.filter((a) => a.type === "reminder");
 
   return (
     <ThemedView style={styles.container}>
@@ -116,7 +79,7 @@ export default function HomeScreen() {
           styles.content,
           {
             paddingTop: insets.top + Spacing.lg,
-            paddingBottom: tabBarHeight + Spacing.xl,
+            paddingBottom: insets.bottom + Spacing.xl + 80,
           }
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -174,7 +137,7 @@ export default function HomeScreen() {
 
         {urgentAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
-            {urgentAlerts.map((alert: Alert) => (
+            {urgentAlerts.map((alert) => (
               <View 
                 key={alert.id}
                 style={[styles.urgentAlertCard, { backgroundColor: "#FFEBEE" }]}
@@ -194,7 +157,7 @@ export default function HomeScreen() {
                     ) : null}
                   </View>
                   <Pressable 
-                    onPress={() => dismissMutation.mutate(alert.id)}
+                    onPress={() => dismissAlert(alert.id)}
                     style={styles.dismissButton}
                   >
                     <Feather name="x" size={18} color="#C62828" />
@@ -208,7 +171,7 @@ export default function HomeScreen() {
         {teethAtRiskAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
             <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Зубы под риском</ThemedText>
-            {teethAtRiskAlerts.map((alert: Alert) => (
+            {teethAtRiskAlerts.map((alert) => (
               <Pressable 
                 key={alert.id}
                 onPress={() => navigation.getParent()?.navigate("ToothMapTab")}
@@ -231,7 +194,7 @@ export default function HomeScreen() {
                   <Pressable 
                     onPress={(e) => {
                       e.stopPropagation();
-                      dismissMutation.mutate(alert.id);
+                      dismissAlert(alert.id);
                     }}
                     style={styles.dismissButton}
                   >
@@ -246,7 +209,7 @@ export default function HomeScreen() {
         {reminderAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
             <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Напоминания</ThemedText>
-            {reminderAlerts.slice(0, 3).map((alert: Alert) => (
+            {reminderAlerts.slice(0, 3).map((alert) => (
               <View 
                 key={alert.id}
                 style={[styles.reminderCard, { backgroundColor: "#E3F2FD" }]}
@@ -266,7 +229,7 @@ export default function HomeScreen() {
                     ) : null}
                   </View>
                   <Pressable 
-                    onPress={() => dismissMutation.mutate(alert.id)}
+                    onPress={() => dismissAlert(alert.id)}
                     style={styles.dismissButton}
                   >
                     <Feather name="check" size={18} color="#1565C0" />

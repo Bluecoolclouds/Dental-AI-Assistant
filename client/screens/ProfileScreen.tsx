@@ -5,7 +5,6 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
@@ -18,6 +17,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { useProfile } from "@/hooks/useLocalData";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -76,10 +76,7 @@ export default function ProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
-  const { data: profile } = useQuery<any>({
-    queryKey: [`/api/profile/${user?.id}`],
-    enabled: !!user?.id,
-  });
+  const { profile } = useProfile();
 
   useEffect(() => {
     checkNotificationStatus();
@@ -169,7 +166,7 @@ export default function ProfileScreen() {
     );
   };
 
-  const getBrushingLabel = (frequency: string) => {
+  const getBrushingLabel = (frequency: string | null | undefined) => {
     switch (frequency) {
       case "once":
         return "1 раз в день";
