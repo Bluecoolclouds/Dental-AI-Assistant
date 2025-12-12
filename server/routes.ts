@@ -358,6 +358,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - при кариесе, сколе, кровоточивости — объясни риски и необходимость лечения/контроля.
 Если тест и анкета показывают высокий риск (плохая гигиена, частая кровь, курение и т.п.) — подчёркивай профилактику и более частые визиты.
 
+ВАЖНО: Нумерация зубов
+Используй ТОЛЬКО стандартную стоматологическую нумерацию FDI (двузначные числа):
+- Верхняя правая четверть: 18, 17, 16, 15, 14, 13, 12, 11 (от зуба мудрости к центру)
+- Верхняя левая четверть: 21, 22, 23, 24, 25, 26, 27, 28 (от центра к зубу мудрости)
+- Нижняя левая четверть: 38, 37, 36, 35, 34, 33, 32, 31 (от зуба мудрости к центру)
+- Нижняя правая четверть: 41, 42, 43, 44, 45, 46, 47, 48 (от центра к зубу мудрости)
+В поле tooth_id указывай ТОЛЬКО эти двузначные номера (например "26", "11", "36"). Никогда не используй текстовые описания вроде "upper_right_2" или однозначные номера вроде "6".
+
 Структура ответа для пользователя
 Внутри assistant_message (текст для чата) придерживайся структуры:
 1. Коротко переформулируй проблему пользователя.
@@ -498,15 +506,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { teeth_updates, reminders } = parsed.state_updates;
           
           if (Array.isArray(teeth_updates) && teeth_updates.length > 0) {
+            const validToothNumbers = [
+              11, 12, 13, 14, 15, 16, 17, 18,
+              21, 22, 23, 24, 25, 26, 27, 28,
+              31, 32, 33, 34, 35, 36, 37, 38,
+              41, 42, 43, 44, 45, 46, 47, 48
+            ].map(String);
+            
+            const getToothName = (toothId: string): string => {
+              const num = parseInt(toothId, 10);
+              if (isNaN(num)) return toothId;
+              const quadrant = Math.floor(num / 10);
+              const position = num % 10;
+              const quadrantNames: Record<number, string> = {
+                1: "верхний правый",
+                2: "верхний левый", 
+                3: "нижний левый",
+                4: "нижний правый"
+              };
+              return `${quadrantNames[quadrant] || ""} ${position}`;
+            };
+            
             for (const tooth of teeth_updates) {
               if (tooth.mark_for_check && tooth.tooth_id) {
+                const toothId = String(tooth.tooth_id);
+                if (!validToothNumbers.includes(toothId)) {
+                  console.warn(`Invalid tooth_id from AI: ${toothId}, skipping`);
+                  continue;
+                }
                 await storage.createAlert({
                   userId,
                   type: "teeth_at_risk",
-                  title: `Зуб ${tooth.tooth_id} требует внимания`,
+                  title: `Зуб ${toothId} (${getToothName(toothId)}) требует внимания`,
                   description: tooth.reason || "ИИ рекомендует проверить этот зуб",
                   priority: tooth.priority || "routine",
-                  relatedTeeth: [tooth.tooth_id],
+                  relatedTeeth: [toothId],
                 });
               }
             }
