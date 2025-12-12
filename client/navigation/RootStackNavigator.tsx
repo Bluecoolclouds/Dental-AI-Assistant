@@ -9,6 +9,7 @@ import TestFlowScreen from "@/screens/TestFlowScreen";
 import FeedbackScreen from "@/screens/FeedbackScreen";
 import AIRecommendationsScreen from "@/screens/AIRecommendationsScreen";
 import ToothDetailScreen from "@/screens/ToothDetailScreen";
+import NotificationsScreen from "@/screens/NotificationsScreen";
 import { ActivityIndicator, View } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   Feedback: undefined;
   AIRecommendations: undefined;
   ToothDetail: { toothNumber: number };
+  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -81,6 +83,14 @@ export default function RootStackNavigator() {
             options={{
               presentation: "modal",
               headerTitle: "Детали зуба",
+            }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{
+              presentation: "modal",
+              headerTitle: "Уведомления",
             }}
           />
         </>

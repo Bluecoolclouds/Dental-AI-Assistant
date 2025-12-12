@@ -208,6 +208,13 @@ export default function ProfileScreen() {
           Уведомления
         </ThemedText>
 
+        <MenuItem
+          icon="inbox"
+          label="Центр уведомлений"
+          sublabel="Просмотр и управление"
+          onPress={() => navigation.navigate("Notifications")}
+        />
+
         <View style={[styles.notificationItem, { backgroundColor: theme.backgroundDefault }]}>
           <View style={[styles.menuIcon, { backgroundColor: theme.primary + "15" }]}>
             <Feather name="bell" size={20} color={theme.primary} />
