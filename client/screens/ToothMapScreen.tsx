@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform, TextInput } from "react-native";
+import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform, TextInput, Alert } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Ellipse, G } from "react-native-svg";
+import * as DocumentPicker from "expo-document-picker";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -13,7 +14,9 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
-import { PROBLEM_TYPES, ProblemType } from "@shared/schema";
+import { PROBLEM_TYPES, ProblemType, ToothHistory, ToothFile } from "@shared/schema";
+
+type DataTab = "history" | "files";
 
 const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
@@ -110,11 +113,86 @@ export default function ToothMapScreen() {
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
   const [hasCustomNote, setHasCustomNote] = useState(false);
   const [customNote, setCustomNote] = useState("");
+  const [activeTab, setActiveTab] = useState<DataTab>("history");
 
   const { data: toothData = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/tooth-data/${user?.id}`],
     enabled: !!user?.id,
   });
+
+  const { data: historyData = [] } = useQuery<ToothHistory[]>({
+    queryKey: [`/api/tooth-history/${user?.id}`],
+    enabled: !!user?.id,
+  });
+
+  const { data: filesData = [] } = useQuery<ToothFile[]>({
+    queryKey: [`/api/tooth-files/${user?.id}`],
+    enabled: !!user?.id,
+  });
+
+  const uploadFileMutation = useMutation({
+    mutationFn: async (file: { fileName: string; fileType: string; fileUrl: string; fileSize?: number }) => {
+      return apiRequest("POST", "/api/tooth-files", { userId: user?.id, ...file });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tooth-files/${user?.id}`] });
+    },
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      return apiRequest("DELETE", `/api/tooth-files/${fileId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tooth-files/${user?.id}`] });
+    },
+  });
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        const fileType = asset.mimeType?.includes("pdf") ? "document" : 
+                         asset.mimeType?.includes("image") ? "photo" : "other";
+        
+        await uploadFileMutation.mutateAsync({
+          fileName: asset.name,
+          fileType,
+          fileUrl: asset.uri,
+          fileSize: asset.size,
+        });
+      }
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось загрузить файл");
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} Б`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+  };
+
+  const groupHistoryByDate = (history: ToothHistory[]) => {
+    const groups: Record<string, ToothHistory[]> = {};
+    history.forEach(item => {
+      const date = formatDate(item.createdAt as unknown as string);
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(item);
+    });
+    return Object.entries(groups);
+  };
 
   const getToothNotes = useCallback((toothNumber: number): string => {
     const tooth = toothData.find((t: any) => t.toothNumber === toothNumber);
@@ -515,6 +593,181 @@ export default function ToothMapScreen() {
             })}
           </View>
         </View>
+
+        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={styles.tabsContainer}>
+            <Pressable
+              onPress={() => setActiveTab("history")}
+              style={[
+                styles.tabButton,
+                activeTab === "history" && { backgroundColor: theme.primary + "15" }
+              ]}
+            >
+              <Feather 
+                name="clock" 
+                size={18} 
+                color={activeTab === "history" ? theme.primary : theme.textSecondary} 
+              />
+              <ThemedText 
+                type="body" 
+                style={{ 
+                  color: activeTab === "history" ? theme.primary : theme.textSecondary,
+                  fontWeight: activeTab === "history" ? "600" : "400"
+                }}
+              >
+                История
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveTab("files")}
+              style={[
+                styles.tabButton,
+                activeTab === "files" && { backgroundColor: theme.primary + "15" }
+              ]}
+            >
+              <Feather 
+                name="folder" 
+                size={18} 
+                color={activeTab === "files" ? theme.primary : theme.textSecondary} 
+              />
+              <ThemedText 
+                type="body" 
+                style={{ 
+                  color: activeTab === "files" ? theme.primary : theme.textSecondary,
+                  fontWeight: activeTab === "files" ? "600" : "400"
+                }}
+              >
+                Файлы
+              </ThemedText>
+            </Pressable>
+          </View>
+
+          {activeTab === "history" ? (
+            <View style={styles.tabContent}>
+              {historyData.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Feather name="clock" size={32} color={theme.textSecondary} />
+                  <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+                    История пуста
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
+                    События будут появляться здесь по мере использования приложения
+                  </ThemedText>
+                </View>
+              ) : (
+                groupHistoryByDate(historyData).map(([date, events]) => (
+                  <View key={date} style={styles.historyDateGroup}>
+                    <ThemedText type="small" style={[styles.historyDate, { color: theme.textSecondary }]}>
+                      {date}
+                    </ThemedText>
+                    {events.map((event) => (
+                      <View 
+                        key={event.id} 
+                        style={[
+                          styles.historyItem, 
+                          { 
+                            backgroundColor: theme.backgroundSecondary,
+                            borderLeftColor: event.priority === "urgent" ? "#F44336" : 
+                                            event.priority === "soon" ? "#FF9800" : theme.primary
+                          }
+                        ]}
+                      >
+                        <View style={styles.historyItemHeader}>
+                          <View style={[styles.toothBadge, { backgroundColor: theme.primary + "20" }]}>
+                            <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+                              {event.toothId}
+                            </ThemedText>
+                          </View>
+                          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                            {event.source === "ai" ? "ИИ" : "Вы"}
+                          </ThemedText>
+                        </View>
+                        <ThemedText type="body" style={{ marginTop: Spacing.xs }}>
+                          {event.reason}
+                        </ThemedText>
+                      </View>
+                    ))}
+                  </View>
+                ))
+              )}
+            </View>
+          ) : (
+            <View style={styles.tabContent}>
+              <Pressable
+                onPress={handlePickDocument}
+                disabled={uploadFileMutation.isPending}
+                style={({ pressed }) => [
+                  styles.uploadButton,
+                  { 
+                    backgroundColor: theme.primary,
+                    opacity: pressed || uploadFileMutation.isPending ? 0.7 : 1
+                  }
+                ]}
+              >
+                <Feather name="upload" size={18} color="#FFF" />
+                <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
+                  {uploadFileMutation.isPending ? "Загрузка..." : "Загрузить файл"}
+                </ThemedText>
+              </Pressable>
+              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
+                КТ-снимки, рентген, фото зубов, документы
+              </ThemedText>
+
+              {filesData.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Feather name="folder" size={32} color={theme.textSecondary} />
+                  <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+                    Нет загруженных файлов
+                  </ThemedText>
+                </View>
+              ) : (
+                <View style={styles.filesList}>
+                  {filesData.map((file) => (
+                    <View 
+                      key={file.id} 
+                      style={[styles.fileItem, { backgroundColor: theme.backgroundSecondary }]}
+                    >
+                      <View style={[styles.fileIcon, { backgroundColor: theme.primary + "15" }]}>
+                        <Feather 
+                          name={file.fileType === "document" ? "file-text" : "image"} 
+                          size={20} 
+                          color={theme.primary} 
+                        />
+                      </View>
+                      <View style={styles.fileInfo}>
+                        <ThemedText type="body" numberOfLines={1}>
+                          {file.fileName}
+                        </ThemedText>
+                        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                          {formatDate(file.createdAt as unknown as string)} {formatFileSize(file.fileSize ?? undefined)}
+                        </ThemedText>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          Alert.alert(
+                            "Удалить файл?",
+                            file.fileName,
+                            [
+                              { text: "Отмена", style: "cancel" },
+                              { 
+                                text: "Удалить", 
+                                style: "destructive",
+                                onPress: () => deleteFileMutation.mutate(file.id)
+                              }
+                            ]
+                          );
+                        }}
+                        style={styles.deleteFileButton}
+                      >
+                        <Feather name="trash-2" size={18} color={theme.textSecondary} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -760,5 +1013,85 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     marginTop: Spacing.md,
     alignSelf: "flex-start",
+  },
+  tabsContainer: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  tabContent: {
+    gap: Spacing.md,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  historyDateGroup: {
+    gap: Spacing.sm,
+  },
+  historyDate: {
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    fontSize: 11,
+    marginTop: Spacing.md,
+  },
+  historyItem: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderLeftWidth: 3,
+  },
+  historyItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  toothBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  uploadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  filesList: {
+    gap: Spacing.sm,
+  },
+  fileItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.md,
+  },
+  fileIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fileInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  deleteFileButton: {
+    padding: Spacing.sm,
   },
 });
