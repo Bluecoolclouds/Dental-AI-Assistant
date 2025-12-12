@@ -220,12 +220,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Recommendations Route
-  // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+  // AI Recommendations Route - using Perplexity API
   app.post("/api/recommendations", async (req: Request, res: Response) => {
     try {
-      const openai = getOpenAIClient();
-      if (!openai) {
+      const perplexity = getPerplexityClient();
+      if (!perplexity) {
         return res.status(503).json({ 
           error: "AI недоступен", 
           recommendations: [],
@@ -242,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const systemPrompt = `Вы - виртуальный стоматологический консультант. Анализируйте данные о здоровье зубов пользователя и предоставляйте персонализированные рекомендации на русском языке.
 
-Ответьте в формате JSON с полями:
+Ответьте ТОЛЬКО в формате JSON без дополнительного текста:
 {
   "recommendations": [
     {
@@ -272,20 +271,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Риск для дёсен: ${latestTest?.gumsRiskScore || "не проходил"}%
 - Общий уровень риска: ${latestTest?.overallRiskLevel || "не определён"}
 
-Предоставьте персонализированные рекомендации на основе этих данных.`;
+Предоставьте персонализированные рекомендации на основе этих данных. Ответьте ТОЛЬКО в формате JSON.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5",
+      const response = await perplexity.chat.completions.create({
+        model: "sonar",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage }
         ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 2048,
       });
 
       const content = response.choices[0].message.content;
-      const parsed = JSON.parse(content || "{}");
+      const jsonMatch = content?.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(jsonMatch?.[0] || "{}");
 
       return res.json(parsed);
     } catch (error) {
