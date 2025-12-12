@@ -9,6 +9,7 @@ import { Card } from "@/components/Card";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useTestResults, useProfile, useToothData } from "@/hooks/useLocalData";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
 const RECOMMENDATION_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
@@ -24,6 +25,7 @@ const RECOMMENDATION_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
 export default function AIRecommendationsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { user } = useAuthContext();
 
   const { latestResult: testResult, isLoading: isLoadingTest, updateAIRecommendations } = useTestResults();
   const { profile } = useProfile();
@@ -72,6 +74,8 @@ export default function AIRecommendationsScreen() {
       })) || [];
 
       const response = await apiRequest("POST", "/api/recommendations", {
+        userId: user?.id,
+        testResultId: testResult.id,
         testResult: sanitizedTestResult,
         profile: sanitizedProfile,
         toothData: sanitizedToothData,
