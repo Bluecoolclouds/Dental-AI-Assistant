@@ -88,6 +88,36 @@ export const alerts = pgTable("alerts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Tooth history - timeline of events for each tooth
+export const toothHistory = pgTable("tooth_history", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  toothId: text("tooth_id").notNull(), // FDI notation e.g. "26", "11"
+  eventType: text("event_type").notNull(), // "complaint", "resolved", "check_recommended", "treatment", "note"
+  reason: text("reason").notNull(), // Description of the event
+  priority: text("priority").default("routine"), // "routine", "soon", "urgent"
+  markForCheck: boolean("mark_for_check").default(false),
+  source: text("source").default("user"), // "user", "ai", "system"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tooth files - uploaded files related to dental health (CT scans, X-rays, etc.)
+export const toothFiles = pgTable("tooth_files", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(), // "ct", "xray", "photo", "document", "other"
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"), // Size in bytes
+  description: text("description"),
+  relatedTeeth: jsonb("related_teeth").default([]), // Array of tooth IDs
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles, {
@@ -126,6 +156,20 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
   }),
 }));
 
+export const toothHistoryRelations = relations(toothHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [toothHistory.userId],
+    references: [users.id],
+  }),
+}));
+
+export const toothFilesRelations = relations(toothFiles, ({ one }) => ({
+  user: one(users, {
+    fields: [toothFiles.userId],
+    references: [users.id],
+  }),
+}));
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -157,6 +201,16 @@ export const insertAlertSchema = createInsertSchema(alerts).omit({
   createdAt: true,
 });
 
+export const insertToothHistorySchema = createInsertSchema(toothHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertToothFileSchema = createInsertSchema(toothFiles).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -170,6 +224,10 @@ export type Feedback = typeof feedback.$inferSelect;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type Alert = typeof alerts.$inferSelect;
 export type InsertAlert = z.infer<typeof insertAlertSchema>;
+export type ToothHistory = typeof toothHistory.$inferSelect;
+export type InsertToothHistory = z.infer<typeof insertToothHistorySchema>;
+export type ToothFile = typeof toothFiles.$inferSelect;
+export type InsertToothFile = z.infer<typeof insertToothFileSchema>;
 
 // Problem types enum
 export const PROBLEM_TYPES = [
