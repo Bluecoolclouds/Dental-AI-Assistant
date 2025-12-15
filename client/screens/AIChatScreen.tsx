@@ -13,38 +13,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useMutation } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useToothData } from "@/hooks/useLocalData";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { createAlert, getActiveAlerts } from "@/storage/repositories/alertsRepository";
 
 interface Message {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant";
   content: string;
   timestamp: string;
-  isAlert?: boolean;
 }
-
-const PROBLEM_LABELS: Record<string, string> = {
-  cavity: "кариес",
-  filling: "пломба",
-  crown: "коронка",
-  implant: "имплант",
-  missing: "отсутствует",
-  root_canal: "удаление нерва",
-  sensitivity: "чувствительность",
-  gum_issue: "проблемы с деснами",
-  pain: "боль",
-  crack: "трещина",
-};
-
-const LAST_REMINDER_KEY = "toothy_last_reminder";
 
 const CHAT_STORAGE_KEY = "toothy_chat_history";
 
@@ -61,7 +42,6 @@ export default function AIChatScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const flatListRef = useRef<FlatList>(null);
-  const { toothData, refetch: refetchTeeth } = useToothData();
   
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState("");
@@ -85,77 +65,6 @@ export default function AIChatScreen() {
     };
     loadChatHistory();
   }, []);
-
-  const generateTreatmentReminder = useCallback(async () => {
-    if (!user?.id || !isLoaded) return;
-
-    const teethWithProblems = toothData.filter((t) => 
-      t.problems.some((p) => ["cavity", "pain", "crack", "sensitivity", "gum_issue"].includes(p))
-    );
-
-    if (teethWithProblems.length === 0) return;
-
-    try {
-      const lastReminder = await AsyncStorage.getItem(LAST_REMINDER_KEY);
-      const now = Date.now();
-      
-      if (lastReminder) {
-        const lastTime = parseInt(lastReminder, 10);
-        const hoursSinceLast = (now - lastTime) / (1000 * 60 * 60);
-        if (hoursSinceLast < 24) return;
-      }
-
-      const problemsList = teethWithProblems.map((t) => {
-        const problemNames = t.problems
-          .filter((p) => PROBLEM_LABELS[p])
-          .map((p) => PROBLEM_LABELS[p])
-          .join(", ");
-        return `зуб ${t.toothNumber} (${problemNames})`;
-      }).slice(0, 3);
-
-      const reminderContent = `Напоминаю о необходимости лечения: ${problemsList.join("; ")}.\n\nВажно: раннее лечение значительно дешевле и проще. Если откладывать, проблема может усугубиться — лечение станет дороже, болезненнее, и в худшем случае зуб придётся удалить.\n\nЗапишитесь к стоматологу как можно скорее!`;
-
-      const reminderMessage: Message = {
-        id: `reminder_${now}`,
-        role: "assistant",
-        content: reminderContent,
-        timestamp: new Date().toISOString(),
-        isAlert: true,
-      };
-
-      setMessages((prev) => {
-        const hasThisReminder = prev.some((m) => m.id === reminderMessage.id);
-        if (hasThisReminder) return prev;
-        return [...prev, reminderMessage];
-      });
-
-      await AsyncStorage.setItem(LAST_REMINDER_KEY, now.toString());
-
-      await createAlert({
-        userId: user.id,
-        type: "warning",
-        title: "Напоминание о лечении зубов",
-        description: `У вас ${teethWithProblems.length} зуб(ов) требуют внимания. Раннее лечение дешевле и проще!`,
-        priority: "important",
-        relatedTeeth: teethWithProblems.map((t) => t.toothNumber.toString()),
-      });
-
-    } catch (error) {
-      console.log("Error generating reminder:", error);
-    }
-  }, [user?.id, toothData, isLoaded]);
-
-  useFocusEffect(
-    useCallback(() => {
-      refetchTeeth();
-    }, [refetchTeeth])
-  );
-
-  useEffect(() => {
-    if (isLoaded && toothData.length > 0) {
-      generateTreatmentReminder();
-    }
-  }, [isLoaded, toothData, generateTreatmentReminder]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -226,7 +135,6 @@ export default function AIChatScreen() {
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
       const isUser = item.role === "user";
-      const isAlert = item.isAlert;
       return (
         <View
           style={[
@@ -235,8 +143,8 @@ export default function AIChatScreen() {
           ]}
         >
           {!isUser && (
-            <View style={[styles.avatar, { backgroundColor: isAlert ? theme.warning : theme.primary }]}>
-              <Feather name={isAlert ? "alert-triangle" : "cpu"} size={16} color="#FFFFFF" />
+            <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+              <Feather name="cpu" size={16} color="#FFFFFF" />
             </View>
           )}
           <View
@@ -244,16 +152,9 @@ export default function AIChatScreen() {
               styles.messageBubble,
               isUser
                 ? { backgroundColor: theme.primary }
-                : isAlert 
-                  ? { backgroundColor: theme.warning + "20", borderWidth: 1, borderColor: theme.warning }
-                  : { backgroundColor: theme.backgroundSecondary },
+                : { backgroundColor: theme.backgroundSecondary },
             ]}
           >
-            {isAlert ? (
-              <ThemedText type="small" style={{ color: theme.warning, fontWeight: "600", marginBottom: Spacing.xs }}>
-                Напоминание от ИИ
-              </ThemedText>
-            ) : null}
             <ThemedText
               style={[
                 styles.messageText,

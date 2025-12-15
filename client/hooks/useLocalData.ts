@@ -45,6 +45,19 @@ export function useProfile() {
   return { profile, isLoading, updateProfile, refetch: load };
 }
 
+const PROBLEM_LABELS: Record<string, string> = {
+  cavity: "кариес",
+  pain: "боль",
+  crack: "трещина",
+  sensitivity: "чувствительность",
+  gum_issue: "проблемы с деснами",
+  bleeding: "кровоточивость",
+  chip: "скол",
+  filling: "пломба",
+};
+
+const URGENT_PROBLEMS = ["cavity", "pain", "crack", "sensitivity", "gum_issue", "bleeding"];
+
 export function useToothData() {
   const { user } = useAuthContext();
   const [toothData, setToothData] = useState<toothRepo.ToothData[]>([]);
@@ -70,18 +83,40 @@ export function useToothData() {
   const saveTooth = useCallback(async (toothNumber: number, problems: string[], notes?: string) => {
     if (!user?.id) return;
     try {
+      const existingTooth = toothData.find((t) => t.toothNumber === toothNumber);
+      const existingProblems = existingTooth?.problems || [];
+      
+      const newProblems = problems.filter((p) => !existingProblems.includes(p));
+      const urgentNewProblems = newProblems.filter((p) => URGENT_PROBLEMS.includes(p));
+
       await toothRepo.createOrUpdateTooth({
         userId: user.id,
         toothNumber,
         problems,
         notes,
       });
+
+      if (urgentNewProblems.length > 0) {
+        const problemNames = urgentNewProblems
+          .map((p) => PROBLEM_LABELS[p] || p)
+          .join(", ");
+        
+        await alertsRepo.createAlert({
+          userId: user.id,
+          type: "warning",
+          title: `Зуб ${toothNumber}: требуется лечение`,
+          description: `Обнаружено: ${problemNames}. Раннее лечение дешевле и проще! Не откладывайте визит к стоматологу — потом лечение будет дороже и сложнее, вплоть до удаления зуба.`,
+          priority: "important",
+          relatedTeeth: [toothNumber.toString()],
+        });
+      }
+
       await load();
     } catch (error) {
       console.error("Error saving tooth:", error);
       throw error;
     }
-  }, [user?.id, load]);
+  }, [user?.id, load, toothData]);
 
   return { toothData, isLoading, saveTooth, refetch: load };
 }
