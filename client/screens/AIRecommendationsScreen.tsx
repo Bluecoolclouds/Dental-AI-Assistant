@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -12,7 +12,7 @@ import { useTestResults, useProfile, useToothData } from "@/hooks/useLocalData";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
-const RECOMMENDATION_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
+const RECOMMENDATION_ICONS: Record<string, keyof typeof AppIcon.glyphMap> = {
   brushing: "edit-3",
   flossing: "scissors",
   diet: "coffee",
@@ -119,7 +119,7 @@ export default function AIRecommendationsScreen() {
       >
         <View style={[styles.headerCard, { backgroundColor: theme.primary + "15" }]}>
           <View style={[styles.aiIcon, { backgroundColor: theme.primary }]}>
-            <Feather name="cpu" size={28} color="#FFFFFF" />
+            <AppIcon name="cpu" size={28} color="#FFFFFF" />
           </View>
           <ThemedText type="h4">Персональные рекомендации</ThemedText>
           <ThemedText type="body" style={[styles.headerDescription, { color: theme.textSecondary }]}>
@@ -169,7 +169,7 @@ export default function AIRecommendationsScreen() {
         )}
 
         <View style={[styles.disclaimer, { backgroundColor: theme.warning + "15", borderColor: theme.warning }]}>
-          <Feather name="alert-triangle" size={20} color={theme.warning} />
+          <AppIcon name="alert-triangle" size={20} color={theme.warning} />
           <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
             Рекомендации носят информационный характер и не заменяют консультацию стоматолога. При острой боли или проблемах обратитесь к врачу.
           </ThemedText>
@@ -198,7 +198,7 @@ function RecommendationCard({
     <Card elevation={1} style={styles.recommendationCard}>
       <View style={styles.recommendationHeader}>
         <View style={[styles.recommendationIcon, { backgroundColor: priorityColor + "15" }]}>
-          <Feather name={icon} size={20} color={priorityColor} />
+          <AppIcon name={icon} size={20} color={priorityColor} />
         </View>
         <View style={styles.recommendationTitleContainer}>
           <ThemedText type="h4">{title}</ThemedText>

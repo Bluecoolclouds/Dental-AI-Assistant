@@ -3,7 +3,7 @@ import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDi
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 import Svg, { Ellipse, G } from "react-native-svg";
 import * as DocumentPicker from "expo-document-picker";
 
@@ -29,7 +29,7 @@ type DataTab = "history" | "files";
 const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 
-const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Feather.glyphMap; color: string }> = {
+const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof AppIcon.glyphMap; color: string }> = {
   pain: { label: "Боль", icon: "zap", color: "#F44336" },
   chip: { label: "Скол", icon: "slash", color: "#9C27B0" },
   filling: { label: "Пломба", icon: "square", color: "#2196F3" },
@@ -500,7 +500,7 @@ export default function ToothMapScreen() {
                 onPress={() => setSelectedTooth(null)}
                 style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}
               >
-                <Feather name="x" size={20} color={theme.textSecondary} />
+                <AppIcon name="x" size={20} color={theme.textSecondary} />
               </Pressable>
             </View>
 
@@ -525,7 +525,7 @@ export default function ToothMapScreen() {
                       }
                     ]}
                   >
-                    <Feather name={config.icon} size={18} color={isActive ? config.color : theme.textSecondary} />
+                    <AppIcon name={config.icon} size={18} color={isActive ? config.color : theme.textSecondary} />
                     <ThemedText
                       type="small"
                       style={{ color: isActive ? config.color : theme.text }}
@@ -550,7 +550,7 @@ export default function ToothMapScreen() {
                   }
                 ]}>
                   {hasCustomNote ? (
-                    <Feather name="check" size={14} color="#FFF" />
+                    <AppIcon name="check" size={14} color="#FFF" />
                   ) : null}
                 </View>
                 <ThemedText type="body" style={{ flex: 1 }}>
@@ -588,7 +588,7 @@ export default function ToothMapScreen() {
                       }
                     ]}
                   >
-                    <Feather name="save" size={16} color="#FFF" />
+                    <AppIcon name="save" size={16} color="#FFF" />
                     <ThemedText type="small" style={{ color: "#FFF", fontWeight: "600" }}>
                       Сохранить
                     </ThemedText>
@@ -612,7 +612,7 @@ export default function ToothMapScreen() {
         ) : (
           <View style={[styles.hintCard, { backgroundColor: theme.backgroundDefault }]}>
             <View style={[styles.hintIcon, { backgroundColor: theme.primary + "15" }]}>
-              <Feather name="info" size={20} color={theme.primary} />
+              <AppIcon name="info" size={20} color={theme.primary} />
             </View>
             <View style={styles.hintContent}>
               <ThemedText type="body" style={{ fontWeight: "500" }}>Как использовать</ThemedText>
@@ -645,7 +645,7 @@ export default function ToothMapScreen() {
               return (
                 <View key={problem} style={styles.legendGridItem}>
                   <View style={[styles.legendColor, { backgroundColor: config.color + "20" }]}>
-                    <Feather name={config.icon} size={14} color={config.color} />
+                    <AppIcon name={config.icon} size={14} color={config.color} />
                   </View>
                   <ThemedText type="small">{config.label}</ThemedText>
                 </View>
@@ -663,7 +663,7 @@ export default function ToothMapScreen() {
                 activeTab === "history" && { backgroundColor: theme.primary + "15" }
               ]}
             >
-              <Feather 
+              <AppIcon 
                 name="clock" 
                 size={18} 
                 color={activeTab === "history" ? theme.primary : theme.textSecondary} 
@@ -685,7 +685,7 @@ export default function ToothMapScreen() {
                 activeTab === "files" && { backgroundColor: theme.primary + "15" }
               ]}
             >
-              <Feather 
+              <AppIcon 
                 name="folder" 
                 size={18} 
                 color={activeTab === "files" ? theme.primary : theme.textSecondary} 
@@ -714,7 +714,7 @@ export default function ToothMapScreen() {
                   }
                 ]}
               >
-                <Feather name="plus" size={18} color="#FFF" />
+                <AppIcon name="plus" size={18} color="#FFF" />
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
                   Добавить запись
                 </ThemedText>
@@ -722,7 +722,7 @@ export default function ToothMapScreen() {
 
               {historyData.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Feather name="clock" size={32} color={theme.textSecondary} />
+                  <AppIcon name="clock" size={32} color={theme.textSecondary} />
                   <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
                     История пуста
                   </ThemedText>
@@ -806,7 +806,7 @@ export default function ToothMapScreen() {
                             <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
                               Подробнее
                             </ThemedText>
-                            <Feather name="chevron-right" size={14} color={theme.primary} />
+                            <AppIcon name="chevron-right" size={14} color={theme.primary} />
                           </Pressable>
                           {Platform.OS !== "web" ? (
                             <Pressable
@@ -836,7 +836,7 @@ export default function ToothMapScreen() {
                                 }
                               ]}
                             >
-                              <Feather name="calendar" size={14} color={theme.primary} />
+                              <AppIcon name="calendar" size={14} color={theme.primary} />
                             </Pressable>
                           ) : null}
                         </View>
@@ -859,7 +859,7 @@ export default function ToothMapScreen() {
                   }
                 ]}
               >
-                <Feather name="upload" size={18} color="#FFF" />
+                <AppIcon name="upload" size={18} color="#FFF" />
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
                   {isUploadingFile ? "Загрузка..." : "Загрузить файл"}
                 </ThemedText>
@@ -870,7 +870,7 @@ export default function ToothMapScreen() {
 
               {filesData.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Feather name="folder" size={32} color={theme.textSecondary} />
+                  <AppIcon name="folder" size={32} color={theme.textSecondary} />
                   <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
                     Нет загруженных файлов
                   </ThemedText>
@@ -883,7 +883,7 @@ export default function ToothMapScreen() {
                       style={[styles.fileItem, { backgroundColor: theme.backgroundSecondary }]}
                     >
                       <View style={[styles.fileIcon, { backgroundColor: theme.primary + "15" }]}>
-                        <Feather 
+                        <AppIcon 
                           name={file.fileType === "document" ? "file-text" : "image"} 
                           size={20} 
                           color={theme.primary} 
@@ -914,7 +914,7 @@ export default function ToothMapScreen() {
                         }}
                         style={styles.deleteFileButton}
                       >
-                        <Feather name="trash-2" size={18} color={theme.textSecondary} />
+                        <AppIcon name="trash-2" size={18} color={theme.textSecondary} />
                       </Pressable>
                     </View>
                   ))}
@@ -936,7 +936,7 @@ export default function ToothMapScreen() {
             <View style={styles.modalHeader}>
               <ThemedText type="subtitle">Новая запись</ThemedText>
               <Pressable onPress={() => setShowAddHistoryModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
-                <Feather name="x" size={20} color={theme.text} />
+                <AppIcon name="x" size={20} color={theme.text} />
               </Pressable>
             </View>
 
@@ -1037,7 +1037,7 @@ export default function ToothMapScreen() {
             <View style={styles.modalHeader}>
               <ThemedText type="subtitle">Детали визита</ThemedText>
               <Pressable onPress={() => setShowDetailsModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
-                <Feather name="x" size={20} color={theme.text} />
+                <AppIcon name="x" size={20} color={theme.text} />
               </Pressable>
             </View>
 

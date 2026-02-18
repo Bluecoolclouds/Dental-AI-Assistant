@@ -7,6 +7,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
 import * as Font from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -27,15 +30,13 @@ function AppContent() {
     async function loadFonts() {
       try {
         await Font.loadAsync({
-          feather: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf"),
-          ionicons: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"),
-          material: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf"),
-          "material-community": require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"),
+          "app-feather": require("../assets/fonts/Feather.ttf"),
         });
       } catch (e) {
         console.warn("Font loading error:", e);
       } finally {
         setFontsLoaded(true);
+        SplashScreen.hideAsync().catch(() => {});
       }
     }
 

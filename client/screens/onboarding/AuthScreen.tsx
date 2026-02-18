@@ -5,7 +5,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -162,7 +162,7 @@ export default function AuthScreen() {
 
           {error ? (
             <View style={[styles.errorContainer, { backgroundColor: theme.danger + "15" }]}>
-              <Feather name="alert-circle" size={18} color={theme.danger} />
+              <AppIcon name="alert-circle" size={18} color={theme.danger} />
               <ThemedText type="small" style={{ color: theme.danger, flex: 1 }}>
                 {error}
               </ThemedText>
@@ -171,7 +171,7 @@ export default function AuthScreen() {
 
           <View style={styles.inputGroup}>
             <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-              <Feather name="mail" size={20} color={theme.textSecondary} style={styles.inputIcon} />
+              <AppIcon name="mail" size={20} color={theme.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="Email"
@@ -185,7 +185,7 @@ export default function AuthScreen() {
             </View>
 
             <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-              <Feather name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
+              <AppIcon name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
                 placeholder="Пароль"
@@ -196,13 +196,13 @@ export default function AuthScreen() {
                 autoComplete={isLogin ? "current-password" : "new-password"}
               />
               <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                <Feather name={showPassword ? "eye-off" : "eye"} size={20} color={theme.textSecondary} />
+                <AppIcon name={showPassword ? "eye-off" : "eye"} size={20} color={theme.textSecondary} />
               </Pressable>
             </View>
 
             {!isLogin ? (
               <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-                <Feather name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
+                <AppIcon name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, { color: theme.text }]}
                   placeholder="Подтвердите пароль"
@@ -232,8 +232,8 @@ export default function AuthScreen() {
                   {isLogin ? "Войти" : "Начать"}
                 </ThemedText>
                 <View style={styles.buttonArrows}>
-                  <Feather name="chevron-right" size={16} color="#FFFFFF" />
-                  <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.5)" style={{ marginLeft: -8 }} />
+                  <AppIcon name="chevron-right" size={16} color="#FFFFFF" />
+                  <AppIcon name="chevron-right" size={16} color="rgba(255,255,255,0.5)" style={{ marginLeft: -8 }} />
                 </View>
               </>
             )}
@@ -252,10 +252,10 @@ export default function AuthScreen() {
 
           <View style={styles.bottomNav}>
             <Pressable style={styles.navArrow}>
-              <Feather name="chevron-left" size={24} color={theme.textSecondary} />
+              <AppIcon name="chevron-left" size={24} color={theme.textSecondary} />
             </Pressable>
             <Pressable style={[styles.navArrow, { marginLeft: Spacing.sm }]}>
-              <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+              <AppIcon name="chevron-right" size={24} color={theme.textSecondary} />
             </Pressable>
           </View>
         </KeyboardAwareScrollViewCompat>

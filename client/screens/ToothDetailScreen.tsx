@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, View, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -15,7 +15,7 @@ import { ProblemType } from "@shared/schema";
 
 type RouteProps = RouteProp<RootStackParamList, "ToothDetail">;
 
-const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Feather.glyphMap; color: string; description: string }> = {
+const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof AppIcon.glyphMap; color: string; description: string }> = {
   pain: { label: "Боль", icon: "zap", color: "#E74C3C", description: "Зубная боль может указывать на кариес, воспаление или повреждение нерва" },
   chip: { label: "Скол", icon: "slash", color: "#9B59B6", description: "Сколы требуют внимания стоматолога для предотвращения дальнейшего разрушения" },
   filling: { label: "Пломба", icon: "square", color: "#3498DB", description: "Имеющаяся пломба требует регулярного контроля состояния" },
@@ -91,7 +91,7 @@ export default function ToothDetailScreen() {
                   <Card key={problem} elevation={1} style={styles.problemCard}>
                     <View style={styles.problemHeader}>
                       <View style={[styles.problemIcon, { backgroundColor: config.color + "20" }]}>
-                        <Feather name={config.icon} size={24} color={config.color} />
+                        <AppIcon name={config.icon} size={24} color={config.color} />
                       </View>
                       <ThemedText type="h4" style={{ color: config.color }}>
                         {config.label}
@@ -107,7 +107,7 @@ export default function ToothDetailScreen() {
           </View>
         ) : (
           <View style={[styles.emptyCard, { backgroundColor: theme.success + "10" }]}>
-            <Feather name="check-circle" size={40} color={theme.success} />
+            <AppIcon name="check-circle" size={40} color={theme.success} />
             <ThemedText type="h4" style={{ color: theme.success }}>
               Проблем не обнаружено
             </ThemedText>
@@ -118,7 +118,7 @@ export default function ToothDetailScreen() {
         )}
 
         <View style={[styles.disclaimer, { backgroundColor: theme.backgroundDefault }]}>
-          <Feather name="info" size={20} color={theme.textSecondary} />
+          <AppIcon name="info" size={20} color={theme.textSecondary} />
           <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
             Информация носит справочный характер. Для точной диагностики обратитесь к стоматологу.
           </ThemedText>

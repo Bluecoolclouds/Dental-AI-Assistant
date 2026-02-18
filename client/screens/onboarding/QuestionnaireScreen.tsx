@@ -3,7 +3,7 @@ import { StyleSheet, View, TextInput, Pressable, ActivityIndicator } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -199,7 +199,7 @@ function CheckboxItem({ checked, onPress, label }: { checked: boolean; onPress: 
           }
         ]}
       >
-        {checked ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
+        {checked ? <AppIcon name="check" size={16} color="#FFFFFF" /> : null}
       </View>
       <ThemedText type="body">{label}</ThemedText>
     </Pressable>

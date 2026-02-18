@@ -1,6 +1,6 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
@@ -59,7 +59,7 @@ export default function MainTabNavigator() {
           title: "Главная",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size} color={color} />
+            <AppIcon name="home" size={size} color={color} />
           ),
         }}
       />
@@ -70,7 +70,7 @@ export default function MainTabNavigator() {
           title: "Карта",
           headerTitle: "Карта зубов",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="grid" size={size} color={color} />
+            <AppIcon name="grid" size={size} color={color} />
           ),
         }}
       />
@@ -81,7 +81,7 @@ export default function MainTabNavigator() {
           title: "ИИ",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Feather name="message-circle" size={size} color={color} />
+            <AppIcon name="message-circle" size={size} color={color} />
           ),
         }}
       />
@@ -92,7 +92,7 @@ export default function MainTabNavigator() {
           title: "Анализ",
           headerTitle: "Анализ",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="activity" size={size} color={color} />
+            <AppIcon name="activity" size={size} color={color} />
           ),
         }}
       />
@@ -103,7 +103,7 @@ export default function MainTabNavigator() {
           title: "Профиль",
           headerTitle: "Профиль",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+            <AppIcon name="user" size={size} color={color} />
           ),
         }}
       />

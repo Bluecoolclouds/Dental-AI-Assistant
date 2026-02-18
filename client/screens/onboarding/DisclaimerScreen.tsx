@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -48,7 +48,7 @@ export default function DisclaimerScreen() {
         </View>
 
         <View style={[styles.warningIcon, { backgroundColor: theme.warning + "20" }]}>
-          <Feather name="alert-triangle" size={48} color={theme.warning} />
+          <AppIcon name="alert-triangle" size={48} color={theme.warning} />
         </View>
 
         <ThemedText type="h3" style={styles.title}>
@@ -82,7 +82,7 @@ export default function DisclaimerScreen() {
               }
             ]}
           >
-            {accepted ? <Feather name="check" size={18} color="#FFFFFF" /> : null}
+            {accepted ? <AppIcon name="check" size={18} color="#FFFFFF" /> : null}
           </View>
           <ThemedText type="body" style={styles.checkboxLabel}>
             Я понимаю и принимаю условия

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, Pressable, FlatList, ActivityIndicator, Alert as RNAlert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -110,7 +110,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  const getTypeIcon = (type: string): keyof typeof Feather.glyphMap => {
+  const getTypeIcon = (type: string): keyof typeof AppIcon.glyphMap => {
     switch (type) {
       case "reminder":
         return "bell";
@@ -164,7 +164,7 @@ export default function NotificationsScreen() {
             { backgroundColor: getPriorityColor(item.priority) + "15" },
           ]}
         >
-          <Feather
+          <AppIcon
             name={getTypeIcon(item.type)}
             size={20}
             color={getPriorityColor(item.priority)}
@@ -212,7 +212,7 @@ export default function NotificationsScreen() {
               { opacity: pressed ? 0.5 : 1 },
             ]}
           >
-            <Feather name="calendar" size={18} color={theme.primary} />
+            <AppIcon name="calendar" size={18} color={theme.primary} />
           </Pressable>
         ) : null}
         {!item.isDismissed ? (
@@ -224,7 +224,7 @@ export default function NotificationsScreen() {
               { opacity: pressed ? 0.5 : 1 },
             ]}
           >
-            <Feather name="x" size={18} color={theme.textSecondary} />
+            <AppIcon name="x" size={18} color={theme.textSecondary} />
           </Pressable>
         ) : null}
         <Pressable
@@ -235,7 +235,7 @@ export default function NotificationsScreen() {
             { opacity: pressed ? 0.5 : 1 },
           ]}
         >
-          <Feather name="trash-2" size={18} color={theme.danger} />
+          <AppIcon name="trash-2" size={18} color={theme.danger} />
         </Pressable>
       </View>
     </Card>
@@ -249,7 +249,7 @@ export default function NotificationsScreen() {
           { backgroundColor: theme.primary + "15" },
         ]}
       >
-        <Feather name="bell-off" size={48} color={theme.primary} />
+        <AppIcon name="bell-off" size={48} color={theme.primary} />
       </View>
       <ThemedText type="h4" style={styles.emptyTitle}>
         Нет уведомлений

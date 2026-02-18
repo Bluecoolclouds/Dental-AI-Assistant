@@ -5,7 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -161,7 +161,7 @@ export default function AnalysisScreen() {
             >
               <View style={styles.recommendationsHeader}>
                 <View style={[styles.aiIcon, { backgroundColor: theme.primary + "20" }]}>
-                  <Feather name="cpu" size={24} color={theme.primary} />
+                  <AppIcon name="cpu" size={24} color={theme.primary} />
                 </View>
                 <View style={styles.recommendationsText}>
                   <ThemedText type="h4">Рекомендации ИИ</ThemedText>
@@ -169,13 +169,13 @@ export default function AnalysisScreen() {
                     Персональные советы по уходу
                   </ThemedText>
                 </View>
-                <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+                <AppIcon name="chevron-right" size={24} color={theme.textSecondary} />
               </View>
             </Pressable>
 
             <View style={[styles.visitCard, { backgroundColor: theme.primary + "10" }]}>
               <View style={styles.visitIcon}>
-                <Feather name="calendar" size={24} color={theme.primary} />
+                <AppIcon name="calendar" size={24} color={theme.primary} />
               </View>
               <View style={styles.visitContent}>
                 <ThemedText type="body">Рекомендуемый визит к стоматологу</ThemedText>
@@ -197,7 +197,7 @@ export default function AnalysisScreen() {
         ) : (
           <Card elevation={1} style={styles.emptyCard}>
             <View style={[styles.emptyIcon, { backgroundColor: theme.primary + "15" }]}>
-              <Feather name="activity" size={40} color={theme.primary} />
+              <AppIcon name="activity" size={40} color={theme.primary} />
             </View>
             <ThemedText type="h3" style={styles.emptyTitle}>
               Нет результатов

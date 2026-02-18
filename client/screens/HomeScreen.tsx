@@ -3,7 +3,7 @@ import { StyleSheet, View, ScrollView, Pressable, ActivityIndicator, Platform } 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 
@@ -103,7 +103,7 @@ export default function HomeScreen() {
             style={[styles.notificationButton, { backgroundColor: theme.backgroundDefault }]}
             onPress={() => navigation.navigate("Feedback")}
           >
-            <Feather name="bell" size={22} color={theme.text} />
+            <AppIcon name="bell" size={22} color={theme.text} />
             <View style={[styles.notificationDot, { backgroundColor: theme.primary }]} />
           </Pressable>
         </View>
@@ -144,7 +144,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.alertHeader}>
                   <View style={[styles.alertIcon, { backgroundColor: "#EF5350" }]}>
-                    <Feather name="alert-triangle" size={20} color="#FFF" />
+                    <AppIcon name="alert-triangle" size={20} color="#FFF" />
                   </View>
                   <View style={styles.alertContent}>
                     <ThemedText type="body" style={{ fontWeight: "600", color: "#C62828" }}>
@@ -160,7 +160,7 @@ export default function HomeScreen() {
                     onPress={() => dismissAlert(alert.id)}
                     style={styles.dismissButton}
                   >
-                    <Feather name="x" size={18} color="#C62828" />
+                    <AppIcon name="x" size={18} color="#C62828" />
                   </Pressable>
                 </View>
               </View>
@@ -179,7 +179,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.alertHeader}>
                   <View style={[styles.alertIcon, { backgroundColor: "#FF9800" }]}>
-                    <Feather name="alert-circle" size={20} color="#FFF" />
+                    <AppIcon name="alert-circle" size={20} color="#FFF" />
                   </View>
                   <View style={styles.alertContent}>
                     <ThemedText type="body" style={{ fontWeight: "600", color: "#E65100" }}>
@@ -198,7 +198,7 @@ export default function HomeScreen() {
                     }}
                     style={styles.dismissButton}
                   >
-                    <Feather name="x" size={18} color="#E65100" />
+                    <AppIcon name="x" size={18} color="#E65100" />
                   </Pressable>
                 </View>
               </Pressable>
@@ -216,7 +216,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.alertHeader}>
                   <View style={[styles.alertIcon, { backgroundColor: "#2196F3" }]}>
-                    <Feather name="bell" size={18} color="#FFF" />
+                    <AppIcon name="bell" size={18} color="#FFF" />
                   </View>
                   <View style={styles.alertContent}>
                     <ThemedText type="body" style={{ fontWeight: "500", color: "#1565C0" }}>
@@ -232,7 +232,7 @@ export default function HomeScreen() {
                     onPress={() => dismissAlert(alert.id)}
                     style={styles.dismissButton}
                   >
-                    <Feather name="check" size={18} color="#1565C0" />
+                    <AppIcon name="check" size={18} color="#1565C0" />
                   </Pressable>
                 </View>
               </View>
@@ -260,7 +260,7 @@ export default function HomeScreen() {
                 ]}
               >
                 <View style={[styles.actionIconWrapper, { backgroundColor: "#FFFFFF" }]}>
-                  <Feather name={action.icon as any} size={24} color={theme.primary} />
+                  <AppIcon name={action.icon as any} size={24} color={theme.primary} />
                 </View>
                 <ThemedText type="small" style={styles.actionName}>{action.name}</ThemedText>
               </Pressable>
@@ -275,7 +275,7 @@ export default function HomeScreen() {
           >
             <View style={styles.healthCardHeader}>
               <View style={[styles.healthIcon, { backgroundColor: theme.success + "20" }]}>
-                <Feather name="activity" size={24} color={theme.success} />
+                <AppIcon name="activity" size={24} color={theme.success} />
               </View>
               <View style={styles.healthInfo}>
                 <ThemedText type="body" style={{ fontWeight: "600" }}>Ваше здоровье</ThemedText>
@@ -283,7 +283,7 @@ export default function HomeScreen() {
                   Последняя проверка
                 </ThemedText>
               </View>
-              <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+              <AppIcon name="chevron-right" size={24} color={theme.textSecondary} />
             </View>
             <View style={styles.healthScores}>
               <View style={styles.healthScore}>
@@ -307,7 +307,7 @@ export default function HomeScreen() {
           ]}
         >
           <View style={[styles.feedbackIcon, { backgroundColor: theme.success + "20" }]}>
-            <Feather name="message-circle" size={20} color={theme.success} />
+            <AppIcon name="message-circle" size={20} color={theme.success} />
           </View>
           <View style={styles.feedbackContent}>
             <ThemedText type="body" style={{ fontWeight: "500" }}>Бета-версия</ThemedText>
@@ -315,7 +315,7 @@ export default function HomeScreen() {
               Помогите улучшить приложение
             </ThemedText>
           </View>
-          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+          <AppIcon name="chevron-right" size={20} color={theme.textSecondary} />
         </Pressable>
       </ScrollView>
     </ThemedView>

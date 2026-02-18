@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useMutation } from "@tanstack/react-query";
@@ -144,7 +144,7 @@ export default function AIChatScreen() {
         >
           {!isUser && (
             <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-              <Feather name="cpu" size={16} color="#FFFFFF" />
+              <AppIcon name="cpu" size={16} color="#FFFFFF" />
             </View>
           )}
           <View
@@ -232,7 +232,7 @@ export default function AIChatScreen() {
             {chatMutation.isPending ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Feather
+              <AppIcon
                 name="send"
                 size={18}
                 color={inputText.trim() ? "#FFFFFF" : theme.textSecondary}

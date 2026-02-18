@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -81,12 +81,12 @@ export default function ToothMapIntroScreen() {
   );
 }
 
-function FeatureRow({ icon, text }: { icon: keyof typeof Feather.glyphMap; text: string }) {
+function FeatureRow({ icon, text }: { icon: keyof typeof AppIcon.glyphMap; text: string }) {
   const { theme } = useTheme();
   
   return (
     <View style={styles.featureRow}>
-      <Feather name={icon} size={20} color={theme.primary} />
+      <AppIcon name={icon} size={20} color={theme.primary} />
       <ThemedText type="body">{text}</ThemedText>
     </View>
   );

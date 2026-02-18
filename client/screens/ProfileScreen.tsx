@@ -5,7 +5,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -193,7 +193,7 @@ export default function ProfileScreen() {
     >
       <Card elevation={1} style={styles.userCard}>
         <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-          <Feather name="user" size={32} color="#FFFFFF" />
+          <AppIcon name="user" size={32} color="#FFFFFF" />
         </View>
         <View style={styles.userInfo}>
           <ThemedText type="h4">{user?.email}</ThemedText>
@@ -217,7 +217,7 @@ export default function ProfileScreen() {
 
         <View style={[styles.notificationItem, { backgroundColor: theme.backgroundDefault }]}>
           <View style={[styles.menuIcon, { backgroundColor: theme.primary + "15" }]}>
-            <Feather name="bell" size={20} color={theme.primary} />
+            <AppIcon name="bell" size={20} color={theme.primary} />
           </View>
           <View style={styles.menuContent}>
             <ThemedText type="body">Напоминания о чистке</ThemedText>
@@ -311,7 +311,7 @@ export default function ProfileScreen() {
             <ActivityIndicator color={theme.danger} />
           ) : (
             <>
-              <Feather name="log-out" size={20} color={theme.danger} />
+              <AppIcon name="log-out" size={20} color={theme.danger} />
               <ThemedText type="body" style={{ color: theme.danger }}>
                 Выйти из аккаунта
               </ThemedText>
@@ -343,7 +343,7 @@ function MenuItem({
   onPress,
   disabled,
 }: {
-  icon: keyof typeof Feather.glyphMap;
+  icon: keyof typeof AppIcon.glyphMap;
   label: string;
   sublabel?: string;
   onPress?: () => void;
@@ -361,7 +361,7 @@ function MenuItem({
       ]}
     >
       <View style={[styles.menuIcon, { backgroundColor: theme.primary + "15" }]}>
-        <Feather name={icon} size={20} color={theme.primary} />
+        <AppIcon name={icon} size={20} color={theme.primary} />
       </View>
       <View style={styles.menuContent}>
         <ThemedText type="body">{label}</ThemedText>
@@ -372,7 +372,7 @@ function MenuItem({
         ) : null}
       </View>
       {!disabled ? (
-        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+        <AppIcon name="chevron-right" size={20} color={theme.textSecondary} />
       ) : null}
     </Pressable>
   );

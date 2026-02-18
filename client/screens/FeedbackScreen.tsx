@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, View, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -14,7 +14,7 @@ import { useFeedback } from "@/hooks/useLocalData";
 
 const CATEGORIES = [
   { value: "bug", label: "Ошибка", icon: "alert-circle" as const },
-  { value: "feature", label: "Идея", icon: "lightbulb" as const },
+  { value: "feature", label: "Идея", icon: "star" as const },
   { value: "other", label: "Другое", icon: "message-circle" as const },
 ];
 
@@ -79,7 +79,7 @@ export default function FeedbackScreen() {
                     }
                   ]}
                 >
-                  <Feather
+                  <AppIcon
                     name={cat.icon}
                     size={20}
                     color={isSelected ? "#FFFFFF" : theme.text}

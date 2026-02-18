@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Feather } from "@expo/vector-icons";
+import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -235,7 +235,7 @@ export default function TestFlowScreen() {
                 >
                   {isSelected ? (
                     question.multiSelect ? (
-                      <Feather name="check" size={14} color={theme.primary} />
+                      <AppIcon name="check" size={14} color={theme.primary} />
                     ) : (
                       <View style={[styles.radioInner, { backgroundColor: theme.primary }]} />
                     )
@@ -257,7 +257,7 @@ export default function TestFlowScreen() {
         <View style={styles.buttons}>
           {currentQuestion > 0 ? (
             <Pressable onPress={handleBack} style={styles.backButton}>
-              <Feather name="arrow-left" size={20} color={theme.primary} />
+              <AppIcon name="arrow-left" size={20} color={theme.primary} />
               <ThemedText type="link">Назад</ThemedText>
             </Pressable>
           ) : (
