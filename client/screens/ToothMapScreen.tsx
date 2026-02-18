@@ -13,6 +13,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useToothData, useToothHistory, useToothFiles } from "@/hooks/useLocalData";
+import { addEventToCalendar } from "@/utils/calendar";
 import { PROBLEM_TYPES, ProblemType } from "@shared/schema";
 import type { ToothHistory } from "@/storage/repositories/toothHistoryRepository";
 import type { ToothFile } from "@/storage/repositories/toothFilesRepository";
@@ -844,21 +845,56 @@ export default function ToothMapScreen() {
                             ) : null}
                           </View>
                         ) : null}
-                        <Pressable
-                          onPress={() => handleOpenDetails(event)}
-                          style={({ pressed }) => [
-                            styles.detailsButton,
-                            { 
-                              backgroundColor: theme.primary + "15",
-                              opacity: pressed ? 0.7 : 1
-                            }
-                          ]}
-                        >
-                          <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
-                            Подробнее
-                          </ThemedText>
-                          <Feather name="chevron-right" size={14} color={theme.primary} />
-                        </Pressable>
+                        <View style={{ flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }}>
+                          <Pressable
+                            onPress={() => handleOpenDetails(event)}
+                            style={({ pressed }) => [
+                              styles.detailsButton,
+                              { 
+                                backgroundColor: theme.primary + "15",
+                                opacity: pressed ? 0.7 : 1,
+                                flex: 1,
+                                marginTop: 0,
+                              }
+                            ]}
+                          >
+                            <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+                              Подробнее
+                            </ThemedText>
+                            <Feather name="chevron-right" size={14} color={theme.primary} />
+                          </Pressable>
+                          {Platform.OS !== "web" ? (
+                            <Pressable
+                              onPress={() => {
+                                const startDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                                startDate.setHours(10, 0, 0, 0);
+                                const notes = [
+                                  event.reason,
+                                  event.doctorName ? `Врач: ${event.doctorName}` : "",
+                                  event.clinicName ? `Клиника: ${event.clinicName}` : "",
+                                ].filter(Boolean).join("\n");
+                                addEventToCalendar({
+                                  title: `Зуб ${event.toothId}: ${event.reason}`,
+                                  notes,
+                                  startDate,
+                                  location: event.clinicName || undefined,
+                                  alarmMinutesBefore: 60,
+                                });
+                              }}
+                              style={({ pressed }) => [
+                                styles.detailsButton,
+                                {
+                                  backgroundColor: theme.primary + "15",
+                                  opacity: pressed ? 0.7 : 1,
+                                  marginTop: 0,
+                                  paddingHorizontal: Spacing.md,
+                                }
+                              ]}
+                            >
+                              <Feather name="calendar" size={14} color={theme.primary} />
+                            </Pressable>
+                          ) : null}
+                        </View>
                       </View>
                     ))}
                   </View>

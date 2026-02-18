@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { StyleSheet, View, Pressable, FlatList, ActivityIndicator, Alert as RNAlert } from "react-native";
+import { StyleSheet, View, Pressable, FlatList, ActivityIndicator, Alert as RNAlert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
@@ -10,6 +10,7 @@ import { Card } from "@/components/Card";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { addEventToCalendar } from "@/utils/calendar";
 import {
   Alert,
   getActiveAlerts,
@@ -194,6 +195,26 @@ export default function NotificationsScreen() {
         </View>
       </Pressable>
       <View style={styles.actions}>
+        {Platform.OS !== "web" ? (
+          <Pressable
+            onPress={() => {
+              const startDate = item.dueTime ? new Date(item.dueTime) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+              addEventToCalendar({
+                title: item.title,
+                notes: item.description || undefined,
+                startDate,
+                alarmMinutesBefore: 30,
+              });
+            }}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.actionButton,
+              { opacity: pressed ? 0.5 : 1 },
+            ]}
+          >
+            <Feather name="calendar" size={18} color={theme.primary} />
+          </Pressable>
+        ) : null}
         {!item.isDismissed ? (
           <Pressable
             onPress={() => handleDismiss(item.id)}
