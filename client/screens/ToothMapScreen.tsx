@@ -7,7 +7,6 @@ import { Feather } from "@expo/vector-icons";
 import Svg, { Ellipse, G } from "react-native-svg";
 import * as DocumentPicker from "expo-document-picker";
 
-import ToothMap3D from "@/components/ToothMap3D";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -26,7 +25,6 @@ const VALID_TOOTH_IDS = [
 ];
 
 type DataTab = "history" | "files";
-type ViewMode = "2d" | "3d";
 
 const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
@@ -122,7 +120,6 @@ export default function ToothMapScreen() {
   const [hasCustomNote, setHasCustomNote] = useState(false);
   const [customNote, setCustomNote] = useState("");
   const [activeTab, setActiveTab] = useState<DataTab>("history");
-  const [viewMode, setViewMode] = useState<ViewMode>("3d");
   
   const [showAddHistoryModal, setShowAddHistoryModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -356,47 +353,6 @@ export default function ToothMapScreen() {
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
           <ThemedText type="h3" style={styles.cardTitle}>Ваша карта зубов</ThemedText>
 
-          <View style={styles.viewModeToggle}>
-            <Pressable
-              onPress={() => setViewMode("2d")}
-              style={[
-                styles.viewModeButton,
-                {
-                  backgroundColor: viewMode === "2d" ? theme.primary : theme.backgroundSecondary,
-                  borderTopLeftRadius: BorderRadius.md,
-                  borderBottomLeftRadius: BorderRadius.md,
-                }
-              ]}
-            >
-              <Feather name="grid" size={16} color={viewMode === "2d" ? "#FFF" : theme.textSecondary} />
-              <ThemedText
-                type="small"
-                style={{ color: viewMode === "2d" ? "#FFF" : theme.textSecondary, fontWeight: "600" }}
-              >
-                2D
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => setViewMode("3d")}
-              style={[
-                styles.viewModeButton,
-                {
-                  backgroundColor: viewMode === "3d" ? theme.primary : theme.backgroundSecondary,
-                  borderTopRightRadius: BorderRadius.md,
-                  borderBottomRightRadius: BorderRadius.md,
-                }
-              ]}
-            >
-              <Feather name="box" size={16} color={viewMode === "3d" ? "#FFF" : theme.textSecondary} />
-              <ThemedText
-                type="small"
-                style={{ color: viewMode === "3d" ? "#FFF" : theme.textSecondary, fontWeight: "600" }}
-              >
-                3D
-              </ThemedText>
-            </Pressable>
-          </View>
-          
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: "#4CAF50" }]} />
@@ -412,17 +368,7 @@ export default function ToothMapScreen() {
             </View>
           </View>
 
-          {viewMode === "3d" ? (
-            <ToothMap3D
-              selectedTooth={selectedTooth}
-              onToothPress={handleToothPress}
-              getToothProblems={getToothProblems}
-              getToothProblemColor={getToothProblemColor}
-              theme={theme}
-              archWidth={archWidth}
-            />
-          ) : (
-            <View style={styles.archContainer}>
+          <View style={styles.archContainer}>
               <ThemedText type="small" style={[styles.archLabel, { color: theme.textSecondary }]}>
                 Верхняя челюсть
               </ThemedText>
@@ -539,7 +485,6 @@ export default function ToothMapScreen() {
                 Нижняя челюсть
               </ThemedText>
             </View>
-          )}
         </View>
 
         {selectedTooth ? (
@@ -991,7 +936,7 @@ export default function ToothMapScreen() {
             <View style={styles.modalHeader}>
               <ThemedText type="subtitle">Новая запись</ThemedText>
               <Pressable onPress={() => setShowAddHistoryModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
-                <Feather name="x" size={20} color={theme.textDefault} />
+                <Feather name="x" size={20} color={theme.text} />
               </Pressable>
             </View>
 
@@ -1001,7 +946,7 @@ export default function ToothMapScreen() {
                   Номер зуба (FDI)
                 </ThemedText>
                 <TextInput
-                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={newHistoryToothId}
                   onChangeText={setNewHistoryToothId}
                   placeholder="Например: 26"
@@ -1035,7 +980,7 @@ export default function ToothMapScreen() {
                       <ThemedText 
                         type="small" 
                         style={{ 
-                          color: newHistoryEventType === type.value ? "#FFF" : theme.textDefault,
+                          color: newHistoryEventType === type.value ? "#FFF" : theme.text,
                           fontWeight: "600"
                         }}
                       >
@@ -1051,7 +996,7 @@ export default function ToothMapScreen() {
                   Описание
                 </ThemedText>
                 <TextInput
-                  style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={newHistoryReason}
                   onChangeText={setNewHistoryReason}
                   placeholder="Что произошло с зубом..."
@@ -1092,7 +1037,7 @@ export default function ToothMapScreen() {
             <View style={styles.modalHeader}>
               <ThemedText type="subtitle">Детали визита</ThemedText>
               <Pressable onPress={() => setShowDetailsModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
-                <Feather name="x" size={20} color={theme.textDefault} />
+                <Feather name="x" size={20} color={theme.text} />
               </Pressable>
             </View>
 
@@ -1117,7 +1062,7 @@ export default function ToothMapScreen() {
                   Врач
                 </ThemedText>
                 <TextInput
-                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={detailsDoctorName}
                   onChangeText={setDetailsDoctorName}
                   placeholder="ФИО врача"
@@ -1130,7 +1075,7 @@ export default function ToothMapScreen() {
                   Клиника
                 </ThemedText>
                 <TextInput
-                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={detailsClinicName}
                   onChangeText={setDetailsClinicName}
                   placeholder="Название клиники"
@@ -1143,7 +1088,7 @@ export default function ToothMapScreen() {
                   Что было сделано
                 </ThemedText>
                 <TextInput
-                  style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.textDefault, borderColor: theme.border }]}
+                  style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={detailsTreatment}
                   onChangeText={setDetailsTreatment}
                   placeholder="Описание процедуры..."
@@ -1205,19 +1150,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     textAlign: "center",
-    marginBottom: Spacing.md,
-  },
-  viewModeToggle: {
-    flexDirection: "row",
-    alignSelf: "center",
     marginBottom: Spacing.lg,
-  },
-  viewModeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
   },
   cardHeader: {
     flexDirection: "row",
