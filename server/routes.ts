@@ -557,7 +557,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages,
       });
 
-      const content = response.choices[0].message.content || "";
+      const rawContent = response.choices[0].message.content || "";
+      
+      let content = rawContent.trim();
+      content = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+      content = content.trim();
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        content = jsonMatch[0];
+      }
       
       try {
         const parsed = JSON.parse(content);
@@ -659,7 +668,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           safety: parsed.safety
         });
       } catch {
-        return res.json({ response: content });
+        const msgMatch = rawContent.match(/"assistant_message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        const fallbackMessage = msgMatch
+          ? msgMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"')
+          : rawContent.replace(/```json\s*/gi, "").replace(/```/g, "").replace(/[{}[\]"]/g, "").trim();
+        return res.json({ response: fallbackMessage || "Извините, не удалось обработать ответ. Попробуйте перефразировать вопрос." });
       }
     } catch (error) {
       console.error("AI chat error:", error);
