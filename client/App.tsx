@@ -6,6 +6,8 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
+import * as Font from "expo-font";
+import { Feather } from "@expo/vector-icons";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -19,10 +21,19 @@ import { ThemedText } from "@/components/ThemedText";
 
 function AppContent() {
   const [isDbReady, setIsDbReady] = useState(false);
+  const [fontsLoaded, setFontsLoaded] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function initDb() {
+    async function init() {
+      try {
+        await Font.loadAsync(Feather.font);
+        setFontsLoaded(true);
+      } catch (e) {
+        console.warn("Font loading error:", e);
+        setFontsLoaded(true);
+      }
+
       try {
         if (Platform.OS === "web") {
           setDbError("SQLite не поддерживается в браузере. Используйте Expo Go на мобильном устройстве.");
@@ -35,7 +46,7 @@ function AppContent() {
         setDbError(error.message || "Ошибка инициализации базы данных");
       }
     }
-    initDb();
+    init();
   }, []);
 
   if (Platform.OS === "web") {
@@ -64,7 +75,7 @@ function AppContent() {
     );
   }
 
-  if (!isDbReady) {
+  if (!isDbReady || !fontsLoaded) {
     return (
       <ThemedView style={styles.splashContainer}>
         <ActivityIndicator size="large" color="#2563EB" />
