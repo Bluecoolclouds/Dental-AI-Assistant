@@ -270,11 +270,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#0097A7",
   },
   gradientBackground: {
-    height: "45%",
+    height: "42%",
     paddingHorizontal: Spacing.xl,
+    overflow: "hidden",
   },
   headerSection: {
     flex: 1,
+    overflow: "hidden",
   },
   logoContainer: {
     flexDirection: "row",
@@ -294,20 +296,20 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   heroContent: {
-    marginTop: Spacing["2xl"],
+    marginTop: Spacing.lg,
     maxWidth: "70%",
   },
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "700",
-    lineHeight: 36,
-    marginBottom: Spacing.md,
+    lineHeight: 30,
+    marginBottom: Spacing.sm,
   },
   heroSubtitle: {
     color: "rgba(255,255,255,0.85)",
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
   },
   teethDecoration: {
     position: "absolute",
