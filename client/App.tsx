@@ -7,7 +7,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
 import * as Font from "expo-font";
-import { Feather } from "@expo/vector-icons";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -25,15 +24,22 @@ function AppContent() {
   const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function init() {
+    async function loadFonts() {
       try {
-        await Font.loadAsync(Feather.font);
-        setFontsLoaded(true);
+        await Font.loadAsync({
+          feather: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf"),
+          ionicons: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"),
+          material: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf"),
+          "material-community": require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"),
+        });
       } catch (e) {
         console.warn("Font loading error:", e);
+      } finally {
         setFontsLoaded(true);
       }
+    }
 
+    async function initDb() {
       try {
         if (Platform.OS === "web") {
           setDbError("SQLite не поддерживается в браузере. Используйте Expo Go на мобильном устройстве.");
@@ -46,7 +52,9 @@ function AppContent() {
         setDbError(error.message || "Ошибка инициализации базы данных");
       }
     }
-    init();
+
+    loadFonts();
+    initDb();
   }, []);
 
   if (Platform.OS === "web") {
