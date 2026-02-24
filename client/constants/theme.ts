@@ -1,9 +1,9 @@
 import { Platform } from "react-native";
 
-// Dentcor-style Dental App Colors - Modern Teal Theme
-const primaryTeal = "#0097A7";
-const primaryTealLight = "#00ACC1";
-const accentBlue = "#2196F3";
+const primaryBlue = "#4A90D9";
+const primaryBlueLight = "#5B9FE3";
+const primaryBlueDark = "#3A7BC8";
+const accentBlue = "#4A8FD3";
 const healthyGreen = "#4CAF50";
 const warningAmber = "#FF9800";
 const dangerRed = "#F44336";
@@ -14,35 +14,37 @@ export const Colors = {
     textSecondary: "#64748B",
     buttonText: "#FFFFFF",
     tabIconDefault: "#94A3B8",
-    tabIconSelected: primaryTeal,
-    link: primaryTeal,
-    backgroundRoot: "#E8F4F8",
+    tabIconSelected: primaryBlue,
+    link: primaryBlue,
+    backgroundRoot: "#F0F4FA",
     backgroundDefault: "#FFFFFF",
     backgroundSecondary: "#F1F5F9",
     backgroundTertiary: "#E2E8F0",
     border: "#E2E8F0",
-    primary: primaryTeal,
-    primaryLight: primaryTealLight,
+    primary: primaryBlue,
+    primaryLight: primaryBlueLight,
+    primaryDark: primaryBlueDark,
     accent: accentBlue,
     success: healthyGreen,
     warning: warningAmber,
     danger: dangerRed,
-    cardShadow: "rgba(0, 151, 167, 0.08)",
+    cardShadow: "rgba(74, 144, 217, 0.08)",
   },
   dark: {
     text: "#F1F5F9",
     textSecondary: "#94A3B8",
     buttonText: "#FFFFFF",
     tabIconDefault: "#64748B",
-    tabIconSelected: primaryTealLight,
-    link: primaryTealLight,
+    tabIconSelected: primaryBlueLight,
+    link: primaryBlueLight,
     backgroundRoot: "#0F172A",
     backgroundDefault: "#1E293B",
     backgroundSecondary: "#334155",
     backgroundTertiary: "#475569",
     border: "#334155",
-    primary: primaryTealLight,
-    primaryLight: primaryTeal,
+    primary: primaryBlueLight,
+    primaryLight: primaryBlue,
+    primaryDark: primaryBlueDark,
     accent: accentBlue,
     success: healthyGreen,
     warning: warningAmber,

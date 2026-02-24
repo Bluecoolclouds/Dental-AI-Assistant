@@ -355,13 +355,13 @@ export default function ToothMapScreen() {
 
           <View style={styles.legend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "#4CAF50" }]} />
+              <View style={[styles.legendDot, { backgroundColor: "#FBBF24" }]} />
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 Было лечение
               </ThemedText>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "#2196F3" }]} />
+              <View style={[styles.legendDot, { backgroundColor: "#4A90D9" }]} />
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 Требует внимания
               </ThemedText>

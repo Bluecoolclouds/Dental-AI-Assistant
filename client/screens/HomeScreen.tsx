@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -18,10 +18,10 @@ import { useTestResults, useAlerts } from "@/hooks/useLocalData";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const QUICK_ACTIONS = [
-  { id: "toothmap", name: "Карта зубов", icon: "grid", color: "#E3F2FD", route: "ToothMapTab" },
-  { id: "test", name: "Пройти тест", icon: "clipboard", color: "#E8F5E9", route: "TestFlow" },
-  { id: "recommendations", name: "ИИ советы", icon: "cpu", color: "#FFF3E0", route: "AIRecommendations" },
-  { id: "profile", name: "Профиль", icon: "user", color: "#FCE4EC", route: "ProfileTab" },
+  { id: "toothmap", name: "Карта зубов", icon: "map-pin" as const, bgColor: "#EBF5FF", iconColor: "#4A90D9", route: "ToothMapTab" },
+  { id: "test", name: "Пройти тест", icon: "clipboard" as const, bgColor: "#F3EAFF", iconColor: "#9333EA", route: "TestFlow" },
+  { id: "recommendations", name: "ИИ советы", icon: "sun" as const, bgColor: "#FFF8E1", iconColor: "#F59E0B", route: "AIRecommendations" },
+  { id: "profile", name: "Профиль", icon: "user" as const, bgColor: "#ECFDF5", iconColor: "#10B981", route: "ProfileTab" },
 ];
 
 function ToothMascot() {
@@ -63,7 +63,7 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const { user } = useAuthContext();
 
-  const { latestResult: testResult, isLoading } = useTestResults();
+  const { latestResult: testResult } = useTestResults();
   const { alerts, dismissAlert } = useAlerts();
 
   const userName = user?.email?.split("@")[0] || "Пациент";
@@ -78,62 +78,68 @@ export default function HomeScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + Spacing.lg,
             paddingBottom: insets.bottom + Spacing.xl + 80,
           }
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.userInfo}>
-            <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-              <ThemedText style={styles.avatarText}>
-                {userName.charAt(0).toUpperCase()}
-              </ThemedText>
+        <View style={[styles.headerCard, { paddingTop: insets.top + Spacing.lg }]}>
+          <View style={styles.header}>
+            <View style={styles.userInfo}>
+              <LinearGradient
+                colors={["#5B9FE3", "#4A90D9"]}
+                style={styles.avatar}
+              >
+                <ThemedText style={styles.avatarText}>
+                  {userName.charAt(0).toUpperCase()}
+                </ThemedText>
+              </LinearGradient>
+              <View>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Привет 👋
+                </ThemedText>
+                <ThemedText style={styles.userName}>{userName}</ThemedText>
+              </View>
             </View>
-            <View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Привет
-              </ThemedText>
-              <ThemedText type="h4">{userName}</ThemedText>
-            </View>
+            <Pressable 
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate("Feedback")}
+            >
+              <AppIcon name="bell" size={20} color={theme.textSecondary} />
+              <View style={styles.notificationDot} />
+            </Pressable>
           </View>
-          <Pressable 
-            style={[styles.notificationButton, { backgroundColor: theme.backgroundDefault }]}
-            onPress={() => navigation.navigate("Feedback")}
-          >
-            <AppIcon name="bell" size={22} color={theme.text} />
-            <View style={[styles.notificationDot, { backgroundColor: theme.primary }]} />
+
+          <Pressable onPress={() => navigation.navigate("TestFlow")}>
+            <LinearGradient
+              colors={["#5B9FE3", "#4A8FD3"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.promoBanner}
+            >
+              <View style={styles.promoDecorCircle} />
+              <View style={styles.promoContent}>
+                <View style={styles.promoTag}>
+                  <ThemedText style={styles.promoTagText}>АКЦИЯ</ThemedText>
+                </View>
+                <ThemedText style={styles.promoTitle}>
+                  Бесплатная{"\n"}диагностика
+                </ThemedText>
+                <ThemedText style={styles.promoSubtitle}>
+                  Пройдите тест и получите рекомендации
+                </ThemedText>
+                <View style={styles.promoButton}>
+                  <AppIcon name="phone" size={14} color="#4A90D9" />
+                  <ThemedText style={styles.promoButtonText}>Начать тест</ThemedText>
+                </View>
+              </View>
+              <View style={styles.promoMascot}>
+                <ToothMascot />
+              </View>
+            </LinearGradient>
           </Pressable>
         </View>
-
-        <Pressable onPress={() => navigation.navigate("TestFlow")}>
-          <LinearGradient
-            colors={["#0097A7", "#00ACC1"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.promoBanner}
-          >
-            <View style={styles.promoContent}>
-              <View style={styles.promoTag}>
-                <ThemedText style={styles.promoTagText}>АКЦИЯ</ThemedText>
-              </View>
-              <ThemedText style={styles.promoTitle}>
-                Бесплатная{"\n"}диагностика
-              </ThemedText>
-              <ThemedText style={styles.promoSubtitle}>
-                Пройдите тест и получите рекомендации
-              </ThemedText>
-              <View style={styles.promoButton}>
-                <ThemedText style={styles.promoButtonText}>Начать тест</ThemedText>
-              </View>
-            </View>
-            <View style={styles.promoMascot}>
-              <ToothMascot />
-            </View>
-          </LinearGradient>
-        </Pressable>
 
         {urgentAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
@@ -170,7 +176,7 @@ export default function HomeScreen() {
 
         {teethAtRiskAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
-            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Зубы под риском</ThemedText>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm, paddingHorizontal: Spacing.lg }}>Зубы под риском</ThemedText>
             {teethAtRiskAlerts.map((alert) => (
               <Pressable 
                 key={alert.id}
@@ -208,14 +214,14 @@ export default function HomeScreen() {
 
         {reminderAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
-            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Напоминания</ThemedText>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm, paddingHorizontal: Spacing.lg }}>Напоминания</ThemedText>
             {reminderAlerts.slice(0, 3).map((alert) => (
               <View 
                 key={alert.id}
-                style={[styles.reminderCard, { backgroundColor: "#E3F2FD" }]}
+                style={[styles.reminderCard, { backgroundColor: "#EBF5FF" }]}
               >
                 <View style={styles.alertHeader}>
-                  <View style={[styles.alertIcon, { backgroundColor: "#2196F3" }]}>
+                  <View style={[styles.alertIcon, { backgroundColor: "#4A90D9" }]}>
                     <AppIcon name="bell" size={18} color="#FFF" />
                   </View>
                   <View style={styles.alertContent}>
@@ -241,7 +247,9 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Быстрые действия</ThemedText>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.md, paddingHorizontal: Spacing.lg }}>
+            Быстрые действия
+          </ThemedText>
           
           <View style={styles.actionsGrid}>
             {QUICK_ACTIONS.map((action) => (
@@ -256,11 +264,11 @@ export default function HomeScreen() {
                 }}
                 style={({ pressed }) => [
                   styles.actionCard,
-                  { backgroundColor: action.color, opacity: pressed ? 0.8 : 1 }
+                  { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.8 : 1 }
                 ]}
               >
-                <View style={[styles.actionIconWrapper, { backgroundColor: "#FFFFFF" }]}>
-                  <AppIcon name={action.icon as any} size={24} color={theme.primary} />
+                <View style={[styles.actionIconWrapper, { backgroundColor: action.bgColor }]}>
+                  <AppIcon name={action.icon} size={24} color={action.iconColor} />
                 </View>
                 <ThemedText type="small" style={styles.actionName}>{action.name}</ThemedText>
               </Pressable>
@@ -274,8 +282,8 @@ export default function HomeScreen() {
             style={[styles.healthCard, { backgroundColor: theme.backgroundDefault }]}
           >
             <View style={styles.healthCardHeader}>
-              <View style={[styles.healthIcon, { backgroundColor: theme.success + "20" }]}>
-                <AppIcon name="activity" size={24} color={theme.success} />
+              <View style={[styles.healthIcon, { backgroundColor: "#ECFDF5" }]}>
+                <AppIcon name="activity" size={24} color="#10B981" />
               </View>
               <View style={styles.healthInfo}>
                 <ThemedText type="body" style={{ fontWeight: "600" }}>Ваше здоровье</ThemedText>
@@ -287,12 +295,12 @@ export default function HomeScreen() {
             </View>
             <View style={styles.healthScores}>
               <View style={styles.healthScore}>
-                <ThemedText type="h3" style={{ color: theme.primary }}>{testResult.teethRiskScore}</ThemedText>
+                <ThemedText type="h3" style={{ color: "#4A90D9" }}>{testResult.teethRiskScore}</ThemedText>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>Зубы</ThemedText>
               </View>
               <View style={[styles.healthDivider, { backgroundColor: theme.border }]} />
               <View style={styles.healthScore}>
-                <ThemedText type="h3" style={{ color: theme.primary }}>{testResult.gumsRiskScore}</ThemedText>
+                <ThemedText type="h3" style={{ color: "#4A90D9" }}>{testResult.gumsRiskScore}</ThemedText>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>Дёсны</ThemedText>
               </View>
             </View>
@@ -306,8 +314,8 @@ export default function HomeScreen() {
             { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.9 : 1 }
           ]}
         >
-          <View style={[styles.feedbackIcon, { backgroundColor: theme.success + "20" }]}>
-            <AppIcon name="message-circle" size={20} color={theme.success} />
+          <View style={[styles.feedbackIcon, { backgroundColor: "#ECFDF5" }]}>
+            <AppIcon name="message-circle" size={20} color="#10B981" />
           </View>
           <View style={styles.feedbackContent}>
             <ThemedText type="body" style={{ fontWeight: "500" }}>Бета-версия</ThemedText>
@@ -327,7 +335,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    gap: Spacing.xl,
+  },
+  headerCard: {
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    borderBottomLeftRadius: BorderRadius.xl,
+    borderBottomRightRadius: BorderRadius.xl,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
     gap: Spacing.xl,
   },
   header: {
@@ -352,50 +378,58 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
   },
+  userName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#4A90D9",
+  },
   notificationButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#E2E8F0",
     justifyContent: "center",
     alignItems: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    backgroundColor: "#FFFFFF",
   },
   notificationDot: {
     position: "absolute",
-    top: 12,
-    right: 12,
+    top: 8,
+    right: 8,
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: "#4A90D9",
   },
   promoBanner: {
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 160,
+    minHeight: 170,
     overflow: "hidden",
+  },
+  promoDecorCircle: {
+    position: "absolute",
+    top: -40,
+    right: -20,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   promoContent: {
     flex: 1,
+    zIndex: 1,
   },
   promoTag: {
-    backgroundColor: "rgba(255,255,255,0.25)",
-    paddingHorizontal: Spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.full,
     alignSelf: "flex-start",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   promoTagText: {
     color: "#FFFFFF",
@@ -413,17 +447,20 @@ const styles = StyleSheet.create({
   promoSubtitle: {
     color: "rgba(255,255,255,0.85)",
     fontSize: 12,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   promoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.full,
     alignSelf: "flex-start",
   },
   promoButtonText: {
-    color: "#0097A7",
+    color: "#4A90D9",
     fontSize: 14,
     fontWeight: "600",
   },
@@ -437,41 +474,43 @@ const styles = StyleSheet.create({
   },
   actionsGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
   },
   actionCard: {
-    width: "47%",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     gap: Spacing.sm,
-  },
-  actionIconWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.04,
         shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 1,
       },
     }),
+  },
+  actionIconWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.sm,
+    justifyContent: "center",
+    alignItems: "center",
   },
   actionName: {
     textAlign: "center",
     fontWeight: "500",
+    fontSize: 11,
   },
   healthCard: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -519,7 +558,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.xl,
     gap: Spacing.md,
     ...Platform.select({
       ios: {
@@ -546,6 +586,7 @@ const styles = StyleSheet.create({
   },
   alertsSection: {
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
   },
   urgentAlertCard: {
     borderRadius: BorderRadius.lg,
@@ -563,7 +604,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderLeftWidth: 4,
-    borderLeftColor: "#2196F3",
+    borderLeftColor: "#4A90D9",
   },
   alertHeader: {
     flexDirection: "row",

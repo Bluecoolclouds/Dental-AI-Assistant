@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, Pressable, Alert, ActivityIndicator, Switch, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
-import { Card } from "@/components/Card";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -65,10 +63,17 @@ async function cancelDentalReminders() {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
+const MENU_ITEMS = [
+  { icon: "clipboard" as const, label: "Анкета здоровья", color: "#0D9488" },
+  { icon: "heart" as const, label: "Избранные врачи", color: "#EF4444" },
+  { icon: "bell" as const, label: "Уведомления", color: "#4A90D9" },
+  { icon: "credit-card" as const, label: "Способ оплаты", color: "#10B981" },
+  { icon: "settings" as const, label: "Настройки", color: "#6B7280" },
+  { icon: "help-circle" as const, label: "Центр помощи", color: "#8B5CF6" },
+];
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
-  const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user, logout } = useAuthContext();
@@ -166,272 +171,303 @@ export default function ProfileScreen() {
     );
   };
 
-  const getBrushingLabel = (frequency: string | null | undefined) => {
-    switch (frequency) {
-      case "once":
-        return "1 раз в день";
-      case "twice":
-        return "2 раза в день";
-      case "more":
-        return "Более 2 раз";
-      default:
-        return "Не указано";
-    }
-  };
+  const userName = user?.email?.split("@")[0] || "Пользователь";
 
   return (
     <KeyboardAwareScrollViewCompat
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: headerHeight + Spacing.xl,
-          paddingBottom: tabBarHeight + Spacing.xl,
-        }
-      ]}
+      contentContainerStyle={styles.scrollContent}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
     >
-      <Card elevation={1} style={styles.userCard}>
-        <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-          <AppIcon name="user" size={32} color="#FFFFFF" />
+      <LinearGradient
+        colors={["#5B9FE3", "#4A8FD3"]}
+        style={[styles.headerGradient, { paddingTop: insets.top + Spacing.lg }]}
+      >
+        <View style={styles.headerTop}>
+          <ThemedText style={styles.headerTitle}>Профиль</ThemedText>
+          <Pressable 
+            style={styles.headerNotifButton}
+            onPress={() => navigation.navigate("Notifications")}
+          >
+            <AppIcon name="bell" size={20} color="#FFFFFF" />
+          </Pressable>
         </View>
-        <View style={styles.userInfo}>
-          <ThemedText type="h4">{user?.email}</ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {profile?.age ? `${profile.age} лет` : "Возраст не указан"}
-          </ThemedText>
-        </View>
-      </Card>
 
-      <View style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          Уведомления
-        </ThemedText>
-
-        <MenuItem
-          icon="inbox"
-          label="Центр уведомлений"
-          sublabel="Просмотр и управление"
-          onPress={() => navigation.navigate("Notifications")}
-        />
-
-        <View style={[styles.notificationItem, { backgroundColor: theme.backgroundDefault }]}>
-          <View style={[styles.menuIcon, { backgroundColor: theme.primary + "15" }]}>
-            <AppIcon name="bell" size={20} color={theme.primary} />
+        <View style={styles.profileCard}>
+          <View style={styles.profileInfo}>
+            <View style={styles.profileAvatarContainer}>
+              <LinearGradient
+                colors={["#5B9FE3", "#4A90D9"]}
+                style={styles.profileAvatar}
+              >
+                <AppIcon name="user" size={32} color="#FFFFFF" />
+              </LinearGradient>
+              <View style={styles.cameraButton}>
+                <AppIcon name="camera" size={12} color="#FFFFFF" />
+              </View>
+            </View>
+            
+            <View style={styles.profileDetails}>
+              <ThemedText style={styles.profileName}>{userName}</ThemedText>
+              <ThemedText style={styles.profileEmail}>{user?.email}</ThemedText>
+              <View style={styles.premiumBadge}>
+                <ThemedText style={styles.premiumText}>Пользователь</ThemedText>
+              </View>
+            </View>
           </View>
-          <View style={styles.menuContent}>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>12</ThemedText>
+              <ThemedText style={styles.statLabel}>Записей</ThemedText>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: "#F1F5F9" }]} />
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>8</ThemedText>
+              <ThemedText style={styles.statLabel}>Завершено</ThemedText>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: "#F1F5F9" }]} />
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>4</ThemedText>
+              <ThemedText style={styles.statLabel}>Впереди</ThemedText>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={styles.menuSection}>
+        <View style={[styles.menuCard, { backgroundColor: theme.backgroundDefault }]}>
+          {MENU_ITEMS.map((item, index) => (
+            <Pressable
+              key={item.label}
+              onPress={() => {
+                if (item.label === "Уведомления") {
+                  navigation.navigate("Notifications");
+                }
+              }}
+              style={({ pressed }) => [
+                styles.menuItem,
+                { opacity: pressed ? 0.7 : 1 },
+                index !== MENU_ITEMS.length - 1 && styles.menuItemBorder,
+              ]}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: item.color + "15" }]}>
+                <AppIcon name={item.icon} size={20} color={item.color} />
+              </View>
+              <ThemedText style={styles.menuLabel}>{item.label}</ThemedText>
+              <AppIcon name="chevron-right" size={20} color={theme.textSecondary} />
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.notificationToggleSection}>
+        <View style={[styles.notificationToggle, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={[styles.menuIcon, { backgroundColor: "#4A90D9" + "15" }]}>
+            <AppIcon name="bell" size={20} color="#4A90D9" />
+          </View>
+          <View style={styles.notifContent}>
             <ThemedText type="body">Напоминания о чистке</ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               В 8:00 и 21:00 каждый день
             </ThemedText>
           </View>
           {notificationsLoading ? (
-            <ActivityIndicator size="small" color={theme.primary} />
+            <ActivityIndicator size="small" color="#4A90D9" />
           ) : (
             <Switch
               value={notificationsEnabled}
               onValueChange={handleNotificationToggle}
-              trackColor={{ false: theme.border, true: theme.primary + "80" }}
-              thumbColor={notificationsEnabled ? theme.primary : theme.textSecondary}
+              trackColor={{ false: theme.border, true: "#4A90D9" + "80" }}
+              thumbColor={notificationsEnabled ? "#4A90D9" : theme.textSecondary}
             />
           )}
         </View>
       </View>
 
-      <View style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          Анкета здоровья
-        </ThemedText>
-
-        <Card elevation={1} style={styles.profileCard}>
-          <ProfileRow
-            label="Чистка зубов"
-            value={getBrushingLabel(profile?.brushingFrequency)}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ProfileRow
-            label="Зубная нить"
-            value={profile?.usesFloss ? "Использую" : "Не использую"}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ProfileRow
-            label="Ирригатор"
-            value={profile?.usesIrrigator ? "Использую" : "Не использую"}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ProfileRow
-            label="Брекеты/Элайнеры"
-            value={profile?.hasBraces ? "Да" : "Нет"}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ProfileRow
-            label="Чувствительность"
-            value={profile?.hasSensitivity ? "Есть" : "Нет"}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ProfileRow
-            label="Кровоточивость дёсен"
-            value={profile?.hasGumBleeding ? "Есть" : "Нет"}
-          />
-        </Card>
-      </View>
-
-      <View style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          Приложение
-        </ThemedText>
-
-        <MenuItem
-          icon="message-circle"
-          label="Обратная связь"
-          onPress={() => navigation.navigate("Feedback")}
-        />
-        <MenuItem
-          icon="info"
-          label="О приложении"
-          sublabel="Версия 1.0.0 (бета)"
-          disabled
-        />
-      </View>
-
-      <View style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>
-          Аккаунт
-        </ThemedText>
-
+      <View style={styles.logoutSection}>
         <Pressable
           onPress={handleLogout}
           disabled={isLoggingOut}
           style={({ pressed }) => [
             styles.logoutButton,
-            { backgroundColor: theme.danger + "15", opacity: pressed ? 0.7 : 1 }
+            { opacity: pressed ? 0.7 : 1 }
           ]}
         >
           {isLoggingOut ? (
-            <ActivityIndicator color={theme.danger} />
+            <ActivityIndicator color="#EF4444" />
           ) : (
             <>
-              <AppIcon name="log-out" size={20} color={theme.danger} />
-              <ThemedText type="body" style={{ color: theme.danger }}>
-                Выйти из аккаунта
-              </ThemedText>
+              <AppIcon name="log-out" size={20} color="#EF4444" />
+              <ThemedText style={styles.logoutText}>Выйти</ThemedText>
             </>
           )}
         </Pressable>
       </View>
+
+      <View style={styles.versionSection}>
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>Версия 1.0.0</ThemedText>
+      </View>
+
+      <View style={{ height: insets.bottom + 100 }} />
     </KeyboardAwareScrollViewCompat>
   );
 }
 
-function ProfileRow({ label, value }: { label: string; value: string }) {
-  const { theme } = useTheme();
-
-  return (
-    <View style={styles.profileRow}>
-      <ThemedText type="body" style={{ color: theme.textSecondary }}>
-        {label}
-      </ThemedText>
-      <ThemedText type="body">{value}</ThemedText>
-    </View>
-  );
-}
-
-function MenuItem({
-  icon,
-  label,
-  sublabel,
-  onPress,
-  disabled,
-}: {
-  icon: keyof typeof AppIcon.glyphMap;
-  label: string;
-  sublabel?: string;
-  onPress?: () => void;
-  disabled?: boolean;
-}) {
-  const { theme } = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.menuItem,
-        { backgroundColor: theme.backgroundDefault, opacity: pressed && !disabled ? 0.7 : 1 }
-      ]}
-    >
-      <View style={[styles.menuIcon, { backgroundColor: theme.primary + "15" }]}>
-        <AppIcon name={icon} size={20} color={theme.primary} />
-      </View>
-      <View style={styles.menuContent}>
-        <ThemedText type="body">{label}</ThemedText>
-        {sublabel ? (
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {sublabel}
-          </ThemedText>
-        ) : null}
-      </View>
-      {!disabled ? (
-        <AppIcon name="chevron-right" size={20} color={theme.textSecondary} />
-      ) : null}
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.xl,
-    gap: Spacing.xl,
+  scrollContent: {
+    flexGrow: 1,
   },
-  userCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.lg,
+  headerGradient: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 70,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  userInfo: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  section: {
-    gap: Spacing.md,
-  },
-  sectionTitle: {
-    marginLeft: Spacing.xs,
-  },
-  notificationItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    gap: Spacing.md,
-  },
-  profileCard: {
-    padding: 0,
-    overflow: "hidden",
-  },
-  profileRow: {
+  headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: Spacing.lg,
+    marginBottom: Spacing["3xl"],
   },
-  divider: {
-    height: 1,
-    marginHorizontal: Spacing.lg,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  headerNotifButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profileCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    marginBottom: -50,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  profileInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  profileAvatarContainer: {
+    position: "relative",
+  },
+  profileAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cameraButton: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#4A90D9",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  profileDetails: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1A1A2E",
+    marginBottom: 2,
+  },
+  profileEmail: {
+    fontSize: 13,
+    color: "#64748B",
+    marginBottom: Spacing.sm,
+  },
+  premiumBadge: {
+    backgroundColor: "#EBF5FF",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    alignSelf: "flex-start",
+  },
+  premiumText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#4A90D9",
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#4A90D9",
+  },
+  statLabel: {
+    fontSize: 11,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 36,
+  },
+  menuSection: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: 60,
+  },
+  menuCard: {
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    gap: Spacing.md,
+    gap: Spacing.lg,
+  },
+  menuItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
   menuIcon: {
     width: 40,
@@ -440,16 +476,58 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  menuContent: {
+  menuLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#374151",
+  },
+  notificationToggleSection: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+  },
+  notificationToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.xl,
+    gap: Spacing.md,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  notifContent: {
     flex: 1,
     gap: Spacing.xs,
+  },
+  logoutSection: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.xl,
   },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: "#FEF2F2",
+    borderRadius: BorderRadius.xl,
     gap: Spacing.md,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#EF4444",
+  },
+  versionSection: {
+    alignItems: "center",
+    marginTop: Spacing.xl,
   },
 });

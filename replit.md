@@ -12,6 +12,15 @@ This is a React Native mobile application for dental health monitoring built wit
 - TanStack Query for data fetching
 - Drizzle ORM for database operations
 
+## Recent Changes
+- **2026-02-24**: Design overhaul - migrated from teal (#0097A7) to blue (#4A90D9) "Dentcor" theme
+  - Updated color palette in constants/theme.ts
+  - Redesigned WelcomeScreen with blue gradient splash, tooth illustrations, branding
+  - Redesigned HomeScreen with rounded header card, gradient promo banner, colored quick actions
+  - Redesigned ProfileScreen with gradient header, profile card with stats, menu with colored icons
+  - Updated ToothMapScreen legend colors to match new palette
+  - Tab bar icons kept consistent with original functionality
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -38,7 +47,7 @@ Preferred communication style: Simple, everyday language.
 - Theme-based colors with light/dark mode support
 - Consistent spacing scale (xs: 4, sm: 8, md: 12, lg: 16, xl: 24, 2xl: 32, 3xl: 40, 4xl: 48)
 - Typography scale (h1-h4, body, small, link)
-- Medical-themed color palette (primary blue #4A90E2, healthy green, warning amber, danger red)
+- Medical-themed color palette (primary blue #4A90D9, healthy green, warning amber, danger red)
 
 **Key UI Patterns:**
 - Keyboard-aware scroll views for form screens

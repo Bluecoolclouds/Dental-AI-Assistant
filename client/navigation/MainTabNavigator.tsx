@@ -101,7 +101,7 @@ export default function MainTabNavigator() {
         component={ProfileScreen}
         options={{
           title: "Профиль",
-          headerTitle: "Профиль",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="user" size={size} color={color} />
           ),
