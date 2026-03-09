@@ -13,6 +13,7 @@ This is a React Native mobile application for dental health monitoring built wit
 - Drizzle ORM for database operations
 
 ## Recent Changes
+- **2026-03-09**: Added Calendar feature — `calendar_events` DB table, full CRUD API (`/api/calendar`), AI event suggestions endpoint (`/api/calendar/ai-suggest/:userId`), and `CalendarScreen` with custom monthly grid, swipe navigation, event management (add/edit/delete/complete), type badges (appointment/reminder/personal/AI), and AI suggestions button. Replaced AnalysisTab with CalendarTab in bottom navigation.
 - **2026-03-09**: Upgraded to Expo SDK 55 (from SDK 54). Updated react-native to 0.83.2, react to 19.2.0, and all expo-* packages to SDK 55 compatible versions. Added `EXPO_NO_REACT_NATIVE_DEVTOOLS=1` and `CI=1` to dev script to prevent DevTools download issues in Replit environment.
 - **2026-03-09**: Migrated from Replit Agent to Replit environment. Installed missing `tsx` and related packages, provisioned PostgreSQL database, pushed schema with drizzle-kit, and configured the workflow to serve on port 5000 with webview output.
 - **2026-02-24**: Design overhaul - migrated from teal (#0097A7) to blue (#4A90D9) "Dentcor" theme

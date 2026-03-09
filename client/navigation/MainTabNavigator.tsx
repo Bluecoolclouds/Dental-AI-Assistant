@@ -9,14 +9,14 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 import HomeScreen from "@/screens/HomeScreen";
 import ToothMapScreen from "@/screens/ToothMapScreen";
 import AIChatScreen from "@/screens/AIChatScreen";
-import AnalysisScreen from "@/screens/AnalysisScreen";
+import CalendarScreen from "@/screens/CalendarScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
 
 export type MainTabParamList = {
   HomeTab: undefined;
   ToothMapTab: undefined;
   AIChatTab: undefined;
-  AnalysisTab: undefined;
+  CalendarTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -86,13 +86,13 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="AnalysisTab"
-        component={AnalysisScreen}
+        name="CalendarTab"
+        component={CalendarScreen}
         options={{
-          title: "Анализ",
-          headerTitle: "Анализ",
+          title: "Календарь",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <AppIcon name="activity" size={size} color={color} />
+            <AppIcon name="calendar" size={size} color={color} />
           ),
         }}
       />

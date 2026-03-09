@@ -106,6 +106,23 @@ export const toothHistory = pgTable("tooth_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Calendar events - dental appointments, reminders, AI suggestions
+export const calendarEvents = pgTable("calendar_events", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  date: text("date").notNull(), // "YYYY-MM-DD"
+  time: text("time"), // "HH:MM" optional
+  type: text("type").notNull().default("personal"), // "appointment", "reminder", "ai_suggestion", "personal"
+  source: text("source").notNull().default("user"), // "user", "ai"
+  relatedTeeth: jsonb("related_teeth").default([]),
+  isCompleted: boolean("is_completed").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Tooth files - uploaded files related to dental health (CT scans, X-rays, etc.)
 export const toothFiles = pgTable("tooth_files", {
   id: varchar("id")
@@ -173,6 +190,13 @@ export const toothFilesRelations = relations(toothFiles, ({ one }) => ({
   }),
 }));
 
+export const calendarEventsRelations = relations(calendarEvents, ({ one }) => ({
+  user: one(users, {
+    fields: [calendarEvents.userId],
+    references: [users.id],
+  }),
+}));
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
@@ -214,6 +238,11 @@ export const insertToothFileSchema = createInsertSchema(toothFiles).omit({
   createdAt: true,
 });
 
+export const insertCalendarEventSchema = createInsertSchema(calendarEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -231,6 +260,8 @@ export type ToothHistory = typeof toothHistory.$inferSelect;
 export type InsertToothHistory = z.infer<typeof insertToothHistorySchema>;
 export type ToothFile = typeof toothFiles.$inferSelect;
 export type InsertToothFile = z.infer<typeof insertToothFileSchema>;
+export type CalendarEvent = typeof calendarEvents.$inferSelect;
+export type InsertCalendarEvent = z.infer<typeof insertCalendarEventSchema>;
 
 // Problem types enum
 export const PROBLEM_TYPES = [

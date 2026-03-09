@@ -8,6 +8,7 @@ import {
   alerts,
   toothHistory,
   toothFiles,
+  calendarEvents,
   type User,
   type InsertUser,
   type UserProfile,
@@ -24,6 +25,8 @@ import {
   type InsertToothHistory,
   type ToothFile,
   type InsertToothFile,
+  type CalendarEvent,
+  type InsertCalendarEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -70,6 +73,13 @@ export interface IStorage {
   getToothFiles(userId: string): Promise<ToothFile[]>;
   createToothFile(data: InsertToothFile): Promise<ToothFile>;
   deleteToothFile(fileId: string): Promise<void>;
+
+  // Calendar Events
+  getCalendarEvents(userId: string): Promise<CalendarEvent[]>;
+  getCalendarEventsByMonth(userId: string, year: number, month: number): Promise<CalendarEvent[]>;
+  createCalendarEvent(data: InsertCalendarEvent): Promise<CalendarEvent>;
+  updateCalendarEvent(eventId: string, data: Partial<InsertCalendarEvent>): Promise<CalendarEvent | undefined>;
+  deleteCalendarEvent(eventId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -259,6 +269,42 @@ export class DatabaseStorage implements IStorage {
 
   async deleteToothFile(fileId: string): Promise<void> {
     await db.delete(toothFiles).where(eq(toothFiles.id, fileId));
+  }
+
+  // Calendar Events
+  async getCalendarEvents(userId: string): Promise<CalendarEvent[]> {
+    return db
+      .select()
+      .from(calendarEvents)
+      .where(eq(calendarEvents.userId, userId))
+      .orderBy(desc(calendarEvents.date));
+  }
+
+  async getCalendarEventsByMonth(userId: string, year: number, month: number): Promise<CalendarEvent[]> {
+    const prefix = `${year}-${String(month).padStart(2, "0")}`;
+    const all = await db
+      .select()
+      .from(calendarEvents)
+      .where(eq(calendarEvents.userId, userId));
+    return all.filter((e) => e.date.startsWith(prefix));
+  }
+
+  async createCalendarEvent(data: InsertCalendarEvent): Promise<CalendarEvent> {
+    const [created] = await db.insert(calendarEvents).values(data).returning();
+    return created;
+  }
+
+  async updateCalendarEvent(eventId: string, data: Partial<InsertCalendarEvent>): Promise<CalendarEvent | undefined> {
+    const [updated] = await db
+      .update(calendarEvents)
+      .set(data)
+      .where(eq(calendarEvents.id, eventId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCalendarEvent(eventId: string): Promise<void> {
+    await db.delete(calendarEvents).where(eq(calendarEvents.id, eventId));
   }
 }
 

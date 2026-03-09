@@ -9,6 +9,7 @@ import {
   insertFeedbackSchema,
   insertToothHistorySchema,
   insertToothFileSchema,
+  insertCalendarEventSchema,
 } from "@shared/schema";
 import { createHash } from "crypto";
 import OpenAI from "openai";
@@ -825,6 +826,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete tooth file error:", error);
       return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  // Calendar Events Routes
+  app.get("/api/calendar/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const { year, month } = req.query;
+      let events;
+      if (year && month) {
+        events = await storage.getCalendarEventsByMonth(userId, parseInt(year as string), parseInt(month as string));
+      } else {
+        events = await storage.getCalendarEvents(userId);
+      }
+      return res.json(events);
+    } catch (error) {
+      console.error("Get calendar events error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/calendar", async (req: Request, res: Response) => {
+    try {
+      const parsed = insertCalendarEventSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Неверные данные" });
+      }
+      const event = await storage.createCalendarEvent(parsed.data);
+      return res.status(201).json(event);
+    } catch (error) {
+      console.error("Create calendar event error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.patch("/api/calendar/:eventId", async (req: Request, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const event = await storage.updateCalendarEvent(eventId, req.body);
+      if (!event) {
+        return res.status(404).json({ error: "Событие не найдено" });
+      }
+      return res.json(event);
+    } catch (error) {
+      console.error("Update calendar event error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.delete("/api/calendar/:eventId", async (req: Request, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      await storage.deleteCalendarEvent(eventId);
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Delete calendar event error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  app.post("/api/calendar/ai-suggest/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const perplexity = getPerplexityClient();
+      if (!perplexity) {
+        return res.status(503).json({ error: "AI сервис недоступен" });
+      }
+
+      const [profile, toothDataArr, testResult, history] = await Promise.all([
+        storage.getProfile(userId),
+        storage.getToothData(userId),
+        storage.getLatestTestResult(userId),
+        storage.getToothHistory(userId),
+      ]);
+
+      const teethWithProblems = toothDataArr
+        .filter((t) => (t.problems as string[]).length > 0)
+        .map((t) => `Зуб ${t.toothNumber}: ${(t.problems as string[]).join(", ")}`);
+
+      const contextText = [
+        profile ? `Возраст: ${profile.age || "неизвестно"}, Чистка: ${profile.brushingFrequency || "неизвестно"}` : "",
+        teethWithProblems.length > 0 ? `Проблемные зубы: ${teethWithProblems.join("; ")}` : "Явных проблем с зубами нет",
+        testResult ? `Риск зубов: ${testResult.teethRiskScore}/100, Риск дёсен: ${testResult.gumsRiskScore}/100` : "",
+        history.length > 0 ? `Последние события: ${history.slice(0, 5).map((h) => h.reason).join("; ")}` : "",
+      ].filter(Boolean).join("\n");
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const completion = await perplexity.chat.completions.create({
+        model: "sonar",
+        messages: [
+          {
+            role: "system",
+            content: `Ты стоматологический ассистент. На основе данных пациента предложи 3-5 событий для календаря (визиты, напоминания, процедуры). Ответь ТОЛЬКО валидным JSON массивом без пояснений. Каждый объект: { "title": string, "description": string, "date": "YYYY-MM-DD", "time": "HH:MM" (опционально), "type": "appointment"|"reminder"|"ai_suggestion" }. Даты начиная с ${today} на ближайшие 6 месяцев. Используй русский язык.`,
+          },
+          {
+            role: "user",
+            content: `Данные пациента:\n${contextText}\n\nПредложи события для стоматологического календаря.`,
+          },
+        ],
+      });
+
+      const raw = completion.choices[0]?.message?.content || "[]";
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        return res.status(500).json({ error: "Не удалось получить предложения от ИИ" });
+      }
+
+      const suggestions = JSON.parse(jsonMatch[0]);
+      const created: any[] = [];
+
+      for (const s of suggestions) {
+        if (s.title && s.date) {
+          const event = await storage.createCalendarEvent({
+            userId,
+            title: s.title,
+            description: s.description || null,
+            date: s.date,
+            time: s.time || null,
+            type: s.type || "ai_suggestion",
+            source: "ai",
+            relatedTeeth: [],
+            isCompleted: false,
+          });
+          created.push(event);
+        }
+      }
+
+      return res.json({ created, count: created.length });
+    } catch (error) {
+      console.error("AI calendar suggest error:", error);
+      return res.status(500).json({ error: "Ошибка ИИ" });
     }
   });
 
