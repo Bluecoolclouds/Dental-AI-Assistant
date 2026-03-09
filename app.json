@@ -38,7 +38,11 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font",
+      "expo-image",
+      "expo-secure-store",
+      "expo-sqlite"
     ],
     "experiments": {
       "reactCompiler": true
