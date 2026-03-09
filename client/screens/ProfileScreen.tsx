@@ -67,9 +67,9 @@ async function cancelDentalReminders() {
 
 const MENU_ITEMS = [
   { icon: "clipboard" as const, label: "Анкета здоровья", color: "#0D9488" },
+  { icon: "folder" as const, label: "Материалы", color: "#F59E0B" },
   { icon: "heart" as const, label: "Избранные врачи", color: "#EF4444" },
   { icon: "bell" as const, label: "Уведомления", color: "#4A90D9" },
-  { icon: "credit-card" as const, label: "Способ оплаты", color: "#10B981" },
   { icon: "settings" as const, label: "Настройки", color: "#6B7280" },
   { icon: "help-circle" as const, label: "Центр помощи", color: "#8B5CF6" },
 ];
@@ -270,6 +270,8 @@ export default function ProfileScreen() {
               onPress={() => {
                 if (item.label === "Уведомления") {
                   navigation.navigate("Notifications");
+                } else if (item.label === "Материалы") {
+                  navigation.navigate("Materials");
                 }
               }}
               style={({ pressed }) => [
