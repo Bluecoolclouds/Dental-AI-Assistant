@@ -172,7 +172,18 @@ function setupMetroProxy(app: express.Application) {
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) return next();
-    if (req.path === "/" || req.path === "/manifest") return next();
+
+    const platform = req.header("expo-platform");
+    const isExpoManifestRequest =
+      (req.path === "/" || req.path === "/manifest") &&
+      platform &&
+      (platform === "ios" || platform === "android");
+
+    if (isExpoManifestRequest && process.env.NODE_ENV !== "production") {
+      return metroProxy(req, res, next);
+    }
+
+    if ((req.path === "/" || req.path === "/manifest") && !isExpoManifestRequest) return next();
     if (req.path.startsWith("/assets") && !req.path.match(/\.(bundle|map|js|ts)$/)) return next();
     return metroProxy(req, res, next);
   });
@@ -204,6 +215,9 @@ function configureExpoAndLanding(app: express.Application) {
 
     const platform = req.header("expo-platform");
     if (platform && (platform === "ios" || platform === "android")) {
+      if (process.env.NODE_ENV !== "production") {
+        return next();
+      }
       return serveExpoManifest(platform, res);
     }
 
