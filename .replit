@@ -3,7 +3,7 @@ modules = ["nodejs-20", "python-3.12", "web"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["unzip"]
+packages = ["unzip", "glib", "nspr", "nss", "atk", "cups", "libdrm", "mesa", "expat", "alsa-lib", "pango", "cairo", "at-spi2-atk", "at-spi2-core", "dbus", "gtk3", "xorg.libxcb", "xorg.libX11", "xorg.libXcomposite", "xorg.libXcursor", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXi", "xorg.libXrandr", "xorg.libXrender", "xorg.libXtst", "xorg.libxkbfile"]
 
 [deployment]
 deploymentTarget = "cloudrun"
