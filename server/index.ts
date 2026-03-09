@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app = express();
 const log = console.log;
@@ -155,6 +156,31 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
+function setupMetroProxy(app: express.Application) {
+  const metroProxy = createProxyMiddleware({
+    target: "http://localhost:8081",
+    changeOrigin: true,
+    ws: true,
+    on: {
+      error: (_err, _req, res) => {
+        if (res && "writeHead" in res) {
+          (res as Response).status(502).json({ error: "Metro bundler unavailable" });
+        }
+      },
+    },
+  });
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/api")) return next();
+    if (req.path === "/" || req.path === "/manifest") return next();
+    if (req.path.startsWith("/assets") && !req.path.match(/\.(bundle|map|js|ts)$/)) return next();
+    return metroProxy(req, res, next);
+  });
+
+  log("Metro proxy: forwarding bundle requests to localhost:8081");
+  return metroProxy;
+}
+
 function configureExpoAndLanding(app: express.Application) {
   const templatePath = path.resolve(
     process.cwd(),
@@ -222,6 +248,7 @@ function setupErrorHandler(app: express.Application) {
   setupRequestLogging(app);
 
   configureExpoAndLanding(app);
+  const metroProxy = setupMetroProxy(app);
 
   const server = await registerRoutes(app);
 
@@ -238,4 +265,6 @@ function setupErrorHandler(app: express.Application) {
       log(`express server serving on port ${port}`);
     },
   );
+
+  server.on("upgrade", metroProxy.upgrade as any);
 })();
