@@ -12,23 +12,33 @@ import {
   insertCalendarEventSchema,
 } from "@shared/schema";
 import { createHash } from "crypto";
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
-function getOpenAIClient(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) {
+function getClaude(): Anthropic | null {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return null;
   }
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 }
 
-function getPerplexityClient(): OpenAI | null {
-  if (!process.env.PERPLEXITY_API_KEY) {
-    return null;
-  }
-  return new OpenAI({
-    apiKey: process.env.PERPLEXITY_API_KEY,
-    baseURL: "https://api.perplexity.ai",
-  });
+const CLAUDE_MAIN = "claude-opus-4-5";
+const CLAUDE_FAST = "claude-haiku-4-5";
+
+interface UploadedFile {
+  name: string;
+  mimeType: string;
+  base64Data: string;
+  size?: number;
+}
+
+function detectFileTypeFromMime(mimeType: string, name: string): string {
+  if (mimeType === "application/pdf" || name.endsWith(".pdf")) return "document";
+  if (mimeType.startsWith("image/")) return "photo";
+  const lower = name.toLowerCase();
+  if (lower.includes("кт") || lower.includes("ct") || lower.includes("томо")) return "ct";
+  if (lower.includes("рент") || lower.includes("xray") || lower.includes("x-ray")) return "xray";
+  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "document";
+  return "other";
 }
 
 function hashPassword(password: string): string {
@@ -223,19 +233,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Recommendations Route - using Perplexity API
-  // Only generates recommendations if test was passed and recommendations not yet cached
+  // AI Recommendations Route - using Claude
   app.post("/api/recommendations", async (req: Request, res: Response) => {
     try {
       const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "Требуется userId" });
 
-      if (!userId) {
-        return res.status(400).json({ error: "Требуется userId" });
-      }
-
-      // Check if user has a test result with cached AI recommendations
       const latestTest = await storage.getLatestTestResult(userId);
-      
       if (!latestTest) {
         return res.status(400).json({ 
           error: "Сначала пройдите тест",
@@ -245,77 +249,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Return cached recommendations if available
       if (latestTest.aiRecommendations) {
         return res.json(latestTest.aiRecommendations);
       }
 
-      // No cached recommendations - generate new ones
-      const perplexity = getPerplexityClient();
-      if (!perplexity) {
+      const claude = getClaude();
+      if (!claude) {
         return res.status(503).json({ 
           error: "AI недоступен", 
           recommendations: [],
-          summary: "AI-рекомендации временно недоступны. Пожалуйста, попробуйте позже.",
+          summary: "AI-рекомендации временно недоступны.",
           urgentAction: null
         });
       }
 
-      // Fetch user data for AI context
-      const profile = await storage.getProfile(userId);
-      const toothData = await storage.getToothData(userId);
+      const [profile, toothData] = await Promise.all([
+        storage.getProfile(userId),
+        storage.getToothData(userId),
+      ]);
 
-      const systemPrompt = `Вы - виртуальный стоматологический консультант. Анализируйте данные о здоровье зубов пользователя и предоставляйте персонализированные рекомендации на русском языке.
-
-ВАЖНО: В полях title, description, summary и urgentAction пиши простой текст БЕЗ форматирования: не используй *, жирный текст, заголовки, списки Markdown, нумерацию. Не вставляй ссылки вида [текст](url). Просто обычные предложения, можешь использовать эмодзи.
-
-Ответьте ТОЛЬКО в формате JSON без дополнительного текста:
-{
-  "recommendations": [
-    {
-      "title": "Краткий заголовок рекомендации",
-      "description": "Подробное описание рекомендации",
-      "priority": "high" | "medium" | "low",
-      "category": "hygiene" | "diet" | "visit" | "treatment" | "prevention"
-    }
-  ],
-  "summary": "Общая оценка состояния здоровья зубов в 2-3 предложениях",
-  "urgentAction": "Если требуется срочное действие, опишите его здесь, иначе null"
-}`;
-
-      const userMessage = `Данные пользователя:
+      const response = await claude.messages.create({
+        model: CLAUDE_MAIN,
+        max_tokens: 2048,
+        system: `Ты виртуальный стоматологический консультант. Анализируй данные о здоровье зубов и давай персонализированные рекомендации на русском языке.
+ВАЖНО: В полях title, description, summary и urgentAction — простой текст БЕЗ Markdown-форматирования, без *, жирного, заголовков, нумерации. Только обычные предложения. Эмодзи можно.
+Ответь ТОЛЬКО валидным JSON без пояснений:
+{"recommendations":[{"title":"string","description":"string","priority":"high"|"medium"|"low","category":"hygiene"|"diet"|"visit"|"treatment"|"prevention"}],"summary":"string","urgentAction":"string|null"}`,
+        messages: [{
+          role: "user",
+          content: `Данные пользователя:
 - Возраст: ${profile?.age || "не указан"}
-- Частота чистки зубов: ${profile?.brushingFrequency || "не указано"}
-- Использует зубную нить: ${profile?.usesFloss ? "да" : "нет"}
-- Использует ирригатор: ${profile?.usesIrrigator ? "да" : "нет"}
-- Есть брекеты: ${profile?.hasBraces ? "да" : "нет"}
-- Чувствительность зубов: ${profile?.hasSensitivity ? "да" : "нет"}
-- Кровоточивость дёсен: ${profile?.hasGumBleeding ? "да" : "нет"}
-
-Проблемы с зубами: ${JSON.stringify(toothData || [])}
-
-Последние результаты теста:
-- Риск для зубов: ${latestTest.teethRiskScore}%
-- Риск для дёсен: ${latestTest.gumsRiskScore}%
-- Общий уровень риска: ${latestTest.overallRiskLevel}
-
-Предоставьте персонализированные рекомендации на основе этих данных. Ответьте ТОЛЬКО в формате JSON.`;
-
-      const response = await perplexity.chat.completions.create({
-        model: "sonar",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage }
-        ],
+- Частота чистки: ${profile?.brushingFrequency || "не указано"}
+- Нить: ${profile?.usesFloss ? "да" : "нет"}, ирригатор: ${profile?.usesIrrigator ? "да" : "нет"}
+- Брекеты: ${profile?.hasBraces ? "да" : "нет"}, чувствительность: ${profile?.hasSensitivity ? "да" : "нет"}, кровоточивость: ${profile?.hasGumBleeding ? "да" : "нет"}
+Проблемные зубы: ${JSON.stringify((toothData || []).filter((t: any) => (t.problems as string[]).length > 0))}
+Тест: риск зубов ${latestTest.teethRiskScore}%, дёсен ${latestTest.gumsRiskScore}%, уровень: ${latestTest.overallRiskLevel}
+Ответь ТОЛЬКО JSON.`
+        }],
       });
 
-      const content = response.choices[0].message.content;
-      const jsonMatch = content?.match(/\{[\s\S]*\}/);
+      const raw = (response.content[0] as any).text || "";
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(jsonMatch?.[0] || "{}");
-
-      // Cache the AI recommendations in the database
       await storage.updateTestResultAIRecommendations(latestTest.id, parsed);
-
       return res.json(parsed);
     } catch (error) {
       console.error("AI recommendations error:", error);
@@ -323,18 +299,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Chat Route - using Perplexity API
+  // AI Chat Route - using Claude
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      const perplexity = getPerplexityClient();
-      if (!perplexity) {
+      const claude = getClaude();
+      if (!claude) {
         return res.status(503).json({ 
           error: "AI недоступен", 
           response: "AI-консультант временно недоступен. Пожалуйста, попробуйте позже."
         });
       }
 
-      const { message, history, userId } = req.body;
+      const { message, history, userId, files: incomingFiles } = req.body;
 
       if (!message || typeof message !== "string") {
         return res.status(400).json({ error: "Требуется сообщение" });
@@ -344,13 +320,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let toothData: any[] = [];
       let latestTest = null;
       let upcomingEvents: any[] = [];
+      let existingFiles: any[] = [];
 
       if (userId) {
         try {
-          [userProfile, toothData, latestTest] = await Promise.all([
+          [userProfile, toothData, latestTest, existingFiles] = await Promise.all([
             storage.getProfile(userId),
             storage.getToothData(userId),
             storage.getLatestTestResult(userId),
+            storage.getToothFiles(userId),
           ]);
           const allEvents = await storage.getCalendarEvents(userId);
           const today = new Date();
@@ -366,6 +344,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Auto-describe and save new files uploaded in this message
+      const savedNewFiles: any[] = [];
+      if (Array.isArray(incomingFiles) && incomingFiles.length > 0 && userId) {
+        for (const f of incomingFiles as UploadedFile[]) {
+          try {
+            const isImage = f.mimeType?.startsWith("image/");
+            const isPdf = f.mimeType === "application/pdf";
+            if (!isImage && !isPdf) {
+              // Save without AI description for unsupported types
+              const saved = await storage.createToothFile({
+                userId,
+                fileName: f.name,
+                fileType: detectFileTypeFromMime(f.mimeType, f.name),
+                fileUrl: `chat-upload://${f.name}`,
+                fileSize: f.size ?? null,
+                description: null,
+                aiDescription: null,
+                relatedTeeth: [],
+              });
+              savedNewFiles.push(saved);
+              continue;
+            }
+            // Generate AI description using fast model
+            const descContent: any[] = [];
+            if (isImage) {
+              const supportedMime = ["image/jpeg","image/png","image/gif","image/webp"];
+              const mime = supportedMime.includes(f.mimeType) ? f.mimeType : "image/jpeg";
+              descContent.push({ type: "image", source: { type: "base64", media_type: mime, data: f.base64Data } });
+            } else {
+              descContent.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: f.base64Data } });
+            }
+            descContent.push({ type: "text", text: 'Кратко опиши этот медицинский документ в 1-2 предложениях: что за документ, дата если есть, ключевые показатели или тема. Пиши по-русски, без форматирования.' });
+            const descResp = await claude.messages.create({
+              model: CLAUDE_FAST,
+              max_tokens: 200,
+              messages: [{ role: "user", content: descContent }],
+            });
+            const aiDesc = (descResp.content[0] as any).text?.trim() || null;
+            const saved = await storage.createToothFile({
+              userId,
+              fileName: f.name,
+              fileType: detectFileTypeFromMime(f.mimeType, f.name),
+              fileUrl: `chat-upload://${f.name}`,
+              fileSize: f.size ?? null,
+              description: null,
+              aiDescription: aiDesc,
+              relatedTeeth: [],
+            });
+            savedNewFiles.push({ ...saved, _base64: f.base64Data, _mimeType: f.mimeType });
+          } catch (e) {
+            console.error("File auto-describe error:", e);
+          }
+        }
+      }
+
+      // Build file manifest for system prompt (existing files from DB)
+      const manifestFiles = [...existingFiles, ...savedNewFiles.map(f => ({ ...f, aiDescription: f.aiDescription }))];
+      const fileManifest = manifestFiles.length > 0
+        ? `\n\nУ пользователя есть загруженные медицинские документы (файл-индекс):\n` +
+          manifestFiles.map((f, i) => `${i + 1}. ${f.fileName} — ${f.aiDescription || f.description || "без описания"}`).join("\n") +
+          `\n\nЕсли пользователь просит проанализировать файл или задаёт вопрос по документам, используй информацию из индекса. Файлы, загруженные в этом сообщении, прикреплены ниже.`
+        : "";
+
       const systemPrompt = `Ты — виртуальный стоматологический консультант внутри мобильного приложения Toothy.
 Твоя задача — помогать пользователю понимать состояние зубов и дёсен, объяснять возможные причины симптомов простым языком и мотивировать своевременно обращаться к стоматологу. Ты НЕ ставишь диагноз и НЕ назначаешь лечение. Вся информация носит справочный характер.
 
@@ -377,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - анкета здоровья (возраст, привычки гигиены, брекеты, кровоточивость дёсен, чувствительность и т.п.);
 - результаты теста состояния (риски для зубов/дёсен);
 - календарь: ближайшие запланированные события (приёмы, напоминания, события от ИИ) на 90 дней вперёд;
-- текущие жалобы и история чата.
+- текущие жалобы и история чата.${fileManifest}
 
 Если пользователь спрашивает о своих планах, записях к стоматологу или напоминаниях — используй данные из поля calendar. Если календарь пустой — сообщи об этом и предложи добавить событие через раздел «Календарь» или нажав кнопку ИИ там.
 
@@ -390,7 +431,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 Не ставь окончательный диагноз, не обещай исход лечения; подчёркивай, что решение принимает стоматолог после осмотра.
 Не давай схем лечения, не назначай лекарства, дозировки, уколы, антибиотики, обезболивающие и т.п.
 При признаках опасного состояния (сильная боль, отёк лица/шеи, затруднённое дыхание/глотание, высокая температура, травма с подозрением на перелом) — чётко рекомендуй срочно обратиться к врачу/в неотложку и помечай, что ситуация может быть срочной.
-Не проси файлы (фото, КТ и т.п.), если это запрещено политикой приложения; используй только данные, которые даёт система.
 Не обсуждай юридические, финансовые темы и не спорь с реальными врачами.
 Пиши простой текст БЕЗ форматирования: не используй *, жирный текст, заголовки, списки Markdown, нумерацию. Не вставляй ссылки и квадратные скобки. Просто обычные предложения в несколько абзацев, только при просьбе ссылки можно выдавать. Эмодзи иногда можешь использовать для дружелюбности.
 
@@ -529,60 +569,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: e.description || null,
           source: e.source,
         })) : [],
-        chat_context: {
-          history: Array.isArray(history) ? history.slice(-8) : [],
-          user_message: message
-        }
       };
 
-      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-        { role: "system", content: systemPrompt },
-      ];
+      // Build Claude message history
+      const claudeMessages: Array<{ role: "user" | "assistant"; content: any }> = [];
 
       if (Array.isArray(history) && history.length > 0) {
         const validHistory = history.slice(-6);
-        const alternatingMessages: Array<{ role: "user" | "assistant"; content: string }> = [];
-        
+        const alternating: Array<{ role: "user" | "assistant"; content: string }> = [];
         for (const msg of validHistory) {
           if (msg.role === "user" || msg.role === "assistant") {
-            const lastMsg = alternatingMessages[alternatingMessages.length - 1];
-            if (!lastMsg || lastMsg.role !== msg.role) {
-              alternatingMessages.push({ role: msg.role, content: msg.content });
+            const last = alternating[alternating.length - 1];
+            if (!last || last.role !== msg.role) {
+              alternating.push({ role: msg.role, content: msg.content });
             }
           }
         }
-        
-        if (alternatingMessages.length > 0) {
-          if (alternatingMessages[0].role === "assistant") {
-            alternatingMessages.shift();
+        if (alternating.length > 0) {
+          if (alternating[0].role === "assistant") alternating.shift();
+          if (alternating.length > 0 && alternating[alternating.length - 1].role === "user") {
+            alternating.push({ role: "assistant", content: "Понял, продолжаем." });
           }
-          
-          if (alternatingMessages.length > 0) {
-            const last = alternatingMessages[alternatingMessages.length - 1];
-            if (last.role === "user") {
-              alternatingMessages.push({ 
-                role: "assistant", 
-                content: "Понял, продолжаем." 
-              });
-            }
-          }
-          
-          messages.push(...alternatingMessages);
+          claudeMessages.push(...alternating);
         }
       }
 
-      messages.push({ 
-        role: "user", 
-        content: `Контекст пользователя:\n${JSON.stringify(userContext, null, 2)}\n\nСообщение: ${message}` 
+      // Build current user message with optional file attachments
+      const userContentBlocks: any[] = [];
+
+      // Attach files uploaded in this turn with prompt caching
+      for (const f of savedNewFiles) {
+        if (!f._base64) continue;
+        const isImg = f._mimeType?.startsWith("image/");
+        const supportedMimes = ["image/jpeg","image/png","image/gif","image/webp"];
+        if (isImg) {
+          const mime = supportedMimes.includes(f._mimeType) ? f._mimeType : "image/jpeg";
+          userContentBlocks.push({
+            type: "image",
+            source: { type: "base64", media_type: mime, data: f._base64 },
+            cache_control: { type: "ephemeral" },
+          });
+        } else if (f._mimeType === "application/pdf") {
+          userContentBlocks.push({
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data: f._base64 },
+            cache_control: { type: "ephemeral" },
+          });
+        }
+      }
+
+      userContentBlocks.push({
+        type: "text",
+        text: `Контекст пользователя:\n${JSON.stringify(userContext, null, 2)}\n\nСообщение: ${message}`,
       });
 
-      const response = await perplexity.chat.completions.create({
-        model: "sonar",
-        messages,
+      claudeMessages.push({ role: "user", content: userContentBlocks });
+
+      const response = await claude.messages.create({
+        model: CLAUDE_MAIN,
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: claudeMessages,
       });
 
-      const rawContent = response.choices[0].message.content || "";
-      
+      const rawContent = (response.content[0] as any).text || "";
+
       let content = rawContent.trim();
       content = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
       content = content.trim();
@@ -594,6 +645,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const parsed = JSON.parse(content);
+        // Also attach saved file info to response
+        (parsed as any)._savedFiles = savedNewFiles.map(f => ({
+          id: f.id, fileName: f.fileName, fileType: f.fileType, aiDescription: f.aiDescription
+        }));
         
         if (userId && parsed.state_updates) {
           const { teeth_updates, reminders } = parsed.state_updates;
@@ -912,8 +967,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/calendar/ai-suggest/:userId", async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
-      const perplexity = getPerplexityClient();
-      if (!perplexity) {
+      const claude = getClaude();
+      if (!claude) {
         return res.status(503).json({ error: "AI сервис недоступен" });
       }
 
@@ -937,21 +992,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const today = new Date().toISOString().split("T")[0];
 
-      const completion = await perplexity.chat.completions.create({
-        model: "sonar",
-        messages: [
-          {
-            role: "system",
-            content: `Ты стоматологический ассистент. На основе данных пациента предложи 3-5 событий для календаря (визиты, напоминания, процедуры). Ответь ТОЛЬКО валидным JSON массивом без пояснений. Каждый объект: { "title": string, "description": string, "date": "YYYY-MM-DD", "time": "HH:MM" (опционально), "type": "appointment"|"reminder"|"ai_suggestion" }. Даты начиная с ${today} на ближайшие 6 месяцев. Используй русский язык.`,
-          },
-          {
-            role: "user",
-            content: `Данные пациента:\n${contextText}\n\nПредложи события для стоматологического календаря.`,
-          },
-        ],
+      const completion = await claude.messages.create({
+        model: CLAUDE_FAST,
+        max_tokens: 1024,
+        system: `Ты стоматологический ассистент. На основе данных пациента предложи 3-5 событий для календаря (визиты, напоминания, процедуры). Ответь ТОЛЬКО валидным JSON массивом без пояснений. Каждый объект: { "title": string, "description": string, "date": "YYYY-MM-DD", "time": "HH:MM" (опционально), "type": "appointment"|"reminder"|"ai_suggestion" }. Даты начиная с ${today} на ближайшие 6 месяцев. Используй русский язык.`,
+        messages: [{
+          role: "user",
+          content: `Данные пациента:\n${contextText}\n\nПредложи события для стоматологического календаря.`,
+        }],
       });
 
-      const raw = completion.choices[0]?.message?.content || "[]";
+      const raw = (completion.content[0] as any).text || "[]";
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         return res.status(500).json({ error: "Не удалось получить предложения от ИИ" });

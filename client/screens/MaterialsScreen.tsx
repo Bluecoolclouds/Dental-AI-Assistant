@@ -4,17 +4,14 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  TextInput,
   ActivityIndicator,
   Alert,
   Platform,
   Linking,
-  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as DocumentPicker from "expo-document-picker";
 
 import AppIcon from "@/components/Icons";
 import { ThemedText } from "@/components/ThemedText";
@@ -31,26 +28,6 @@ const FILE_TYPES: Record<string, { label: string; icon: string; color: string }>
   document: { label: "Документ",  icon: "file-text",   color: "#F59E0B" },
   other:    { label: "Другое",    icon: "paperclip",   color: "#6B7280" },
 };
-
-const MIME_TO_TYPE: Record<string, string> = {
-  "image/jpeg": "photo",
-  "image/png":  "photo",
-  "image/heic": "photo",
-  "image/webp": "photo",
-  "application/pdf": "document",
-  "application/msword": "document",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "document",
-};
-
-function detectFileType(mimeType?: string, name?: string): string {
-  if (mimeType && MIME_TO_TYPE[mimeType]) return MIME_TO_TYPE[mimeType];
-  const lower = (name || "").toLowerCase();
-  if (lower.includes("кт") || lower.includes("ct") || lower.includes("томо")) return "ct";
-  if (lower.includes("рент") || lower.includes("xray") || lower.includes("x-ray")) return "xray";
-  if (mimeType?.startsWith("image/")) return "photo";
-  if (lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx")) return "document";
-  return "other";
-}
 
 function formatSize(bytes?: number | null): string {
   if (!bytes) return "";
@@ -72,10 +49,6 @@ export default function MaterialsScreen() {
   const navigation = useNavigation();
   const qc = useQueryClient();
 
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const [pickedFile, setPickedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-  const [fileType, setFileType] = useState("other");
-  const [description, setDescription] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
   const filesQuery = useQuery<ToothFile[]>({
@@ -85,18 +58,6 @@ export default function MaterialsScreen() {
       return res.json();
     },
     enabled: !!user?.id,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/tooth-files", data);
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [`/api/tooth-files/${user?.id}`] });
-      closeAddModal();
-    },
-    onError: () => Alert.alert("Ошибка", "Не удалось сохранить файл"),
   });
 
   const deleteMutation = useMutation({
@@ -116,49 +77,17 @@ export default function MaterialsScreen() {
     files: filteredFiles.filter((f) => f.fileType === type),
   })).filter((g) => g.files.length > 0);
 
-  const handlePickFile = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      setPickedFile(asset);
-      setFileType(detectFileType(asset.mimeType ?? undefined, asset.name));
-      setAddModalVisible(true);
-    } catch {
-      Alert.alert("Ошибка", "Не удалось открыть файл");
-    }
-  };
-
-  const handleSave = () => {
-    if (!pickedFile) return;
-    createMutation.mutate({
-      userId: user?.id,
-      fileName: pickedFile.name,
-      fileType,
-      fileUrl: pickedFile.uri,
-      fileSize: pickedFile.size ?? null,
-      description: description.trim() || null,
-      relatedTeeth: [],
-    });
-  };
-
-  const closeAddModal = () => {
-    setAddModalVisible(false);
-    setPickedFile(null);
-    setDescription("");
-    setFileType("other");
-  };
-
   const handleOpenFile = async (file: ToothFile) => {
     try {
+      if (file.fileUrl.startsWith("chat-upload://")) {
+        Alert.alert("Файл загружен через чат", "Этот файл был загружен через AI-чат и хранится на сервере.");
+        return;
+      }
       const can = await Linking.canOpenURL(file.fileUrl);
       if (can) {
         await Linking.openURL(file.fileUrl);
       } else {
-        Alert.alert("Ошибка", "Не удалось открыть файл. Возможно, приложение для этого типа не установлено.");
+        Alert.alert("Ошибка", "Не удалось открыть файл.");
       }
     } catch {
       Alert.alert("Ошибка", "Не удалось открыть файл");
@@ -180,6 +109,15 @@ export default function MaterialsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + Spacing["3xl"] }]}
       >
+        {/* Info Banner */}
+        <View style={[styles.infoBanner, { backgroundColor: theme.primary + "12", borderColor: theme.primary + "30" }]}>
+          <AppIcon name="cpu" size={18} color={theme.primary} />
+          <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>
+            Файлы добавляются через AI-чат — прикрепите снимок или документ прямо в диалоге, и я сохраню его здесь.
+          </ThemedText>
+        </View>
+
+        {/* Type filters */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -228,132 +166,34 @@ export default function MaterialsScreen() {
             </View>
             <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>Нет материалов</ThemedText>
             <ThemedText style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-              Добавьте рентгеновские снимки, КТ, фотографии и другие медицинские документы
+              Прикрепите рентгеновский снимок, КТ, фото или другой документ в AI-чате — они появятся здесь
             </ThemedText>
-            <Pressable
-              onPress={handlePickFile}
-              style={[styles.emptyButton, { backgroundColor: theme.primary }]}
-            >
-              <AppIcon name="upload" size={16} color="#FFFFFF" />
-              <ThemedText style={styles.emptyButtonText}>Добавить файл</ThemedText>
-            </Pressable>
           </View>
         ) : (
-          <>
-            {groupedFiles.map(({ type, info, files: groupFiles }) => (
-              <View key={type} style={styles.group}>
-                <View style={styles.groupHeader}>
-                  <View style={[styles.groupIconBg, { backgroundColor: info.color + "18" }]}>
-                    <AppIcon name={info.icon as any} size={16} color={info.color} />
-                  </View>
-                  <ThemedText style={[styles.groupTitle, { color: theme.text }]}>{info.label}</ThemedText>
-                  <ThemedText style={[styles.groupCount, { color: theme.textSecondary }]}>{groupFiles.length}</ThemedText>
+          groupedFiles.map(({ type, info, files: groupFiles }) => (
+            <View key={type} style={styles.group}>
+              <View style={styles.groupHeader}>
+                <View style={[styles.groupIconBg, { backgroundColor: info.color + "18" }]}>
+                  <AppIcon name={info.icon as any} size={16} color={info.color} />
                 </View>
-
-                {groupFiles.map((file) => (
-                  <FileCard
-                    key={file.id}
-                    file={file}
-                    info={info}
-                    theme={theme}
-                    onOpen={() => handleOpenFile(file)}
-                    onDelete={() => handleDelete(file)}
-                  />
-                ))}
+                <ThemedText style={[styles.groupTitle, { color: theme.text }]}>{info.label}</ThemedText>
+                <ThemedText style={[styles.groupCount, { color: theme.textSecondary }]}>{groupFiles.length}</ThemedText>
               </View>
-            ))}
-          </>
+
+              {groupFiles.map((file) => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  info={info}
+                  theme={theme}
+                  onOpen={() => handleOpenFile(file)}
+                  onDelete={() => handleDelete(file)}
+                />
+              ))}
+            </View>
+          ))
         )}
       </ScrollView>
-
-      {files.length > 0 && (
-        <Pressable
-          onPress={handlePickFile}
-          style={[styles.fab, { backgroundColor: theme.primary, bottom: insets.bottom + Spacing.xl }]}
-        >
-          <AppIcon name="plus" size={24} color="#FFFFFF" />
-        </Pressable>
-      )}
-
-      <Modal
-        visible={addModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeAddModal}
-      >
-        <Pressable style={styles.modalOverlay} onPress={closeAddModal} />
-        <View style={[styles.modalSheet, { backgroundColor: theme.background, paddingBottom: insets.bottom + Spacing.xl }]}>
-          <View style={styles.modalHandle} />
-          <ThemedText style={[styles.modalTitle, { color: theme.text }]}>Добавить файл</ThemedText>
-
-          {pickedFile && (
-            <View style={[styles.pickedFileCard, { backgroundColor: theme.backgroundSecondary }]}>
-              <AppIcon name="file" size={20} color={FILE_TYPES[fileType]?.color || theme.primary} />
-              <View style={styles.pickedFileInfo}>
-                <ThemedText style={[styles.pickedFileName, { color: theme.text }]} numberOfLines={1}>
-                  {pickedFile.name}
-                </ThemedText>
-                {pickedFile.size ? (
-                  <ThemedText style={[styles.pickedFileSize, { color: theme.textSecondary }]}>
-                    {formatSize(pickedFile.size)}
-                  </ThemedText>
-                ) : null}
-              </View>
-            </View>
-          )}
-
-          <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Тип файла</ThemedText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
-            <View style={styles.typeRow}>
-              {typeKeys.map((type) => {
-                const info = FILE_TYPES[type];
-                const active = fileType === type;
-                return (
-                  <Pressable
-                    key={type}
-                    onPress={() => setFileType(type)}
-                    style={[
-                      styles.typeChip,
-                      { borderColor: active ? info.color : theme.border },
-                      active && { backgroundColor: info.color },
-                    ]}
-                  >
-                    <AppIcon name={info.icon as any} size={13} color={active ? "#FFFFFF" : info.color} />
-                    <ThemedText style={[styles.typeChipText, { color: active ? "#FFFFFF" : info.color }]}>
-                      {info.label}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
-
-          <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: Spacing.lg }]}>
-            Описание (необязательно)
-          </ThemedText>
-          <TextInput
-            style={[styles.descInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-            placeholder="Например: Рентген зуба 26, апрель 2025"
-            placeholderTextColor={theme.textSecondary}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={2}
-          />
-
-          <Pressable
-            onPress={handleSave}
-            disabled={createMutation.isPending || !pickedFile}
-            style={[styles.saveBtn, { backgroundColor: theme.primary, opacity: createMutation.isPending ? 0.7 : 1 }]}
-          >
-            {createMutation.isPending ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <ThemedText style={styles.saveBtnText}>Сохранить</ThemedText>
-            )}
-          </Pressable>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -371,6 +211,8 @@ function FileCard({
   onOpen: () => void;
   onDelete: () => void;
 }) {
+  const isChat = file.fileUrl.startsWith("chat-upload://");
+
   return (
     <View style={[styles.fileCard, { backgroundColor: theme.background }]}>
       <Pressable style={styles.fileCardMain} onPress={onOpen}>
@@ -382,6 +224,12 @@ function FileCard({
             {file.fileName}
           </ThemedText>
           <View style={styles.fileMeta}>
+            {isChat && (
+              <View style={[styles.chatBadge, { backgroundColor: theme.primary + "18" }]}>
+                <AppIcon name="cpu" size={10} color={theme.primary} />
+                <ThemedText style={[styles.chatBadgeText, { color: theme.primary }]}>Чат</ThemedText>
+              </View>
+            )}
             {file.fileSize ? (
               <ThemedText style={[styles.fileSizeText, { color: theme.textSecondary }]}>
                 {formatSize(file.fileSize)}
@@ -394,7 +242,11 @@ function FileCard({
               {formatDate(file.createdAt.toString())}
             </ThemedText>
           </View>
-          {file.description ? (
+          {(file as any).aiDescription ? (
+            <ThemedText style={[styles.fileDescription, { color: theme.textSecondary }]} numberOfLines={3}>
+              {(file as any).aiDescription}
+            </ThemedText>
+          ) : file.description ? (
             <ThemedText style={[styles.fileDescription, { color: theme.textSecondary }]} numberOfLines={2}>
               {file.description}
             </ThemedText>
@@ -402,7 +254,6 @@ function FileCard({
         </View>
         <AppIcon name="external-link" size={16} color={theme.textSecondary} />
       </Pressable>
-
       <Pressable onPress={onDelete} style={styles.deleteBtn} hitSlop={8}>
         <AppIcon name="trash-2" size={16} color={theme.danger} />
       </Pressable>
@@ -413,6 +264,17 @@ function FileCard({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingTop: Spacing.lg },
+  infoBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+  },
+  infoText: { fontSize: 13, lineHeight: 18, flex: 1 },
   filterRow: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
@@ -444,16 +306,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 18, fontWeight: "700" },
   emptySubtitle: { fontSize: 14, textAlign: "center", lineHeight: 20 },
-  emptyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing["2xl"],
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.xl,
-    marginTop: Spacing.sm,
-  },
-  emptyButtonText: { color: "#FFFFFF", fontWeight: "600", fontSize: 15 },
   group: { marginBottom: Spacing.xl, paddingHorizontal: Spacing.lg },
   groupHeader: {
     flexDirection: "row",
@@ -462,8 +314,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   groupIconBg: {
-    width: 28,
-    height: 28,
+    width: 28, height: 28,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -488,92 +339,25 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   fileIconBg: {
-    width: 44,
-    height: 44,
+    width: 44, height: 44,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   fileInfo: { flex: 1 },
   fileName: { fontSize: 14, fontWeight: "600", marginBottom: 3 },
-  fileMeta: { flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" },
+  fileMeta: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  chatBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  chatBadgeText: { fontSize: 10, fontWeight: "600" },
   fileSizeText: { fontSize: 12 },
   fileDot: { fontSize: 12 },
-  fileDescription: { fontSize: 12, marginTop: 3, lineHeight: 16 },
-  deleteBtn: {
-    padding: Spacing.lg,
-    paddingLeft: 0,
-  },
-  fab: {
-    position: "absolute",
-    right: Spacing.xl,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
-      android: { elevation: 6 },
-    }),
-  },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  modalSheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16 },
-      android: { elevation: 16 },
-    }),
-  },
-  modalHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: "#E2E8F0",
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
-  },
-  modalTitle: { fontSize: 20, fontWeight: "700", marginBottom: Spacing.lg },
-  pickedFileCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
-  },
-  pickedFileInfo: { flex: 1 },
-  pickedFileName: { fontSize: 14, fontWeight: "600" },
-  pickedFileSize: { fontSize: 12, marginTop: 2 },
-  fieldLabel: { fontSize: 13, fontWeight: "500", marginBottom: Spacing.sm },
-  typeScroll: { marginBottom: Spacing.sm },
-  typeRow: { flexDirection: "row", gap: Spacing.sm },
-  typeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 7,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1.5,
-  },
-  typeChipText: { fontSize: 12, fontWeight: "600" },
-  descInput: {
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    fontSize: 14,
-    minHeight: 70,
-    textAlignVertical: "top",
-  },
-  saveBtn: {
-    height: 52,
-    borderRadius: BorderRadius.xl,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.xl,
-  },
-  saveBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  fileDescription: { fontSize: 12, marginTop: 4, lineHeight: 16 },
+  deleteBtn: { padding: Spacing.lg, paddingLeft: 0 },
 });

@@ -72,6 +72,7 @@ export interface IStorage {
   // Tooth Files
   getToothFiles(userId: string): Promise<ToothFile[]>;
   createToothFile(data: InsertToothFile): Promise<ToothFile>;
+  updateToothFile(fileId: string, data: Partial<InsertToothFile>): Promise<ToothFile | undefined>;
   deleteToothFile(fileId: string): Promise<void>;
 
   // Calendar Events
@@ -265,6 +266,15 @@ export class DatabaseStorage implements IStorage {
   async createToothFile(data: InsertToothFile): Promise<ToothFile> {
     const [created] = await db.insert(toothFiles).values(data).returning();
     return created;
+  }
+
+  async updateToothFile(fileId: string, data: Partial<InsertToothFile>): Promise<ToothFile | undefined> {
+    const [updated] = await db
+      .update(toothFiles)
+      .set(data)
+      .where(eq(toothFiles.id, fileId))
+      .returning();
+    return updated;
   }
 
   async deleteToothFile(fileId: string): Promise<void> {
