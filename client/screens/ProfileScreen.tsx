@@ -4,11 +4,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
-import * as Notifications from "expo-notifications";
+import type * as NotificationsType from "expo-notifications";
 import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import Constants from "expo-constants";
+
+const getNotifications = (): typeof NotificationsType | null => {
+  if (Constants.executionEnvironment === "storeClient") return null;
+  return require("expo-notifications") as typeof NotificationsType;
+};
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -25,7 +30,8 @@ const NOTIFICATIONS_KEY = "@dental_notifications_enabled";
 const isExpoGo = Constants.executionEnvironment === "storeClient";
 
 async function scheduleDentalReminders() {
-  if (isExpoGo) return;
+  const Notifications = getNotifications();
+  if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   await Notifications.scheduleNotificationAsync({
@@ -54,7 +60,8 @@ async function scheduleDentalReminders() {
 }
 
 async function cancelDentalReminders() {
-  if (isExpoGo) return;
+  const Notifications = getNotifications();
+  if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
@@ -79,7 +86,8 @@ export default function ProfileScreen() {
   const { profile } = useProfile();
 
   useEffect(() => {
-    if (!isExpoGo) {
+    const Notifications = getNotifications();
+    if (Notifications) {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
           shouldShowAlert: true,
@@ -94,7 +102,8 @@ export default function ProfileScreen() {
   }, []);
 
   const checkNotificationStatus = async () => {
-    if (isExpoGo) {
+    const Notifications = getNotifications();
+    if (!Notifications) {
       setNotificationsLoading(false);
       return;
     }
@@ -112,7 +121,8 @@ export default function ProfileScreen() {
   };
 
   const handleNotificationToggle = async (value: boolean) => {
-    if (isExpoGo) {
+    const Notifications = getNotifications();
+    if (!Notifications) {
       Alert.alert(
         "Недоступно в Expo Go",
         "Уведомления работают только в полноценной сборке приложения.",
