@@ -343,12 +343,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let userProfile = null;
       let toothData: any[] = [];
       let latestTest = null;
+      let upcomingEvents: any[] = [];
 
       if (userId) {
         try {
-          userProfile = await storage.getProfile(userId);
-          toothData = await storage.getToothData(userId);
-          latestTest = await storage.getLatestTestResult(userId);
+          [userProfile, toothData, latestTest] = await Promise.all([
+            storage.getProfile(userId),
+            storage.getToothData(userId),
+            storage.getLatestTestResult(userId),
+          ]);
+          const allEvents = await storage.getCalendarEvents(userId);
+          const today = new Date();
+          const in90days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+          const todayStr = today.toISOString().split("T")[0];
+          const limitStr = in90days.toISOString().split("T")[0];
+          upcomingEvents = allEvents
+            .filter((e) => e.date >= todayStr && e.date <= limitStr && !e.isCompleted)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, 20);
         } catch (e) {
           console.error("Error fetching user data for chat:", e);
         }
@@ -364,7 +376,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - карта зубов (по каждому зубу: боль, скол, пломба, кариес, кровоточивость, чувствительность и т.д.);
 - анкета здоровья (возраст, привычки гигиены, брекеты, кровоточивость дёсен, чувствительность и т.п.);
 - результаты теста состояния (риски для зубов/дёсен);
+- календарь: ближайшие запланированные события (приёмы, напоминания, события от ИИ) на 90 дней вперёд;
 - текущие жалобы и история чата.
+
+Если пользователь спрашивает о своих планах, записях к стоматологу или напоминаниях — используй данные из поля calendar. Если календарь пустой — сообщи об этом и предложи добавить событие через раздел «Календарь» или нажав кнопку ИИ там.
 
 Стиль общения
 Пиши по-русски, дружелюбно, на «ты», простыми словами.
@@ -506,6 +521,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           gum_risk: latestTest.gumsRiskScore > 60 ? "high" : latestTest.gumsRiskScore > 30 ? "medium" : "low",
           tooth_risk: latestTest.teethRiskScore > 60 ? "high" : latestTest.teethRiskScore > 30 ? "medium" : "low"
         } : null,
+        calendar: upcomingEvents.length > 0 ? upcomingEvents.map((e) => ({
+          title: e.title,
+          date: e.date,
+          time: e.time || null,
+          type: e.type,
+          description: e.description || null,
+          source: e.source,
+        })) : [],
         chat_context: {
           history: Array.isArray(history) ? history.slice(-8) : [],
           user_message: message
