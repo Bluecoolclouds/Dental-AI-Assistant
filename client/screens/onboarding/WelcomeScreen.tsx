@@ -6,6 +6,7 @@ import {
   Dimensions,
   Modal,
   Animated,
+  PanResponder,
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -29,6 +30,8 @@ import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Welcome">;
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const DISMISS_THRESHOLD = 120;
+const DISMISS_VELOCITY = 0.5;
 
 function ToothLogo() {
   return (
@@ -62,6 +65,29 @@ export default function WelcomeScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  const animateOpen = () => {
+    translateY.setValue(SCREEN_HEIGHT);
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      damping: 22,
+      stiffness: 280,
+      mass: 0.9,
+    }).start();
+  };
+
+  const animateClose = (onDone?: () => void) => {
+    Animated.timing(translateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 260,
+      useNativeDriver: true,
+    }).start(() => {
+      onDone?.();
+    });
+  };
+
   const openSheet = (mode: AuthMode) => {
     setAuthMode(mode);
     setError("");
@@ -73,7 +99,7 @@ export default function WelcomeScreen() {
   };
 
   const closeSheet = () => {
-    setSheetVisible(false);
+    animateClose(() => setSheetVisible(false));
   };
 
   const switchMode = () => {
@@ -105,15 +131,46 @@ export default function WelcomeScreen() {
       if (!result.success) {
         setError(result.error || "Произошла ошибка");
       } else if (authMode === "register") {
-        closeSheet();
-        navigation.navigate("Questionnaire");
+        animateClose(() => {
+          setSheetVisible(false);
+          navigation.navigate("Questionnaire");
+        });
       } else {
-        closeSheet();
+        animateClose(() => setSheetVisible(false));
       }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) =>
+        g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) {
+          translateY.setValue(g.dy);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > DISMISS_THRESHOLD || g.vy > DISMISS_VELOCITY) {
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 220,
+            useNativeDriver: true,
+          }).start(() => setSheetVisible(false));
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 20,
+            stiffness: 300,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   const isLogin = authMode === "login";
 
@@ -161,9 +218,10 @@ export default function WelcomeScreen() {
       <Modal
         visible={sheetVisible}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={closeSheet}
         statusBarTranslucent
+        onShow={animateOpen}
       >
         <TouchableWithoutFeedback onPress={closeSheet}>
           <View style={styles.overlay} />
@@ -174,18 +232,25 @@ export default function WelcomeScreen() {
           style={styles.sheetWrapper}
           pointerEvents="box-none"
         >
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.xl }]}>
-            <View style={styles.sheetHandle} />
+          <Animated.View
+            style={[
+              styles.sheet,
+              { paddingBottom: insets.bottom + Spacing.xl },
+              { transform: [{ translateY }] },
+            ]}
+          >
+            <View style={styles.dragArea} {...panResponder.panHandlers}>
+              <View style={styles.sheetHandle} />
+              <ThemedText style={styles.sheetTitle}>
+                {isLogin ? "Вход" : "Регистрация"}
+              </ThemedText>
+            </View>
 
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.sheetScroll}
             >
-              <ThemedText style={styles.sheetTitle}>
-                {isLogin ? "Вход" : "Регистрация"}
-              </ThemedText>
-
               {error ? (
                 <View style={[styles.errorContainer, { backgroundColor: theme.danger + "15" }]}>
                   <AppIcon name="alert-circle" size={16} color={theme.danger} />
@@ -270,7 +335,7 @@ export default function WelcomeScreen() {
                 </Pressable>
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
     </LinearGradient>
@@ -415,8 +480,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: Spacing.md,
-    paddingHorizontal: Spacing.xl,
     maxHeight: SCREEN_HEIGHT * 0.75,
     ...Platform.select({
       ios: {
@@ -428,23 +491,30 @@ const styles = StyleSheet.create({
       android: { elevation: 16 },
     }),
   },
+  dragArea: {
+    paddingTop: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.sm,
+    alignItems: "center",
+  },
   sheetHandle: {
     width: 40,
     height: 4,
     borderRadius: 2,
     backgroundColor: "#E2E8F0",
-    alignSelf: "center",
-    marginBottom: Spacing.xl,
-  },
-  sheetScroll: {
-    paddingBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   sheetTitle: {
     fontSize: 24,
     fontWeight: "700",
     color: "#1A1A2E",
     textAlign: "center",
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.sm,
+  },
+  sheetScroll: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
   },
   errorContainer: {
     flexDirection: "row",
