@@ -13,6 +13,7 @@ This is a React Native mobile application for dental health monitoring built wit
 - Drizzle ORM for database operations
 
 ## Recent Changes
+- **2026-03-09**: Migrated from Replit Agent to Replit environment. Installed missing `tsx` and related packages, provisioned PostgreSQL database, pushed schema with drizzle-kit, and configured the workflow to serve on port 5000 with webview output.
 - **2026-02-24**: Design overhaul - migrated from teal (#0097A7) to blue (#4A90D9) "Dentcor" theme
   - Updated color palette in constants/theme.ts
   - Redesigned WelcomeScreen with blue gradient splash, tooth illustrations, branding
