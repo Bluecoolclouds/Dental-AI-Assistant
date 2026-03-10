@@ -207,9 +207,6 @@ export default function WelcomeScreen() {
         <Pressable onPress={() => openSheet("register")} style={styles.primaryButton}>
           <ThemedText style={styles.primaryButtonText}>Начать</ThemedText>
         </Pressable>
-        <Pressable onPress={() => openSheet("login")} style={styles.secondaryButton}>
-          <ThemedText style={styles.secondaryButtonText}>Уже есть аккаунт? Войти</ThemedText>
-        </Pressable>
       </View>
 
       <Modal
