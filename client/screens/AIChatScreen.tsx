@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -9,6 +9,8 @@ import {
   Platform,
   Alert,
   ScrollView,
+  Animated,
+  Text,
 } from "react-native";
 import AppIcon from "@/components/Icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -182,6 +184,35 @@ export default function AIChatScreen() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isPickingFile, setIsPickingFile] = useState(false);
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchBarAnim = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef<TextInput>(null);
+
+  const openSearch = useCallback(() => {
+    setIsSearching(true);
+    Animated.timing(searchBarAnim, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: false,
+    }).start(() => searchInputRef.current?.focus());
+  }, [searchBarAnim]);
+
+  const closeSearch = useCallback(() => {
+    setSearchQuery("");
+    Animated.timing(searchBarAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: false,
+    }).start(() => setIsSearching(false));
+  }, [searchBarAnim]);
+
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages;
+    const q = searchQuery.toLowerCase();
+    return messages.filter((m) => m.content.toLowerCase().includes(q));
+  }, [messages, searchQuery]);
 
   useEffect(() => {
     const load = async () => {
@@ -390,6 +421,57 @@ export default function AIChatScreen() {
     chatMutation.mutate({ text: displayText, files: filesToSend });
   }, [inputText, pendingFiles, chatMutation]);
 
+  const renderHighlightedText = useCallback(
+    (text: string, isUser: boolean) => {
+      if (!searchQuery.trim()) {
+        return (
+          <ThemedText style={[styles.messageText, isUser && { color: "#FFFFFF" }]}>
+            {text}
+          </ThemedText>
+        );
+      }
+      const q = searchQuery.toLowerCase();
+      const parts: { text: string; match: boolean }[] = [];
+      let remaining = text;
+      let lowerRemaining = remaining.toLowerCase();
+      while (true) {
+        const idx = lowerRemaining.indexOf(q);
+        if (idx === -1) {
+          parts.push({ text: remaining, match: false });
+          break;
+        }
+        if (idx > 0) parts.push({ text: remaining.slice(0, idx), match: false });
+        parts.push({ text: remaining.slice(idx, idx + q.length), match: true });
+        remaining = remaining.slice(idx + q.length);
+        lowerRemaining = remaining.toLowerCase();
+      }
+      return (
+        <Text style={[styles.messageText, isUser && { color: "#FFFFFF" }]}>
+          {parts.map((part, i) =>
+            part.match ? (
+              <Text
+                key={i}
+                style={[
+                  styles.highlight,
+                  isUser
+                    ? { backgroundColor: "rgba(255,255,255,0.35)", color: "#FFFFFF" }
+                    : { backgroundColor: "#FFD700", color: "#333333" },
+                ]}
+              >
+                {part.text}
+              </Text>
+            ) : (
+              <Text key={i} style={isUser ? { color: "#FFFFFF" } : {}}>
+                {part.text}
+              </Text>
+            )
+          )}
+        </Text>
+      );
+    },
+    [searchQuery, theme],
+  );
+
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
       const isUser = item.role === "user";
@@ -426,24 +508,78 @@ export default function AIChatScreen() {
                   : { backgroundColor: theme.backgroundSecondary },
               ]}
             >
-              <ThemedText style={[styles.messageText, isUser && { color: "#FFFFFF" }]}>
-                {item.content}
-              </ThemedText>
+              {renderHighlightedText(item.content, isUser)}
             </View>
           </View>
         </View>
       );
     },
-    [theme],
+    [theme, renderHighlightedText],
   );
 
   const canSend = (inputText.trim().length > 0 || pendingFiles.length > 0) && !chatMutation.isPending;
 
+  const searchBarHeight = searchBarAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 52],
+  });
+  const searchBarOpacity = searchBarAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const hasQuery = searchQuery.trim().length > 0;
+  const resultCount = hasQuery ? filteredMessages.length : 0;
+
   return (
     <ThemedView style={styles.container}>
+      <Animated.View
+        style={[
+          styles.searchBar,
+          {
+            height: searchBarHeight,
+            opacity: searchBarOpacity,
+            top: insets.top,
+            backgroundColor: theme.backgroundDefault,
+            borderBottomColor: theme.border,
+          },
+        ]}
+        pointerEvents={isSearching ? "auto" : "none"}
+      >
+        <View style={[styles.searchInputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+          <AppIcon name="search" size={16} color={theme.textSecondary} />
+          <TextInput
+            ref={searchInputRef}
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Поиск по сообщениям..."
+            placeholderTextColor={theme.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {hasQuery && (
+            <ThemedText style={[styles.searchCount, { color: theme.textSecondary }]}>
+              {resultCount > 0 ? `${resultCount}` : "0"}
+            </ThemedText>
+          )}
+          <Pressable onPress={closeSearch} hitSlop={8}>
+            <AppIcon name="x" size={18} color={theme.textSecondary} />
+          </Pressable>
+        </View>
+      </Animated.View>
+
+      <Pressable
+        style={[styles.searchFab, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border, top: insets.top + Spacing.md }]}
+        onPress={isSearching ? closeSearch : openSearch}
+        hitSlop={4}
+      >
+        <AppIcon name={isSearching ? "x" : "search"} size={18} color={theme.primary} />
+      </Pressable>
+
       <FlatList
         ref={flatListRef}
-        data={messages}
+        data={filteredMessages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         contentContainerStyle={[
@@ -454,9 +590,19 @@ export default function AIChatScreen() {
           },
         ]}
         onContentSizeChange={() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          if (!hasQuery) flatListRef.current?.scrollToEnd({ animated: true });
         }}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          hasQuery ? (
+            <View style={styles.emptySearch}>
+              <AppIcon name="search" size={32} color={theme.textSecondary} />
+              <ThemedText style={[styles.emptySearchText, { color: theme.textSecondary }]}>
+                Ничего не найдено
+              </ThemedText>
+            </View>
+          ) : null
+        }
       />
 
       <View
@@ -643,5 +789,60 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  searchBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    borderBottomWidth: 1,
+    paddingHorizontal: Spacing.lg,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  searchInputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    height: 40,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  searchCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    minWidth: 20,
+    textAlign: "center",
+  },
+  searchFab: {
+    position: "absolute",
+    right: Spacing.lg,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  highlight: {
+    fontWeight: "700",
+    borderRadius: 3,
+  },
+  emptySearch: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingTop: 80,
+  },
+  emptySearchText: {
+    fontSize: 15,
   },
 });
