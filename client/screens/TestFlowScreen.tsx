@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import AppIcon from "@/components/Icons";
 
@@ -101,6 +102,7 @@ const QUESTIONS: Question[] = [
 
 export default function TestFlowScreen() {
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { createTestResult } = useTestResults();
@@ -187,7 +189,7 @@ export default function TestFlowScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.progressContainer}>
+      <View style={[styles.progressContainer, { paddingTop: headerHeight + Spacing.sm }]}>
         <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
           <View style={[styles.progressFill, { backgroundColor: theme.primary, width: `${progress}%` }]} />
         </View>

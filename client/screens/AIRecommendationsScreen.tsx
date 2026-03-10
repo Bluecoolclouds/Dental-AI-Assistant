@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
 import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -24,6 +25,7 @@ const RECOMMENDATION_ICONS: Record<string, keyof typeof AppIcon.glyphMap> = {
 
 export default function AIRecommendationsScreen() {
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const { user } = useAuthContext();
 
@@ -113,7 +115,7 @@ export default function AIRecommendationsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + Spacing["2xl"] }
+          { paddingTop: headerHeight + Spacing.md, paddingBottom: insets.bottom + Spacing["2xl"] }
         ]}
         showsVerticalScrollIndicator={false}
       >
