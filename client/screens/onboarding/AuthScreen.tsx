@@ -100,6 +100,7 @@ export default function AuthScreen() {
 
   const [codeDigits, setCodeDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [isDevMode, setIsDevMode] = useState(false);
   const codeRefs = useRef<(TextInput | null)[]>([]);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -143,6 +144,7 @@ export default function AuthScreen() {
       const resp = await apiRequest("POST", "/api/auth/send-code", { email: email.trim() });
       const data = await resp.json();
       if (!data.sent) { setError(data.error || "Ошибка отправки кода"); return false; }
+      setIsDevMode(!!data.devMode);
       return true;
     } catch (err: any) {
       const msg = err?.message || "";
@@ -311,8 +313,12 @@ export default function AuthScreen() {
               <View style={styles.verifyHint}>
                 <AppIcon name="mail" size={18} color={theme.primary} />
                 <ThemedText type="small" style={[styles.verifyHintText, { color: theme.textSecondary }]}>
-                  Мы отправили 6-значный код на{"\n"}
-                  <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>{email}</ThemedText>
+                  {isDevMode
+                    ? "Тест-режим: письмо не отправлено.\nКод виден в логах сервера (воркфлоу)."
+                    : <>Мы отправили 6-значный код на{"\n"}
+                        <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>{email}</ThemedText>
+                      </>
+                  }
                 </ThemedText>
               </View>
 

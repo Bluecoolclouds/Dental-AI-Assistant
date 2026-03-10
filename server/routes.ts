@@ -70,11 +70,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [emailLower, code, expiresAt]
       );
 
-      await sendVerificationEmail(emailLower, code);
+      try {
+        await sendVerificationEmail(emailLower, code);
+      } catch (emailErr: any) {
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`\n[DEV] Email не отправлен (Resend ограничение). Код для ${emailLower}: ${code}\n`);
+          return res.status(200).json({ sent: true, devMode: true });
+        }
+        throw emailErr;
+      }
       return res.status(200).json({ sent: true });
     } catch (err: any) {
       console.error("send-code error:", err);
-      return res.status(500).json({ error: err.message || "Ошибка отправки кода" });
+      return res.status(500).json({ error: "Ошибка отправки письма. Проверьте email и попробуйте снова." });
     }
   });
 

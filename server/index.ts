@@ -159,10 +159,13 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
-function isMetroReady(): Promise<boolean> {
+let metroReady = false;
+
+function checkMetroPort(): Promise<boolean> {
   return new Promise((resolve) => {
+    if (metroReady) return resolve(true);
     const socket = new net.Socket();
-    const done = (result: boolean) => { socket.destroy(); resolve(result); };
+    const done = (result: boolean) => { socket.destroy(); if (result) metroReady = true; resolve(result); };
     socket.setTimeout(600);
     socket.connect(8081, "::1", () => done(true));
     socket.on("timeout", () => done(true));
@@ -171,9 +174,10 @@ function isMetroReady(): Promise<boolean> {
 }
 
 function waitForMetro(retries = 40, delayMs = 500): Promise<void> {
+  if (metroReady) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const attempt = (n: number) => {
-      isMetroReady().then((ready) => {
+      checkMetroPort().then((ready) => {
         if (ready) return resolve();
         if (n <= 0) return reject(new Error("Metro not ready"));
         setTimeout(() => attempt(n - 1), delayMs);
