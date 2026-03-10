@@ -1,11 +1,27 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TextInput, ActivityIndicator, Pressable, Dimensions, Platform } from "react-native";
+import {
+  StyleSheet,
+  View,
+  TextInput,
+  ActivityIndicator,
+  Pressable,
+  Dimensions,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import AppIcon from "@/components/Icons";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -17,7 +33,10 @@ import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Auth">;
 type RoutePropType = RouteProp<OnboardingStackParamList, "Auth">;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+const DISMISS_THRESHOLD = 160;
+const DISMISS_VELOCITY = 900;
 
 function ToothIllustration({ style }: { style?: any }) {
   return (
@@ -40,8 +59,6 @@ function ToothIllustration({ style }: { style?: any }) {
 }
 
 function DentcorLogo() {
-  const { theme } = useTheme();
-  
   return (
     <View style={styles.logoContainer}>
       <Svg width={40} height={40} viewBox="0 0 40 40">
@@ -78,9 +95,45 @@ export default function AuthScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  const translateY = useSharedValue(0);
+
+  const dismiss = () => {
+    navigation.goBack();
+  };
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY;
+      } else {
+        translateY.value = e.translationY * 0.08;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > DISMISS_THRESHOLD || e.velocityY > DISMISS_VELOCITY) {
+        translateY.value = withTiming(
+          SCREEN_HEIGHT,
+          { duration: 280 },
+          (finished) => {
+            if (finished) runOnJS(dismiss)();
+          }
+        );
+      } else {
+        translateY.value = withSpring(0, {
+          damping: 22,
+          stiffness: 220,
+          mass: 0.8,
+        });
+      }
+    });
+
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
   const handleSubmit = async () => {
     setError("");
-    
+
     if (!email.trim() || !password.trim()) {
       setError("Заполните все поля");
       return;
@@ -127,16 +180,15 @@ export default function AuthScreen() {
       >
         <View style={[styles.headerSection, { paddingTop: insets.top + Spacing.xl }]}>
           <DentcorLogo />
-          
+
           <View style={styles.heroContent}>
             <ThemedText style={styles.heroTitle}>
               {isLogin ? "С возвращением!" : "Почувствуйте себя уверенно"}
             </ThemedText>
             <ThemedText style={styles.heroSubtitle}>
-              {isLogin 
+              {isLogin
                 ? "Войдите, чтобы продолжить заботу о здоровье зубов"
-                : "Клиническое мастерство — приоритет для любого стоматологического сервиса"
-              }
+                : "Клиническое мастерство — приоритет для любого стоматологического сервиса"}
             </ThemedText>
           </View>
 
@@ -148,11 +200,17 @@ export default function AuthScreen() {
         </View>
       </LinearGradient>
 
-      <View style={styles.formCard}>
+      <Animated.View style={[styles.formCard, animatedCardStyle]}>
+        <GestureDetector gesture={panGesture}>
+          <View style={styles.dragHandleArea}>
+            <View style={styles.dragHandle} />
+          </View>
+        </GestureDetector>
+
         <KeyboardAwareScrollViewCompat
           contentContainerStyle={[
             styles.formContent,
-            { paddingBottom: insets.bottom + Spacing.xl }
+            { paddingBottom: insets.bottom + Spacing.xl },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -170,7 +228,12 @@ export default function AuthScreen() {
           ) : null}
 
           <View style={styles.inputGroup}>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+            <View
+              style={[
+                styles.inputWrapper,
+                { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+              ]}
+            >
               <AppIcon name="mail" size={20} color={theme.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
@@ -184,7 +247,12 @@ export default function AuthScreen() {
               />
             </View>
 
-            <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+            <View
+              style={[
+                styles.inputWrapper,
+                { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+              ]}
+            >
               <AppIcon name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: theme.text }]}
@@ -196,12 +264,21 @@ export default function AuthScreen() {
                 autoComplete={isLogin ? "current-password" : "new-password"}
               />
               <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                <AppIcon name={showPassword ? "eye-off" : "eye"} size={20} color={theme.textSecondary} />
+                <AppIcon
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={20}
+                  color={theme.textSecondary}
+                />
               </Pressable>
             </View>
 
             {!isLogin ? (
-              <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                ]}
+              >
                 <AppIcon name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, { color: theme.text }]}
@@ -221,7 +298,7 @@ export default function AuthScreen() {
             disabled={isLoading}
             style={({ pressed }) => [
               styles.submitButton,
-              { backgroundColor: theme.primary, opacity: pressed || isLoading ? 0.8 : 1 }
+              { backgroundColor: theme.primary, opacity: pressed || isLoading ? 0.8 : 1 },
             ]}
           >
             {isLoading ? (
@@ -233,7 +310,12 @@ export default function AuthScreen() {
                 </ThemedText>
                 <View style={styles.buttonArrows}>
                   <AppIcon name="chevron-right" size={16} color="#FFFFFF" />
-                  <AppIcon name="chevron-right" size={16} color="rgba(255,255,255,0.5)" style={{ marginLeft: -8 }} />
+                  <AppIcon
+                    name="chevron-right"
+                    size={16}
+                    color="rgba(255,255,255,0.5)"
+                    style={{ marginLeft: -8 }}
+                  />
                 </View>
               </>
             )}
@@ -259,7 +341,7 @@ export default function AuthScreen() {
             </Pressable>
           </View>
         </KeyboardAwareScrollViewCompat>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -350,9 +432,21 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  dragHandleArea: {
+    alignItems: "center",
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing["2xl"],
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D1D5DB",
+  },
   formContent: {
     padding: Spacing.xl,
-    paddingTop: Spacing["2xl"],
+    paddingTop: Spacing.lg,
   },
   formTitle: {
     textAlign: "center",
