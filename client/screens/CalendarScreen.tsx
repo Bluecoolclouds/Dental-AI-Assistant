@@ -215,6 +215,9 @@ export default function CalendarScreen() {
       qc.invalidateQueries({ queryKey: [`/api/calendar/${user?.id}`] });
       closeModal();
     },
+    onError: (err: Error) => {
+      Alert.alert("Не удалось создать событие", err.message);
+    },
   });
 
   const updateMutation = useMutation({
@@ -225,6 +228,9 @@ export default function CalendarScreen() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [`/api/calendar/${user?.id}`] });
       closeModal();
+    },
+    onError: (err: Error) => {
+      Alert.alert("Не удалось сохранить событие", err.message);
     },
   });
 
@@ -278,9 +284,37 @@ export default function CalendarScreen() {
       Alert.alert("Ошибка", "Укажите дату");
       return;
     }
-    const dateStr = `${form.dateYear}-${form.dateMonth.padStart(2, "0")}-${form.dateDay.padStart(2, "0")}`;
+    const day = parseInt(form.dateDay);
+    const mon = parseInt(form.dateMonth);
+    const yr = parseInt(form.dateYear);
+    if (mon < 1 || mon > 12) {
+      Alert.alert("Ошибка", "Месяц должен быть от 1 до 12");
+      return;
+    }
+    const maxDay = new Date(yr, mon, 0).getDate();
+    if (day < 1 || day > maxDay) {
+      Alert.alert("Ошибка", `День должен быть от 1 до ${maxDay} для этого месяца`);
+      return;
+    }
+    if (yr < 2000 || yr > 2100) {
+      Alert.alert("Ошибка", "Укажите корректный год");
+      return;
+    }
+    if (form.timeHour) {
+      const h = parseInt(form.timeHour);
+      const m = parseInt(form.timeMinute || "0");
+      if (h < 0 || h > 23) {
+        Alert.alert("Ошибка", "Часы должны быть от 0 до 23");
+        return;
+      }
+      if (m < 0 || m > 59) {
+        Alert.alert("Ошибка", "Минуты должны быть от 0 до 59");
+        return;
+      }
+    }
+    const dateStr = `${yr}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const timeStr = form.timeHour
-      ? `${form.timeHour.padStart(2, "0")}:${(form.timeMinute || "00").padStart(2, "0")}`
+      ? `${String(parseInt(form.timeHour)).padStart(2, "0")}:${String(parseInt(form.timeMinute || "0")).padStart(2, "0")}`
       : undefined;
     const payload = {
       title: form.title.trim(),
@@ -520,6 +554,11 @@ export default function CalendarScreen() {
                       placeholderTextColor={theme.textSecondary}
                       value={form.dateDay}
                       onChangeText={(v) => setForm((f) => ({ ...f, dateDay: v.replace(/\D/g, "").slice(0, 2) }))}
+                      onBlur={() => setForm((f) => {
+                        const n = parseInt(f.dateDay);
+                        if (!isNaN(n)) return { ...f, dateDay: String(Math.min(31, Math.max(1, n))) };
+                        return f;
+                      })}
                       keyboardType="numeric"
                       maxLength={2}
                       textAlign="center"
@@ -531,6 +570,11 @@ export default function CalendarScreen() {
                       placeholderTextColor={theme.textSecondary}
                       value={form.dateMonth}
                       onChangeText={(v) => setForm((f) => ({ ...f, dateMonth: v.replace(/\D/g, "").slice(0, 2) }))}
+                      onBlur={() => setForm((f) => {
+                        const n = parseInt(f.dateMonth);
+                        if (!isNaN(n)) return { ...f, dateMonth: String(Math.min(12, Math.max(1, n))) };
+                        return f;
+                      })}
                       keyboardType="numeric"
                       maxLength={2}
                       textAlign="center"
@@ -559,6 +603,11 @@ export default function CalendarScreen() {
                       placeholderTextColor={theme.textSecondary}
                       value={form.timeHour}
                       onChangeText={(v) => setForm((f) => ({ ...f, timeHour: v.replace(/\D/g, "").slice(0, 2) }))}
+                      onBlur={() => setForm((f) => {
+                        const n = parseInt(f.timeHour);
+                        if (!isNaN(n)) return { ...f, timeHour: String(Math.min(23, Math.max(0, n))) };
+                        return f;
+                      })}
                       keyboardType="numeric"
                       maxLength={2}
                       textAlign="center"
@@ -570,6 +619,11 @@ export default function CalendarScreen() {
                       placeholderTextColor={theme.textSecondary}
                       value={form.timeMinute}
                       onChangeText={(v) => setForm((f) => ({ ...f, timeMinute: v.replace(/\D/g, "").slice(0, 2) }))}
+                      onBlur={() => setForm((f) => {
+                        const n = parseInt(f.timeMinute);
+                        if (!isNaN(n)) return { ...f, timeMinute: String(Math.min(59, Math.max(0, n))) };
+                        return f;
+                      })}
                       keyboardType="numeric"
                       maxLength={2}
                       textAlign="center"
