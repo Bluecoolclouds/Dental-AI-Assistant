@@ -7,7 +7,7 @@ This is a React Native mobile application for dental health monitoring built wit
 **Primary Technologies:**
 - React Native (Expo SDK 55, RN 0.83.2, React 19.2.0)
 - Expo SDK 55 with new architecture + React Compiler
-- Express.js backend (AI routes only) — data stored locally on device
+- Express.js backend — auth, profile, test results, feedback on PostgreSQL; tooth/history/calendar/files/alerts remain local
 - Anthropic Claude (claude-opus-4-5 main, claude-haiku-4-5 fast)
 - expo-sqlite for local device database (all user data)
 - expo-secure-store for auth token
@@ -17,15 +17,18 @@ This is a React Native mobile application for dental health monitoring built wit
 - TanStack Query for AI mutation requests
 - Custom local data hooks (useLocalData.ts)
 
-## Architecture — LOCAL FIRST
+## Architecture — HYBRID
 
-All user data is stored on the device in SQLite (`client/storage/database.ts`). The server is only used for AI API calls (Anthropic Claude). This means:
-- App works standalone as an APK without server dependency for core features
-- Server required only for: AI chat, AI recommendations, AI calendar suggestions
+**Server (PostgreSQL):** Auth (register/login with email code verification), user profiles, test results, feedback. Admin dashboard at `/admin?key=<ADMIN_SECRET>`.
+
+**Local (SQLite on device):** Tooth data, tooth history, calendar events, alerts, files. Read-through cache for profile (synced from server on load, written to server on update). Test results and feedback are written both locally and to server (write-through).
+
+- Auth requires email verification code (6-digit, expires in 10 min)
+- Profile syncs from server on every load; local SQLite is the cache/fallback
 - Files (X-rays, photos, PDFs) stored in device's document directory via expo-file-system
-- Calendar events, tooth data, profiles, alerts — all local SQLite
 
 ## Recent Changes
+- **2026-03-10**: HYBRID MIGRATION — Auth moved to server PostgreSQL (with email code verification). User profiles, test results, feedback synced to server via write-through. Added admin analytics dashboard at `/admin?key=<ADMIN_SECRET>` with Chart.js (registrations chart, risk distribution, tooth problems, feedback list). Extended `userProfiles` schema with displayName/avatarUrl/birthDate/gender/goals/location/allergyToAnesthetics/seriousIllnesses. `ADMIN_SECRET` env var controls access.
 - **2026-03-10**: MAJOR — Migrated to local-first architecture. All user data (calendar, files, profile, teeth, test results, alerts) now stored in local SQLite on device. Server only handles AI calls. Added `calendar_events` table + `calendarRepository.ts`. Refactored CalendarScreen, MaterialsScreen, AIChatScreen to use local storage. Modified server `/api/chat` to accept `userContext` from client (instead of fetching from server DB). Files uploaded in chat are now saved locally via expo-file-system. Added expo-sharing for file opening.
 - **2026-03-09**: Added Calendar feature — `calendar_events` DB table, full CRUD API, CalendarScreen redesign with gradient header, timeline events, animated bottom sheet modal, FDI tooth numbering.
 - **2026-03-09**: Upgraded to Expo SDK 55. Auth bottom sheet fixed for Android. MaterialsScreen top padding fix.

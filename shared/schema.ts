@@ -31,6 +31,14 @@ export const userProfiles = pgTable("user_profiles", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  displayName: text("display_name"),
+  avatarUrl: text("avatar_url"),
+  birthDate: text("birth_date"),
+  gender: text("gender"),
+  goals: text("goals"),
+  location: text("location"),
+  allergyToAnesthetics: text("allergy_to_anesthetics"),
+  seriousIllnesses: text("serious_illnesses"),
   age: integer("age"),
   brushingFrequency: text("brushing_frequency"), // "once", "twice", "more"
   usesFloss: boolean("uses_floss").default(false),

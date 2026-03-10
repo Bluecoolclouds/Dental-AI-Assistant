@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { pool } from "./db";
+import { getAdminStats, renderAdminPage } from "./admin";
 import { 
   insertUserSchema, 
   insertUserProfileSchema, 
@@ -1160,6 +1161,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Audience analytics error:", error);
       return res.status(500).json({ error: "Ошибка записи аналитики" });
+    }
+  });
+
+  // Admin Analytics Dashboard
+  app.get("/admin", async (req: Request, res: Response) => {
+    const secret = process.env.ADMIN_SECRET;
+    if (!secret || req.query.key !== secret) {
+      return res.status(401).send(`
+        <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f1f5f9">
+        <div style="text-align:center">
+          <p style="color:#64748b;margin-bottom:16px">Введите ключ доступа</p>
+          <form method="get" action="/admin">
+            <input name="key" type="password" placeholder="Admin key" style="padding:10px 16px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-right:8px" autofocus />
+            <button type="submit" style="padding:10px 20px;background:#4A90D9;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">Войти</button>
+          </form>
+        </div>
+        </body></html>`);
+    }
+    try {
+      const stats = await getAdminStats();
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(renderAdminPage(stats));
+    } catch (error) {
+      console.error("Admin dashboard error:", error);
+      return res.status(500).send("Ошибка загрузки данных");
     }
   });
 

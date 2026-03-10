@@ -234,7 +234,7 @@ function setupMetroProxy(app: express.Application) {
   });
 
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/api")) return next();
+    if (req.path.startsWith("/api") || req.path.startsWith("/admin")) return next();
 
     const platform = req.header("expo-platform");
     const isExpoManifestRequest =

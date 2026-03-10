@@ -7,6 +7,47 @@ import * as alertsRepo from "@/storage/repositories/alertsRepository";
 import * as historyRepo from "@/storage/repositories/toothHistoryRepository";
 import * as filesRepo from "@/storage/repositories/toothFilesRepository";
 import * as feedbackRepo from "@/storage/repositories/feedbackRepository";
+import { apiRequest } from "@/lib/query-client";
+
+async function syncProfileFromServer(userId: string): Promise<void> {
+  try {
+    const resp = await apiRequest("GET", `/api/profile/${userId}`);
+    const server = await resp.json();
+    await profileRepo.upsertProfile({
+      userId,
+      displayName: server.displayName ?? undefined,
+      avatarUrl: server.avatarUrl ?? undefined,
+      birthDate: server.birthDate ?? undefined,
+      gender: server.gender ?? undefined,
+      goals: server.goals ?? undefined,
+      location: server.location ?? undefined,
+      allergyToAnesthetics: server.allergyToAnesthetics ?? undefined,
+      seriousIllnesses: server.seriousIllnesses ?? undefined,
+      age: server.age ?? undefined,
+      brushingFrequency: server.brushingFrequency ?? undefined,
+      usesFloss: server.usesFloss ?? false,
+      usesIrrigator: server.usesIrrigator ?? false,
+      hasBraces: server.hasBraces ?? false,
+      hasSensitivity: server.hasSensitivity ?? false,
+      hasGumBleeding: server.hasGumBleeding ?? false,
+      hasCrownsVeneers: server.hasCrownsVeneers ?? false,
+      hasRemovableDentures: server.hasRemovableDentures ?? false,
+      hasImplants: server.hasImplants ?? false,
+      onboardingCompleted: server.onboardingCompleted ?? false,
+      disclaimerAccepted: server.disclaimerAccepted ?? false,
+    });
+  } catch {
+    // ignore — server unreachable, use local cache
+  }
+}
+
+async function pushProfileToServer(userId: string, updates: Partial<profileRepo.CreateProfileInput>): Promise<void> {
+  try {
+    await apiRequest("PATCH", `/api/profile/${userId}`, updates);
+  } catch {
+    // ignore — sync best-effort
+  }
+}
 
 export function useProfile() {
   const { user } = useAuthContext();
@@ -17,6 +58,7 @@ export function useProfile() {
     if (!user?.id) return;
     setIsLoading(true);
     try {
+      await syncProfileFromServer(user.id);
       const data = await profileRepo.getProfileByUserId(user.id);
       setProfile(data);
     } catch (error) {
@@ -35,6 +77,7 @@ export function useProfile() {
     try {
       const updated = await profileRepo.updateProfile(user.id, updates);
       setProfile(updated);
+      pushProfileToServer(user.id, updates);
       return updated;
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -211,6 +254,14 @@ export function useTestResults() {
     if (!user?.id) return null;
     try {
       const result = await testRepo.createTestResult({ ...input, userId: user.id });
+      apiRequest("POST", "/api/test-results", {
+        userId: user.id,
+        teethRiskScore: input.teethRiskScore,
+        gumsRiskScore: input.gumsRiskScore,
+        overallRiskLevel: input.overallRiskLevel,
+        recommendations: input.recommendations ?? [],
+        aiRecommendations: input.aiRecommendations ?? null,
+      }).catch(() => {});
       await load();
       return result;
     } catch (error) {
@@ -377,11 +428,17 @@ export function useFeedback() {
 
   const createFeedback = useCallback(async (category: string, message: string) => {
     try {
-      return await feedbackRepo.createFeedback({
+      const result = await feedbackRepo.createFeedback({
         userId: user?.id,
         category,
         message,
       });
+      apiRequest("POST", "/api/feedback", {
+        userId: user?.id ?? null,
+        category,
+        message,
+      }).catch(() => {});
+      return result;
     } catch (error) {
       console.error("Error creating feedback:", error);
       throw error;
