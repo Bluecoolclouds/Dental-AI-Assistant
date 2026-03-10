@@ -89,6 +89,11 @@ export default function WelcomeScreen() {
     });
   };
 
+  const switchMode = () => {
+    setError("");
+    setAuthMode((prev) => (prev === "login" ? "register" : "login"));
+  };
+
   const openSheet = (mode: AuthMode) => {
     setAuthMode(mode);
     setError("");
@@ -326,6 +331,17 @@ export default function WelcomeScreen() {
                   </ThemedText>
                 )}
               </Pressable>
+
+              <View style={styles.switchContainer}>
+                <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
+                  {isLogin ? "Нет аккаунта? " : "Уже есть аккаунт? "}
+                </ThemedText>
+                <Pressable onPress={switchMode}>
+                  <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
+                    {isLogin ? "Регистрация" : "Войти"}
+                  </ThemedText>
+                </Pressable>
+              </View>
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
@@ -545,6 +561,19 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  switchContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  switchText: {
+    fontSize: 14,
+  },
+  switchLink: {
+    fontSize: 14,
     fontWeight: "600",
   },
 });
