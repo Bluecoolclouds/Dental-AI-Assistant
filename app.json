@@ -3,6 +3,10 @@
     "name": "Здоровье Зубов",
     "slug": "dental-health",
     "version": "1.0.0",
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dentalhealth",
