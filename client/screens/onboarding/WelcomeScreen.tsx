@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
@@ -33,14 +33,12 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
-import { apiRequest } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Welcome">;
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_THRESHOLD = 120;
 const DISMISS_VELOCITY = 800;
-const CODE_LENGTH = 6;
 
 function ToothLogo() {
   return (
@@ -75,27 +73,6 @@ export default function WelcomeScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [step, setStep] = useState<"form" | "verify">("form");
-  const [codeDigits, setCodeDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [isDevMode, setIsDevMode] = useState(false);
-  const codeRefs = useRef<(TextInput | null)[]>([]);
-  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
-  }, []);
-
-  const startCooldown = () => {
-    setResendCooldown(60);
-    cooldownRef.current = setInterval(() => {
-      setResendCooldown((prev) => {
-        if (prev <= 1) { clearInterval(cooldownRef.current!); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
   const sheetY = useSharedValue(SCREEN_HEIGHT);
 
   const hideSheet = () => setSheetVisible(false);
@@ -126,30 +103,10 @@ export default function WelcomeScreen() {
     setPassword("");
     setConfirmPassword("");
     setShowPassword(false);
-    setStep("form");
-    setCodeDigits(Array(CODE_LENGTH).fill(""));
     setSheetVisible(true);
   };
 
   const closeSheet = () => animateClose();
-
-  const sendCode = async (): Promise<boolean> => {
-    try {
-      const resp = await apiRequest("POST", "/api/auth/send-code", { email: email.trim() });
-      const data = await resp.json();
-      if (!data.sent) { setError(data.error || t("auth.errors.sendError")); return false; }
-      setIsDevMode(!!data.devMode);
-      return true;
-    } catch (err: any) {
-      const msg = err?.message || "";
-      const jsonMatch = msg.match(/\{.*\}/);
-      if (jsonMatch) {
-        try { const parsed = JSON.parse(jsonMatch[0]); setError(parsed.error || t("auth.errors.sendFailed")); return false; } catch {}
-      }
-      setError(t("auth.errors.noConnection"));
-      return false;
-    }
-  };
 
   const handleSubmit = async () => {
     setError("");
@@ -167,92 +124,21 @@ export default function WelcomeScreen() {
     }
     setIsLoading(true);
     try {
-      if (authMode === "login") {
-        const result = await login(email.trim(), password);
-        if (!result.success) {
-          setError(result.error || t("common.error"));
-        } else {
-          animateClose(() => setSheetVisible(false));
-        }
+      const result =
+        authMode === "login"
+          ? await login(email.trim(), password)
+          : await register(email.trim(), password);
+
+      if (!result.success) {
+        setError(result.error || t("common.error"));
+      } else if (authMode === "register") {
+        animateClose(() => {
+          setSheetVisible(false);
+          navigation.navigate("ProfileSetup");
+        });
       } else {
-        const ok = await sendCode();
-        if (!ok) return;
-        setCodeDigits(Array(CODE_LENGTH).fill(""));
-        setStep("verify");
-        startCooldown();
-        setTimeout(() => codeRefs.current[0]?.focus(), 300);
+        animateClose(() => setSheetVisible(false));
       }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCodeInput = (text: string, index: number) => {
-    const digit = text.replace(/[^0-9]/g, "").slice(-1);
-    const newDigits = [...codeDigits];
-    newDigits[index] = digit;
-    setCodeDigits(newDigits);
-    setError("");
-    if (digit && index < CODE_LENGTH - 1) {
-      codeRefs.current[index + 1]?.focus();
-    }
-    if (digit && index === CODE_LENGTH - 1) {
-      const fullCode = newDigits.join("");
-      if (fullCode.length === CODE_LENGTH) verifyAndRegister(newDigits);
-    }
-  };
-
-  const handleCodeKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === "Backspace" && !codeDigits[index] && index > 0) {
-      const newDigits = [...codeDigits];
-      newDigits[index - 1] = "";
-      setCodeDigits(newDigits);
-      codeRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const verifyAndRegister = async (digits: string[]) => {
-    const code = digits.join("");
-    if (code.length < CODE_LENGTH) { setError(t("auth.errors.invalidCode")); return; }
-    setError("");
-    setIsLoading(true);
-    try {
-      let verifyData: any;
-      try {
-        const resp = await apiRequest("POST", "/api/auth/verify-code", { email: email.trim(), code });
-        verifyData = await resp.json();
-      } catch (err: any) {
-        const msg = err?.message || "";
-        const jsonMatch = msg.match(/\{.*\}/);
-        if (jsonMatch) {
-          try { const p = JSON.parse(jsonMatch[0]); setError(p.error || t("auth.errors.wrongCode")); return; } catch {}
-        }
-        setError(t("auth.errors.noConnection"));
-        return;
-      }
-      if (!verifyData.verified) { setError(verifyData.error || t("auth.errors.wrongCode")); return; }
-
-      const result = await register(email.trim(), password, code);
-      if (!result.success) { setError(result.error || t("auth.errors.registerError")); return; }
-      animateClose(() => {
-        setSheetVisible(false);
-        navigation.navigate("ProfileSetup");
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (resendCooldown > 0) return;
-    setError("");
-    setIsLoading(true);
-    try {
-      const ok = await sendCode();
-      if (!ok) return;
-      setCodeDigits(Array(CODE_LENGTH).fill(""));
-      startCooldown();
-      setTimeout(() => codeRefs.current[0]?.focus(), 100);
     } finally {
       setIsLoading(false);
     }
@@ -346,7 +232,7 @@ export default function WelcomeScreen() {
               <View style={styles.dragArea}>
                 <View style={styles.sheetHandle} />
                 <ThemedText style={styles.sheetTitle}>
-                  {step === "verify" ? t("auth.enterCode") : isLogin ? t("auth.loginTitle") : t("auth.registerTitle")}
+                  {isLogin ? t("auth.loginTitle") : t("auth.registerTitle")}
                 </ThemedText>
               </View>
             </GestureDetector>
@@ -365,172 +251,99 @@ export default function WelcomeScreen() {
                 </View>
               ) : null}
 
-              {step === "verify" ? (
-                <>
-                  <View style={[styles.verifyHint, { backgroundColor: theme.backgroundSecondary }]}>
-                    <AppIcon name="mail" size={18} color={theme.primary} />
-                    <ThemedText style={[styles.verifyHintText, { color: theme.textSecondary }]}>
-                      {isDevMode
-                        ? t("auth.devMode")
-                        : `Мы отправили 6-значный код на\n${email}`}
-                    </ThemedText>
-                  </View>
+              <View style={styles.inputGroup}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                  ]}
+                >
+                  <AppIcon name="mail" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder={t("auth.email")}
+                    placeholderTextColor={theme.textSecondary}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                  />
+                </View>
 
-                  <View style={styles.codeRow}>
-                    {Array(CODE_LENGTH).fill(null).map((_, i) => (
-                      <TextInput
-                        key={i}
-                        ref={(r) => { codeRefs.current[i] = r; }}
-                        style={[
-                          styles.codeBox,
-                          {
-                            backgroundColor: theme.backgroundSecondary,
-                            borderColor: codeDigits[i] ? theme.primary : theme.border,
-                            color: theme.text,
-                          },
-                        ]}
-                        value={codeDigits[i]}
-                        onChangeText={(t) => handleCodeInput(t, i)}
-                        onKeyPress={(e) => handleCodeKeyPress(e, i)}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        textAlign="center"
-                        selectTextOnFocus
-                      />
-                    ))}
-                  </View>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                  ]}
+                >
+                  <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder={t("auth.password")}
+                    placeholderTextColor={theme.textSecondary}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                  />
+                  <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                    <AppIcon
+                      name={showPassword ? "eye-off" : "eye"}
+                      size={18}
+                      color={theme.textSecondary}
+                    />
+                  </Pressable>
+                </View>
 
-                  <Pressable
-                    onPress={() => verifyAndRegister(codeDigits)}
-                    disabled={isLoading || codeDigits.join("").length < CODE_LENGTH}
-                    style={({ pressed }) => [
-                      styles.submitButton,
-                      {
-                        backgroundColor: theme.primary,
-                        opacity: pressed || isLoading || codeDigits.join("").length < CODE_LENGTH ? 0.6 : 1,
-                      },
+                {!isLogin ? (
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
                     ]}
                   >
-                    {isLoading ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <ThemedText style={styles.submitButtonText}>{t("auth.confirm")}</ThemedText>
-                    )}
-                  </Pressable>
-
-                  <View style={styles.switchContainer}>
-                    <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
-                      {t("auth.notReceived")}{" "}
-                    </ThemedText>
-                    <Pressable onPress={handleResend} disabled={resendCooldown > 0 || isLoading}>
-                      <ThemedText style={[styles.switchLink, { color: resendCooldown > 0 ? theme.textSecondary : theme.primary }]}>
-                        {resendCooldown > 0 ? t("auth.resendIn", { seconds: resendCooldown }) : t("auth.resend")}
-                      </ThemedText>
-                    </Pressable>
+                    <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: theme.text }]}
+                      placeholder={t("auth.confirmPassword")}
+                      placeholderTextColor={theme.textSecondary}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showPassword}
+                      autoComplete="new-password"
+                    />
                   </View>
+                ) : null}
+              </View>
 
-                  <Pressable onPress={() => { setStep("form"); setError(""); }} style={styles.backRow}>
-                    <AppIcon name="arrow-left" size={16} color={theme.textSecondary} />
-                    <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>{t("auth.changeEmail")}</ThemedText>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <View style={styles.inputGroup}>
-                    <View
-                      style={[
-                        styles.inputWrapper,
-                        { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
-                      ]}
-                    >
-                      <AppIcon name="mail" size={18} color={theme.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, { color: theme.text }]}
-                        placeholder={t("auth.email")}
-                        placeholderTextColor={theme.textSecondary}
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoComplete="email"
-                      />
-                    </View>
+              <Pressable
+                onPress={handleSubmit}
+                disabled={isLoading}
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  { backgroundColor: theme.primary, opacity: pressed || isLoading ? 0.8 : 1 },
+                ]}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <ThemedText style={styles.submitButtonText}>
+                    {isLogin ? t("auth.loginBtn") : t("welcome.register")}
+                  </ThemedText>
+                )}
+              </Pressable>
 
-                    <View
-                      style={[
-                        styles.inputWrapper,
-                        { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
-                      ]}
-                    >
-                      <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, { color: theme.text }]}
-                        placeholder={t("auth.password")}
-                        placeholderTextColor={theme.textSecondary}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                        autoComplete={isLogin ? "current-password" : "new-password"}
-                      />
-                      <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                        <AppIcon
-                          name={showPassword ? "eye-off" : "eye"}
-                          size={18}
-                          color={theme.textSecondary}
-                        />
-                      </Pressable>
-                    </View>
-
-                    {!isLogin ? (
-                      <View
-                        style={[
-                          styles.inputWrapper,
-                          { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
-                        ]}
-                      >
-                        <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
-                        <TextInput
-                          style={[styles.input, { color: theme.text }]}
-                          placeholder={t("auth.confirmPassword")}
-                          placeholderTextColor={theme.textSecondary}
-                          value={confirmPassword}
-                          onChangeText={setConfirmPassword}
-                          secureTextEntry={!showPassword}
-                          autoComplete="new-password"
-                        />
-                      </View>
-                    ) : null}
-                  </View>
-
-                  <Pressable
-                    onPress={handleSubmit}
-                    disabled={isLoading}
-                    style={({ pressed }) => [
-                      styles.submitButton,
-                      { backgroundColor: theme.primary, opacity: pressed || isLoading ? 0.8 : 1 },
-                    ]}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <ThemedText style={styles.submitButtonText}>
-                        {isLogin ? t("auth.loginBtn") : t("welcome.register")}
-                      </ThemedText>
-                    )}
-                  </Pressable>
-
-                  <View style={styles.switchContainer}>
-                    <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
-                      {isLogin ? t("welcome.noAccount") : t("welcome.haveAccount")}
-                    </ThemedText>
-                    <Pressable onPress={switchMode}>
-                      <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
-                        {isLogin ? t("auth.registerTitle") : t("auth.loginBtn")}
-                      </ThemedText>
-                    </Pressable>
-                  </View>
-                </>
-              )}
+              <View style={styles.switchContainer}>
+                <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
+                  {isLogin ? t("welcome.noAccount") : t("welcome.haveAccount")}
+                </ThemedText>
+                <Pressable onPress={switchMode}>
+                  <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
+                    {isLogin ? t("auth.registerTitle") : t("auth.loginBtn")}
+                  </ThemedText>
+                </Pressable>
+              </View>
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
@@ -764,39 +577,5 @@ const styles = StyleSheet.create({
   switchLink: {
     fontSize: 14,
     fontWeight: "600",
-  },
-  verifyHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.xl,
-  },
-  verifyHintText: {
-    fontSize: 13,
-    flex: 1,
-    lineHeight: 19,
-  },
-  codeRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
-  codeBox: {
-    width: 44,
-    height: 52,
-    borderRadius: BorderRadius.md,
-    borderWidth: 2,
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  backRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    marginTop: Spacing.lg,
   },
 });
