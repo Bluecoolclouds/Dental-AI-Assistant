@@ -151,12 +151,19 @@ export default function WelcomeScreen() {
       setRegisterStep("code");
       startCountdown(60);
     } catch (err: any) {
-      const msg = err?.message || "";
-      const jsonMatch = msg.match(/\{.*\}/);
-      if (jsonMatch) {
-        try { setError(JSON.parse(jsonMatch[0]).error || t("auth.errors.sendError")); return; } catch {}
+      const raw = err?.message || "";
+      const statusMatch = raw.match(/^(\d+):\s*([\s\S]*)/);
+      if (statusMatch) {
+        const body = statusMatch[2].trim();
+        try {
+          const parsed = JSON.parse(body);
+          setError(parsed.error || t("auth.errors.sendError"));
+          return;
+        } catch {}
+        setError(body || t("auth.errors.sendError"));
+        return;
       }
-      setError(t("auth.errors.sendError"));
+      setError(raw || t("auth.errors.sendError"));
     } finally {
       setIsLoading(false);
     }
