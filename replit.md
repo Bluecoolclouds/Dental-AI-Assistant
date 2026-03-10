@@ -12,6 +12,7 @@ This is a React Native mobile application for dental health monitoring built wit
 - expo-sqlite for local device database (all user data)
 - expo-secure-store for auth token
 - expo-file-system + expo-sharing for local file management
+- expo-image-picker (~16.0.6) for avatar photo selection
 - React Navigation (stack + bottom tabs)
 - TanStack Query for AI mutation requests
 - Custom local data hooks (useLocalData.ts)

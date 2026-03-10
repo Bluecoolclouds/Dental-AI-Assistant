@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
   StyleSheet, View, TextInput, Pressable,
-  ActivityIndicator, ScrollView, Alert,
+  ActivityIndicator, ScrollView, Alert, Image,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -13,6 +14,8 @@ import { Button } from "@/components/Button";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useProfile } from "@/hooks/useLocalData";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { pickAvatarFromGallery, pickAvatarFromCamera, deleteAvatarFile } from "@/utils/avatar";
 
 const GENDER_OPTIONS = [
   { value: "male",   label: "Мужской" },
@@ -68,6 +71,7 @@ export default function AboutMeScreen() {
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { user } = useAuthContext();
   const { profile, updateProfile, isLoading: profileLoading } = useProfile();
 
   const [displayName, setDisplayName] = useState("");
@@ -95,6 +99,44 @@ export default function AboutMeScreen() {
   const handleDateChange = (text: string) => {
     setDateError("");
     setBirthDate(formatDateInput(text));
+  };
+
+  const handlePickAvatar = () => {
+    Alert.alert("Изменить фото профиля", undefined, [
+      {
+        text: "Выбрать из галереи",
+        onPress: async () => {
+          if (!user?.id) return;
+          const path = await pickAvatarFromGallery(user.id);
+          if (path) {
+            if (profile?.avatarUrl) await deleteAvatarFile(profile.avatarUrl);
+            await updateProfile({ avatarUrl: path });
+          }
+        },
+      },
+      {
+        text: "Сделать фото",
+        onPress: async () => {
+          if (!user?.id) return;
+          const path = await pickAvatarFromCamera(user.id);
+          if (path) {
+            if (profile?.avatarUrl) await deleteAvatarFile(profile.avatarUrl);
+            await updateProfile({ avatarUrl: path });
+          }
+        },
+      },
+      ...(profile?.avatarUrl
+        ? [{
+            text: "Удалить фото",
+            style: "destructive" as const,
+            onPress: async () => {
+              await deleteAvatarFile(profile.avatarUrl);
+              await updateProfile({ avatarUrl: "" });
+            },
+          }]
+        : []),
+      { text: "Отмена", style: "cancel" as const },
+    ]);
   };
 
   const handleSave = async () => {
@@ -146,6 +188,24 @@ export default function AboutMeScreen() {
             ИИ использует эти данные для точных и безопасных рекомендаций
           </ThemedText>
         </View>
+
+        <Pressable onPress={handlePickAvatar} style={styles.avatarSection}>
+          <View style={styles.avatarWrapper}>
+            {profile?.avatarUrl ? (
+              <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
+            ) : (
+              <LinearGradient colors={["#5B9FE3", "#4A90D9"]} style={styles.avatar}>
+                <AppIcon name="user" size={40} color="#FFFFFF" />
+              </LinearGradient>
+            )}
+            <View style={styles.avatarEditBadge}>
+              <AppIcon name="camera" size={14} color="#FFFFFF" />
+            </View>
+          </View>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            Нажмите, чтобы изменить фото
+          </ThemedText>
+        </Pressable>
 
         <SectionTitle>Личные данные</SectionTitle>
 
@@ -354,6 +414,35 @@ function ChipButton({ label, selected, onPress }: { label: string; selected: boo
 const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
   content: { paddingHorizontal: Spacing.lg },
+  avatarSection: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  avatarWrapper: {
+    position: "relative",
+  },
+  avatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#4A90D9",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
   infoBanner: {
     flexDirection: "row",
     alignItems: "flex-start",

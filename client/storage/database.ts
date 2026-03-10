@@ -128,6 +128,7 @@ async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> 
   `);
 
   const migrations = [
+    `ALTER TABLE user_profiles ADD COLUMN avatar_url TEXT`,
     `ALTER TABLE user_profiles ADD COLUMN display_name TEXT`,
     `ALTER TABLE user_profiles ADD COLUMN birth_date TEXT`,
     `ALTER TABLE user_profiles ADD COLUMN gender TEXT`,

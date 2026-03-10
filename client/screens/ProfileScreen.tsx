@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Pressable, Alert, ActivityIndicator, Switch, Platform } from "react-native";
+import { StyleSheet, View, Pressable, Alert, ActivityIndicator, Switch, Platform, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -22,6 +22,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useProfile } from "@/hooks/useLocalData";
+import { pickAvatarFromGallery, pickAvatarFromCamera, deleteAvatarFile } from "@/utils/avatar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -83,7 +84,45 @@ export default function ProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
-  const { profile } = useProfile();
+  const { profile, updateProfile } = useProfile();
+
+  const handlePickAvatar = () => {
+    Alert.alert("Изменить фото", undefined, [
+      {
+        text: "Выбрать из галереи",
+        onPress: async () => {
+          if (!user?.id) return;
+          const path = await pickAvatarFromGallery(user.id);
+          if (path) {
+            if (profile?.avatarUrl) await deleteAvatarFile(profile.avatarUrl);
+            await updateProfile({ avatarUrl: path });
+          }
+        },
+      },
+      {
+        text: "Сделать фото",
+        onPress: async () => {
+          if (!user?.id) return;
+          const path = await pickAvatarFromCamera(user.id);
+          if (path) {
+            if (profile?.avatarUrl) await deleteAvatarFile(profile.avatarUrl);
+            await updateProfile({ avatarUrl: path });
+          }
+        },
+      },
+      profile?.avatarUrl
+        ? {
+            text: "Удалить фото",
+            style: "destructive",
+            onPress: async () => {
+              await deleteAvatarFile(profile.avatarUrl);
+              await updateProfile({ avatarUrl: "" });
+            },
+          }
+        : { text: "Отмена", style: "cancel" },
+      ...(profile?.avatarUrl ? [{ text: "Отмена", style: "cancel" as const }] : []),
+    ]);
+  };
 
   useEffect(() => {
     const Notifications = getNotifications();
@@ -222,17 +261,24 @@ export default function ProfileScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.profileInfo}>
-            <View style={styles.profileAvatarContainer}>
-              <LinearGradient
-                colors={["#5B9FE3", "#4A90D9"]}
-                style={styles.profileAvatar}
-              >
-                <AppIcon name="user" size={32} color="#FFFFFF" />
-              </LinearGradient>
+            <Pressable onPress={handlePickAvatar} style={styles.profileAvatarContainer}>
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  style={styles.profileAvatar}
+                />
+              ) : (
+                <LinearGradient
+                  colors={["#5B9FE3", "#4A90D9"]}
+                  style={styles.profileAvatar}
+                >
+                  <AppIcon name="user" size={32} color="#FFFFFF" />
+                </LinearGradient>
+              )}
               <View style={styles.cameraButton}>
                 <AppIcon name="camera" size={12} color="#FFFFFF" />
               </View>
-            </View>
+            </Pressable>
             
             <View style={styles.profileDetails}>
               <ThemedText style={styles.profileName}>{userName}</ThemedText>
@@ -402,6 +448,7 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
   cameraButton: {
     position: "absolute",

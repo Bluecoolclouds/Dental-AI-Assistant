@@ -3,6 +3,7 @@ import { getDatabase } from "../database";
 export interface UserProfile {
   id: string;
   userId: string;
+  avatarUrl: string | null;
   displayName: string | null;
   birthDate: string | null;
   gender: string | null;
@@ -27,6 +28,7 @@ export interface UserProfile {
 
 export interface CreateProfileInput {
   userId: string;
+  avatarUrl?: string;
   displayName?: string;
   birthDate?: string;
   gender?: string;
@@ -52,6 +54,7 @@ function rowToProfile(row: any): UserProfile {
   return {
     id: row.id,
     userId: row.user_id,
+    avatarUrl: row.avatar_url ?? null,
     displayName: row.display_name ?? null,
     birthDate: row.birth_date ?? null,
     gender: row.gender ?? null,
@@ -139,6 +142,10 @@ export async function updateProfile(userId: string, updates: Partial<CreateProfi
   const setClauses: string[] = [];
   const values: any[] = [];
 
+  if (updates.avatarUrl !== undefined) {
+    setClauses.push("avatar_url = ?");
+    values.push(updates.avatarUrl);
+  }
   if (updates.displayName !== undefined) {
     setClauses.push("display_name = ?");
     values.push(updates.displayName);
