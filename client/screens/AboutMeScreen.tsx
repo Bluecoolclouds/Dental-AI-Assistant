@@ -19,31 +19,6 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { pickAvatarFromGallery, pickAvatarFromCamera, deleteAvatarFile } from "@/utils/avatar";
 import { getDefaultAvatar } from "@/utils/defaultAvatar";
 
-const GENDER_OPTIONS = [
-  { value: "male",   label: "Мужской" },
-  { value: "female", label: "Женский" },
-  { value: "other",  label: "Не указывать" },
-];
-
-const GOALS = [
-  { value: "general",    icon: "activity",       label: "Общий мониторинг" },
-  { value: "braces",     icon: "git-merge",      label: "Брекеты/элайнеры" },
-  { value: "extraction", icon: "shield",         label: "Удаление зуба" },
-  { value: "caries",     icon: "alert-triangle", label: "Профилактика кариеса" },
-  { value: "reminders",  icon: "bell",           label: "Только напоминания" },
-];
-
-const ALLERGY_OPTIONS = [
-  { value: "yes",        label: "Да" },
-  { value: "no",         label: "Нет" },
-  { value: "dont_know",  label: "Не знаю" },
-];
-
-const ILLNESS_OPTIONS = [
-  { value: "yes",  label: "Да" },
-  { value: "no",   label: "Нет" },
-];
-
 function formatDateDisplay(isoDate: string | null): string {
   if (!isoDate) return "";
   try {

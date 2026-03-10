@@ -19,13 +19,6 @@ import { getDefaultAvatar } from "@/utils/defaultAvatar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const QUICK_ACTIONS = [
-  { id: "toothmap", name: "Карта зубов", icon: "map-pin" as const, bgColor: "#EBF5FF", iconColor: "#4A90D9", route: "ToothMapTab" },
-  { id: "test", name: "Пройти тест", icon: "clipboard" as const, bgColor: "#F3EAFF", iconColor: "#9333EA", route: "TestFlow" },
-  { id: "recommendations", name: "ИИ советы", icon: "sun" as const, bgColor: "#FFF8E1", iconColor: "#F59E0B", route: "AIRecommendations" },
-  { id: "profile", name: "Профиль", icon: "user" as const, bgColor: "#ECFDF5", iconColor: "#10B981", route: "ProfileTab" },
-];
-
 function ToothMascot() {
   return (
     <Svg width={60} height={70} viewBox="0 0 60 70">

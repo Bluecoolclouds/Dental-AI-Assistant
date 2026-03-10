@@ -5,6 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -25,6 +26,7 @@ export default function AnalysisScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
 
+  const { t } = useTranslation();
   const { latestResult: testResult, isLoading } = useTestResults();
 
   const getRiskColor = (level: string) => {
@@ -43,13 +45,13 @@ export default function AnalysisScreen() {
   const getRiskLabel = (level: string) => {
     switch (level) {
       case "low":
-        return "Низкий риск";
+        return t("analysis.lowRisk");
       case "moderate":
-        return "Умеренный риск";
+        return t("analysis.moderateRisk");
       case "high":
-        return "Высокий риск";
+        return t("analysis.highRisk");
       default:
-        return "Не определён";
+        return t("analysis.unknown");
     }
   };
 
@@ -178,20 +180,20 @@ export default function AnalysisScreen() {
                 <AppIcon name="calendar" size={24} color={theme.primary} />
               </View>
               <View style={styles.visitContent}>
-                <ThemedText type="body">Рекомендуемый визит к стоматологу</ThemedText>
+                <ThemedText type="body">{t("analysis.visitRecommendation", "Рекомендуемый визит к стоматологу")}</ThemedText>
                 <ThemedText type="h4" style={{ color: theme.primary }}>
                   {testResult.overallRiskLevel === "high"
-                    ? "В ближайшее время"
+                    ? t("analysis.soon")
                     : testResult.overallRiskLevel === "moderate"
-                    ? "В течение месяца"
-                    : "Каждые 6 месяцев"
+                    ? t("analysis.withinMonth")
+                    : t("analysis.every6months")
                   }
                 </ThemedText>
               </View>
             </View>
 
             <Button onPress={() => navigation.navigate("TestFlow")} style={styles.retakeButton}>
-              Пройти новый тест
+              {t("analysis.retakeTest")}
             </Button>
           </>
         ) : (
@@ -200,13 +202,13 @@ export default function AnalysisScreen() {
               <AppIcon name="activity" size={40} color={theme.primary} />
             </View>
             <ThemedText type="h3" style={styles.emptyTitle}>
-              Нет результатов
+              {t("analysis.noResults")}
             </ThemedText>
             <ThemedText type="body" style={[styles.emptyDescription, { color: theme.textSecondary }]}>
-              Пройдите тест здоровья полости рта, чтобы получить оценку и рекомендации от ИИ
+              {t("analysis.noResultsDesc")}
             </ThemedText>
             <Button onPress={() => navigation.navigate("TestFlow")}>
-              Пройти тест
+              {t("home.startTest")}
             </Button>
           </Card>
         )}

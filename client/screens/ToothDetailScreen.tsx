@@ -16,14 +16,14 @@ import { ProblemType } from "@shared/schema";
 
 type RouteProps = RouteProp<RootStackParamList, "ToothDetail">;
 
-const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof AppIcon.glyphMap; color: string; description: string }> = {
-  pain: { label: "Боль", icon: "zap", color: "#E74C3C", description: "Зубная боль может указывать на кариес, воспаление или повреждение нерва" },
-  chip: { label: "Скол", icon: "slash", color: "#9B59B6", description: "Сколы требуют внимания стоматолога для предотвращения дальнейшего разрушения" },
-  filling: { label: "Пломба", icon: "square", color: "#3498DB", description: "Имеющаяся пломба требует регулярного контроля состояния" },
-  bleeding: { label: "Кровоточивость", icon: "droplet", color: "#E91E63", description: "Кровоточивость дёсен может быть признаком гингивита" },
-  sensitivity: { label: "Чувствительность", icon: "wind", color: "#F5A623", description: "Повышенная чувствительность может указывать на обнажение дентина" },
-  cavity: { label: "Кариес", icon: "circle", color: "#795548", description: "Кариес требует лечения у стоматолога" },
-  treated: { label: "Вылечен", icon: "check-circle", color: "#4CAF50", description: "Зуб был успешно вылечен у стоматолога" },
+const PROBLEM_CONFIG: Record<ProblemType, { icon: keyof typeof AppIcon.glyphMap; color: string }> = {
+  pain:        { icon: "zap",          color: "#E74C3C" },
+  chip:        { icon: "slash",        color: "#9B59B6" },
+  filling:     { icon: "square",       color: "#3498DB" },
+  bleeding:    { icon: "droplet",      color: "#E91E63" },
+  sensitivity: { icon: "wind",         color: "#F5A623" },
+  cavity:      { icon: "circle",       color: "#795548" },
+  treated:     { icon: "check-circle", color: "#4CAF50" },
 };
 
 export default function ToothDetailScreen() {
@@ -84,7 +84,7 @@ export default function ToothDetailScreen() {
         {problems.length > 0 ? (
           <View style={styles.section}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              {t("toothDetail.markedProblems", "Отмеченные проблемы")}
+              {t("toothDetail.markedProblems")}
             </ThemedText>
             <View style={styles.problemsList}>
               {problems.map((problem) => {
@@ -114,10 +114,10 @@ export default function ToothDetailScreen() {
           <View style={[styles.emptyCard, { backgroundColor: theme.success + "10" }]}>
             <AppIcon name="check-circle" size={40} color={theme.success} />
             <ThemedText type="h4" style={{ color: theme.success }}>
-              {t("toothDetail.noProblems", "Проблем не обнаружено")}
+              {t("toothDetail.noProblems")}
             </ThemedText>
             <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
-              {t("toothDetail.noProblemsDesc", "Для этого зуба не отмечено никаких проблем. Продолжайте следить за гигиеной!")}
+              {t("toothDetail.noProblemsDesc")}
             </ThemedText>
           </View>
         )}

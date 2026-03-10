@@ -27,12 +27,12 @@ const VALID_TOOTH_IDS = [
   "41", "42", "43", "44", "45", "46", "47", "48",
 ];
 
-const FILE_TYPES: Record<string, { label: string; icon: string; color: string }> = {
-  ct:       { label: "КТ",        icon: "layers",      color: "#8B5CF6" },
-  xray:     { label: "Рентген",   icon: "aperture",    color: "#3B82F6" },
-  photo:    { label: "Фото",      icon: "image",       color: "#10B981" },
-  document: { label: "Документ",  icon: "file-text",   color: "#F59E0B" },
-  other:    { label: "Другое",    icon: "paperclip",   color: "#6B7280" },
+const FILE_TYPES: Record<string, { labelKey: string; icon: string; color: string }> = {
+  ct:       { labelKey: "toothMap.ct",       icon: "layers",      color: "#8B5CF6" },
+  xray:     { labelKey: "toothMap.xray",     icon: "aperture",    color: "#3B82F6" },
+  photo:    { labelKey: "toothMap.photo",    icon: "image",       color: "#10B981" },
+  document: { labelKey: "toothMap.document", icon: "file-text",   color: "#F59E0B" },
+  other:    { labelKey: "toothMap.other",    icon: "paperclip",   color: "#6B7280" },
 };
 
 type DataTab = "history" | "files";
@@ -40,14 +40,14 @@ type DataTab = "history" | "files";
 const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 
-const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof AppIcon.glyphMap; color: string }> = {
-  pain: { label: "Боль", icon: "zap", color: "#F44336" },
-  chip: { label: "Скол", icon: "slash", color: "#9C27B0" },
-  filling: { label: "Пломба", icon: "square", color: "#2196F3" },
-  bleeding: { label: "Кровоточ.", icon: "droplet", color: "#E91E63" },
-  sensitivity: { label: "Чувствит.", icon: "wind", color: "#FF9800" },
-  cavity: { label: "Кариес", icon: "circle", color: "#795548" },
-  treated: { label: "Вылечен", icon: "check-circle", color: "#4CAF50" },
+const PROBLEM_CONFIG: Record<ProblemType, { labelKey: string; icon: keyof typeof AppIcon.glyphMap; color: string }> = {
+  pain:        { labelKey: "toothMap.pain",        icon: "zap",          color: "#F44336" },
+  chip:        { labelKey: "toothMap.chip",        icon: "slash",        color: "#9C27B0" },
+  filling:     { labelKey: "toothMap.filling",     icon: "square",       color: "#2196F3" },
+  bleeding:    { labelKey: "toothMap.bleeding",    icon: "droplet",      color: "#E91E63" },
+  sensitivity: { labelKey: "toothMap.sensitivity", icon: "wind",         color: "#FF9800" },
+  cavity:      { labelKey: "toothMap.cavity",      icon: "circle",       color: "#795548" },
+  treated:     { labelKey: "toothMap.treated",     icon: "check-circle", color: "#4CAF50" },
 };
 
 interface ToothPosition {
@@ -554,7 +554,7 @@ export default function ToothMapScreen() {
                       type="small"
                       style={{ color: isActive ? config.color : theme.text }}
                     >
-                      {config.label}
+                      {t(config.labelKey)}
                     </ThemedText>
                   </Pressable>
                 );
@@ -687,7 +687,7 @@ export default function ToothMapScreen() {
                   <View style={[styles.legendColor, { backgroundColor: config.color + "20" }]}>
                     <AppIcon name={config.icon} size={14} color={config.color} />
                   </View>
-                  <ThemedText type="small">{t(`toothMap.${problem}`) || config.label}</ThemedText>
+                  <ThemedText type="small">{t(config.labelKey)}</ThemedText>
                 </View>
               );
             })}
@@ -953,7 +953,7 @@ export default function ToothMapScreen() {
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                             <View style={[styles.fileTypeBadge, { backgroundColor: ft.color + "18" }]}>
                               <ThemedText type="small" style={{ color: ft.color, fontWeight: "600", fontSize: 10 }}>
-                                {ft.label}
+                                {t(ft.labelKey)}
                               </ThemedText>
                             </View>
                           </View>
@@ -1059,13 +1059,13 @@ export default function ToothMapScreen() {
 
               <View style={styles.inputGroup}>
                 <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
-                  Описание
+                  {t("common.description")}
                 </ThemedText>
                 <TextInput
                   style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={newHistoryReason}
                   onChangeText={setNewHistoryReason}
-                  placeholder="Что произошло с зубом..."
+                  placeholder={t("toothMap.toothNote")}
                   placeholderTextColor={theme.textSecondary}
                   multiline
                   numberOfLines={3}
@@ -1084,7 +1084,7 @@ export default function ToothMapScreen() {
                 ]}
               >
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
-                  {isCreatingHistory ? "Сохранение..." : "Сохранить"}
+                  {isCreatingHistory ? t("common.saving") : t("common.save")}
                 </ThemedText>
               </Pressable>
             </View>

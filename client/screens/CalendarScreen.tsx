@@ -38,11 +38,6 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_THRESHOLD = 120;
 const DISMISS_VELOCITY = 800;
 
-const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const MONTHS = [
-  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
-];
 
 const EVENT_COLORS: Record<string, string> = {
   appointment:   "#4A90D9",
@@ -624,7 +619,7 @@ export default function CalendarScreen() {
                     <ThemedText style={[styles.dateSep, { color: theme.textSecondary }]}>:</ThemedText>
                     <TextInput
                       style={[styles.timePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                      placeholder="ММ"
+                      placeholder={t("calendar.timePlaceholderMinutes")}
                       placeholderTextColor={theme.textSecondary}
                       value={form.timeMinute}
                       onChangeText={(v) => setForm((f) => ({ ...f, timeMinute: v.replace(/\D/g, "").slice(0, 2) }))}

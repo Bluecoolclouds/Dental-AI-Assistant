@@ -33,16 +33,18 @@ const NOTIFICATIONS_KEY = "@dental_notifications_enabled";
 
 const isExpoGo = Constants.executionEnvironment === "storeClient";
 
-async function scheduleDentalReminders() {
+async function scheduleDentalReminders(
+  morningTitle: string,
+  morningBody: string,
+  eveningTitle: string,
+  eveningBody: string,
+) {
   const Notifications = getNotifications();
   if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Утренняя чистка",
-      body: "Не забудьте почистить зубы утром!",
-    },
+    content: { title: morningTitle, body: morningBody },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: 8,
@@ -51,10 +53,7 @@ async function scheduleDentalReminders() {
   });
 
   await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Вечерняя чистка",
-      body: "Время почистить зубы перед сном!",
-    },
+    content: { title: eveningTitle, body: eveningBody },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: 21,
@@ -213,7 +212,12 @@ export default function ProfileScreen() {
           return;
         }
 
-        await scheduleDentalReminders();
+        await scheduleDentalReminders(
+          t("profile.morningReminder"),
+          t("profile.morningReminderText"),
+          t("profile.eveningReminder"),
+          t("profile.eveningReminderText"),
+        );
         setNotificationsEnabled(true);
         await AsyncStorage.setItem(NOTIFICATIONS_KEY, "true");
         Alert.alert(t("common.done"), t("profile.reminderEnabled"));
