@@ -156,20 +156,6 @@ export default function CalendarScreen() {
     },
   });
 
-  const aiSuggestMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/calendar/ai-suggest/${user?.id}`);
-      return res.json();
-    },
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: [`/api/calendar/${user?.id}`] });
-      Alert.alert("ИИ добавил события", `Добавлено событий: ${data.count}`);
-    },
-    onError: () => {
-      Alert.alert("Ошибка", "Не удалось получить предложения от ИИ");
-    },
-  });
-
   const prevMonth = useCallback(() => {
     setMonth((m) => {
       if (m === 0) { setYear((y) => y - 1); return 11; }
@@ -264,32 +250,15 @@ export default function CalendarScreen() {
         colors={["#4A90D9", "#357ABD"]}
         style={[styles.header, { paddingTop: insets.top + Spacing.md }]}
       >
-        <View style={styles.headerTop}>
-          <View style={styles.monthNav}>
-            <Pressable onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
-              <AppIcon name="chevron-left" size={22} color="rgba(255,255,255,0.9)" />
-            </Pressable>
-            <ThemedText style={styles.monthTitle}>
-              {MONTHS[month]} {year}
-            </ThemedText>
-            <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
-              <AppIcon name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
-            </Pressable>
-          </View>
-
-          <Pressable
-            onPress={() => aiSuggestMutation.mutate()}
-            disabled={aiSuggestMutation.isPending}
-            style={styles.aiButton}
-          >
-            {aiSuggestMutation.isPending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <AppIcon name="cpu" size={15} color="#FFFFFF" />
-                <ThemedText style={styles.aiButtonText}>ИИ</ThemedText>
-              </>
-            )}
+        <View style={styles.monthNav}>
+          <Pressable onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
+            <AppIcon name="chevron-left" size={22} color="rgba(255,255,255,0.9)" />
+          </Pressable>
+          <ThemedText style={styles.monthTitle}>
+            {MONTHS[month]} {year}
+          </ThemedText>
+          <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
+            <AppIcon name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
           </Pressable>
         </View>
 
@@ -610,16 +579,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: 0,
   },
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Spacing.lg,
-  },
   monthNav: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   navBtn: {
     padding: Spacing.xs,
@@ -630,20 +595,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     minWidth: 140,
     textAlign: "center",
-  },
-  aiButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  aiButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
   },
   weekRow: {
     flexDirection: "row",
