@@ -1,12 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
   Pressable,
   Dimensions,
   Modal,
-  Animated,
-  PanResponder,
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,6 +18,14 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle } from "react-native-svg";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -31,7 +37,7 @@ type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Welco
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_THRESHOLD = 120;
-const DISMISS_VELOCITY = 0.5;
+const DISMISS_VELOCITY = 800;
 
 function ToothLogo() {
   return (
@@ -65,26 +71,21 @@ export default function WelcomeScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const sheetY = useSharedValue(SCREEN_HEIGHT);
+
+  const hideSheet = () => setSheetVisible(false);
 
   const animateOpen = () => {
-    translateY.setValue(SCREEN_HEIGHT);
-    Animated.spring(translateY, {
-      toValue: 0,
-      useNativeDriver: true,
-      damping: 22,
-      stiffness: 280,
-      mass: 0.9,
-    }).start();
+    sheetY.value = SCREEN_HEIGHT;
+    sheetY.value = withSpring(0, { damping: 22, stiffness: 280, mass: 0.9 });
   };
 
   const animateClose = (onDone?: () => void) => {
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 260,
-      useNativeDriver: true,
-    }).start(() => {
-      onDone?.();
+    sheetY.value = withTiming(SCREEN_HEIGHT, { duration: 260 }, (finished) => {
+      if (finished) {
+        if (onDone) runOnJS(onDone)();
+        else runOnJS(hideSheet)();
+      }
     });
   };
 
@@ -98,14 +99,7 @@ export default function WelcomeScreen() {
     setSheetVisible(true);
   };
 
-  const closeSheet = () => {
-    animateClose(() => setSheetVisible(false));
-  };
-
-  const switchMode = () => {
-    setError("");
-    setAuthMode((prev) => (prev === "login" ? "register" : "login"));
-  };
+  const closeSheet = () => animateClose();
 
   const handleSubmit = async () => {
     setError("");
@@ -143,38 +137,27 @@ export default function WelcomeScreen() {
     }
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => false,
-      onMoveShouldSetPanResponder: (_, g) =>
-        g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
-      onMoveShouldSetPanResponderCapture: (_, g) =>
-        g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) {
-          translateY.setValue(g.dy);
-        }
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > DISMISS_THRESHOLD || g.vy > DISMISS_VELOCITY) {
-          Animated.timing(translateY, {
-            toValue: SCREEN_HEIGHT,
-            duration: 220,
-            useNativeDriver: true,
-          }).start(() => setSheetVisible(false));
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 20,
-            stiffness: 300,
-          }).start();
-        }
-      },
-      onPanResponderTerminationRequest: () => false,
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        sheetY.value = e.translationY;
+      } else {
+        sheetY.value = e.translationY * 0.05;
+      }
     })
-  ).current;
+    .onEnd((e) => {
+      if (e.translationY > DISMISS_THRESHOLD || e.velocityY > DISMISS_VELOCITY) {
+        sheetY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, (finished) => {
+          if (finished) runOnJS(hideSheet)();
+        });
+      } else {
+        sheetY.value = withSpring(0, { damping: 22, stiffness: 300 });
+      }
+    });
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetY.value }],
+  }));
 
   const isLogin = authMode === "login";
 
@@ -234,15 +217,17 @@ export default function WelcomeScreen() {
             style={[
               styles.sheet,
               { paddingBottom: insets.bottom + Spacing.xl },
-              { transform: [{ translateY }] },
+              animatedSheetStyle,
             ]}
           >
-            <View style={styles.dragArea} {...panResponder.panHandlers}>
-              <View style={styles.sheetHandle} />
-              <ThemedText style={styles.sheetTitle}>
-                {isLogin ? "Вход" : "Регистрация"}
-              </ThemedText>
-            </View>
+            <GestureDetector gesture={panGesture}>
+              <View style={styles.dragArea}>
+                <View style={styles.sheetHandle} />
+                <ThemedText style={styles.sheetTitle}>
+                  {isLogin ? "Вход" : "Регистрация"}
+                </ThemedText>
+              </View>
+            </GestureDetector>
 
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -259,7 +244,12 @@ export default function WelcomeScreen() {
               ) : null}
 
               <View style={styles.inputGroup}>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                  ]}
+                >
                   <AppIcon name="mail" size={18} color={theme.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: theme.text }]}
@@ -273,7 +263,12 @@ export default function WelcomeScreen() {
                   />
                 </View>
 
-                <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                  ]}
+                >
                   <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: theme.text }]}
@@ -285,12 +280,21 @@ export default function WelcomeScreen() {
                     autoComplete={isLogin ? "current-password" : "new-password"}
                   />
                   <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                    <AppIcon name={showPassword ? "eye-off" : "eye"} size={18} color={theme.textSecondary} />
+                    <AppIcon
+                      name={showPassword ? "eye-off" : "eye"}
+                      size={18}
+                      color={theme.textSecondary}
+                    />
                   </Pressable>
                 </View>
 
                 {!isLogin ? (
-                  <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                    ]}
+                  >
                     <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: theme.text }]}
@@ -321,17 +325,6 @@ export default function WelcomeScreen() {
                   </ThemedText>
                 )}
               </Pressable>
-
-              <View style={styles.switchContainer}>
-                <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
-                  {isLogin ? "Нет аккаунта? " : "Уже есть аккаунт? "}
-                </ThemedText>
-                <Pressable onPress={switchMode}>
-                  <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
-                    {isLogin ? "Регистрация" : "Войти"}
-                  </ThemedText>
-                </Pressable>
-              </View>
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
@@ -435,19 +428,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: Spacing.xl,
-  },
-  buttonsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.lg,
-  },
-  secondaryButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
     alignItems: "center",
   },
   primaryButton: {
@@ -457,6 +437,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
     height: 60,
     borderRadius: 30,
+    minWidth: 200,
   },
   primaryButtonText: {
     fontSize: 20,
@@ -508,7 +489,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1A1A2E",
     textAlign: "center",
-    marginBottom: Spacing.sm,
   },
   sheetScroll: {
     paddingHorizontal: Spacing.xl,
@@ -556,23 +536,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.lg,
   },
   submitButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "600",
-  },
-  switchContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  switchText: {
-    fontSize: 14,
-  },
-  switchLink: {
-    fontSize: 14,
     fontWeight: "600",
   },
 });
