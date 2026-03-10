@@ -140,7 +140,7 @@ export default function ToothMapScreen() {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   const { toothData, isLoading, saveTooth, markToothAsHealed } = useToothData();
-  const { history: historyData, createHistory, updateHistory } = useToothHistory();
+  const { history: historyData, createHistory, updateHistory, refetch: refetchHistory } = useToothHistory();
   const { files: filesData, uploadFile, deleteFile } = useToothFiles();
 
   const handleOpenDetails = (event: ToothHistory) => {
@@ -294,6 +294,7 @@ export default function ToothMapScreen() {
     setIsSaving(true);
     try {
       await saveTooth(selectedTooth, newProblems, notes);
+      await refetchHistory();
     } finally {
       setIsSaving(false);
     }
@@ -304,6 +305,7 @@ export default function ToothMapScreen() {
     setIsSaving(true);
     try {
       await markToothAsHealed(selectedTooth);
+      await refetchHistory();
     } finally {
       setIsSaving(false);
     }
