@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, View, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -26,6 +27,7 @@ const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Ap
 };
 
 export default function ToothDetailScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProps>();
   const { theme } = useTheme();
@@ -37,20 +39,20 @@ export default function ToothDetailScreen() {
   const problems = (tooth?.problems as string[]) || [];
 
   const getToothPosition = (num: number) => {
-    if (num >= 11 && num <= 18) return "Верхняя челюсть, правая сторона";
-    if (num >= 21 && num <= 28) return "Верхняя челюсть, левая сторона";
-    if (num >= 31 && num <= 38) return "Нижняя челюсть, левая сторона";
-    if (num >= 41 && num <= 48) return "Нижняя челюсть, правая сторона";
-    return "Неизвестно";
+    if (num >= 11 && num <= 18) return t("toothDetail.upperRight");
+    if (num >= 21 && num <= 28) return t("toothDetail.upperLeft");
+    if (num >= 31 && num <= 38) return t("toothDetail.lowerLeft");
+    if (num >= 41 && num <= 48) return t("toothDetail.lowerRight");
+    return t("toothDetail.unknown");
   };
 
   const getToothType = (num: number) => {
     const lastDigit = num % 10;
-    if (lastDigit === 1 || lastDigit === 2) return "Резец";
-    if (lastDigit === 3) return "Клык";
-    if (lastDigit === 4 || lastDigit === 5) return "Премоляр";
-    if (lastDigit >= 6 && lastDigit <= 8) return "Моляр";
-    return "Неизвестно";
+    if (lastDigit === 1 || lastDigit === 2) return t("toothDetail.incisor");
+    if (lastDigit === 3) return t("toothDetail.canine");
+    if (lastDigit === 4 || lastDigit === 5) return t("toothDetail.premolar");
+    if (lastDigit >= 6 && lastDigit <= 8) return t("toothDetail.molar");
+    return t("toothDetail.unknown");
   };
 
   return (
@@ -69,7 +71,7 @@ export default function ToothDetailScreen() {
             </ThemedText>
           </View>
           <View style={styles.toothInfo}>
-            <ThemedText type="h3">Зуб {toothNumber}</ThemedText>
+            <ThemedText type="h3">{t("home.teeth")} {toothNumber}</ThemedText>
             <ThemedText type="body" style={{ color: theme.textSecondary }}>
               {getToothType(toothNumber)}
             </ThemedText>
@@ -82,10 +84,12 @@ export default function ToothDetailScreen() {
         {problems.length > 0 ? (
           <View style={styles.section}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              Отмеченные проблемы
+              {t("toothDetail.markedProblems", "Отмеченные проблемы")}
             </ThemedText>
             <View style={styles.problemsList}>
               {problems.map((problem) => {
+                const label = t(`toothDetail.${problem}`);
+                const description = t(`toothDetail.desc_${problem}`);
                 const config = PROBLEM_CONFIG[problem as ProblemType];
                 if (!config) return null;
                 return (
@@ -95,11 +99,11 @@ export default function ToothDetailScreen() {
                         <AppIcon name={config.icon} size={24} color={config.color} />
                       </View>
                       <ThemedText type="h4" style={{ color: config.color }}>
-                        {config.label}
+                        {label}
                       </ThemedText>
                     </View>
                     <ThemedText type="body" style={{ color: theme.textSecondary }}>
-                      {config.description}
+                      {description}
                     </ThemedText>
                   </Card>
                 );
@@ -110,10 +114,10 @@ export default function ToothDetailScreen() {
           <View style={[styles.emptyCard, { backgroundColor: theme.success + "10" }]}>
             <AppIcon name="check-circle" size={40} color={theme.success} />
             <ThemedText type="h4" style={{ color: theme.success }}>
-              Проблем не обнаружено
+              {t("toothDetail.noProblems", "Проблем не обнаружено")}
             </ThemedText>
             <ThemedText type="body" style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Для этого зуба не отмечено никаких проблем. Продолжайте следить за гигиеной!
+              {t("toothDetail.noProblemsDesc", "Для этого зуба не отмечено никаких проблем. Продолжайте следить за гигиеной!")}
             </ThemedText>
           </View>
         )}
@@ -121,7 +125,7 @@ export default function ToothDetailScreen() {
         <View style={[styles.disclaimer, { backgroundColor: theme.backgroundDefault }]}>
           <AppIcon name="info" size={20} color={theme.textSecondary} />
           <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
-            Информация носит справочный характер. Для точной диагностики обратитесь к стоматологу.
+            {t("onboarding.disclaimer.text1")} {t("onboarding.disclaimer.text2")}
           </ThemedText>
         </View>
       </ScrollView>

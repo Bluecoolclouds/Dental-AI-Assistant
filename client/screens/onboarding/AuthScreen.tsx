@@ -22,6 +22,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -81,6 +82,7 @@ function DentcorLogo() {
 }
 
 export default function AuthScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RoutePropType>();
@@ -143,25 +145,25 @@ export default function AuthScreen() {
     try {
       const resp = await apiRequest("POST", "/api/auth/send-code", { email: email.trim() });
       const data = await resp.json();
-      if (!data.sent) { setError(data.error || "Ошибка отправки кода"); return false; }
+      if (!data.sent) { setError(data.error || t("auth.errors.sendError")); return false; }
       setIsDevMode(!!data.devMode);
       return true;
     } catch (err: any) {
       const msg = err?.message || "";
       const jsonMatch = msg.match(/\{.*\}/);
       if (jsonMatch) {
-        try { const parsed = JSON.parse(jsonMatch[0]); setError(parsed.error || "Ошибка отправки"); return false; } catch {}
+        try { const parsed = JSON.parse(jsonMatch[0]); setError(parsed.error || t("auth.errors.sendFailed")); return false; } catch {}
       }
-      setError("Нет соединения с сервером");
+      setError(t("auth.errors.noConnection"));
       return false;
     }
   };
 
   const handleSendCode = async () => {
     setError("");
-    if (!email.trim()) { setError("Введите email"); return; }
-    if (!password.trim() || password.length < 6) { setError("Пароль должен быть не менее 6 символов"); return; }
-    if (password !== confirmPassword) { setError("Пароли не совпадают"); return; }
+    if (!email.trim()) { setError(t("auth.errors.emptyEmail")); return; }
+    if (!password.trim() || password.length < 6) { setError(t("auth.errors.shortPassword")); return; }
+    if (password !== confirmPassword) { setError(t("auth.errors.passwordMismatch")); return; }
 
     setIsLoading(true);
     try {
@@ -193,7 +195,7 @@ export default function AuthScreen() {
 
   const verifyAndRegister = async (digits: string[]) => {
     const code = digits.join("");
-    if (code.length < CODE_LENGTH) { setError("Введите все 6 цифр кода"); return; }
+    if (code.length < CODE_LENGTH) { setError(t("auth.errors.invalidCode")); return; }
     setError("");
     setIsLoading(true);
     try {
@@ -205,15 +207,15 @@ export default function AuthScreen() {
         const msg = err?.message || "";
         const jsonMatch = msg.match(/\{.*\}/);
         if (jsonMatch) {
-          try { const p = JSON.parse(jsonMatch[0]); setError(p.error || "Неверный код"); return; } catch {}
+          try { const p = JSON.parse(jsonMatch[0]); setError(p.error || t("auth.errors.wrongCode")); return; } catch {}
         }
-        setError("Нет соединения с сервером");
+        setError(t("auth.errors.noConnection"));
         return;
       }
-      if (!verifyData.verified) { setError(verifyData.error || "Неверный код"); return; }
+      if (!verifyData.verified) { setError(verifyData.error || t("auth.errors.wrongCode")); return; }
 
       const result = await register(email.trim(), password, code);
-      if (!result.success) { setError(result.error || "Ошибка регистрации"); return; }
+      if (!result.success) { setError(result.error || t("auth.errors.registerError")); return; }
       navigation.navigate("ProfileSetup");
     } finally {
       setIsLoading(false);
@@ -248,11 +250,11 @@ export default function AuthScreen() {
 
   const handleLoginSubmit = async () => {
     setError("");
-    if (!email.trim() || !password.trim()) { setError("Заполните все поля"); return; }
+    if (!email.trim() || !password.trim()) { setError(t("auth.errors.fillAll")); return; }
     setIsLoading(true);
     try {
       const result = await login(email.trim(), password);
-      if (!result.success) setError(result.error || "Неверный email или пароль");
+      if (!result.success) setError(result.error || t("auth.errors.wrongCredentials"));
     } finally {
       setIsLoading(false);
     }
@@ -277,14 +279,14 @@ export default function AuthScreen() {
           <DentcorLogo />
           <View style={styles.heroContent}>
             <ThemedText style={styles.heroTitle}>
-              {step === "verify" ? "Проверьте почту" : isLogin ? "С возвращением!" : "Почувствуйте себя уверенно"}
+              {step === "verify" ? t("auth.checkEmail") : isLogin ? t("auth.welcomeBack") : t("auth.feelConfident")}
             </ThemedText>
             <ThemedText style={styles.heroSubtitle}>
               {step === "verify"
-                ? `Код отправлен на ${email}`
+                ? t("auth.codeSentTo", { email })
                 : isLogin
-                ? "Войдите, чтобы продолжить заботу о здоровье зубов"
-                : "Клиническое мастерство — приоритет для любого стоматологического сервиса"}
+                ? t("auth.loginSubtitle")
+                : t("auth.registerSubtitle")}
             </ThemedText>
           </View>
           <View style={styles.teethDecoration}>
@@ -308,13 +310,13 @@ export default function AuthScreen() {
         >
           {step === "verify" ? (
             <>
-              <ThemedText type="h3" style={styles.formTitle}>Введите код</ThemedText>
+              <ThemedText type="h3" style={styles.formTitle}>{t("auth.enterCode")}</ThemedText>
 
               <View style={styles.verifyHint}>
                 <AppIcon name="mail" size={18} color={theme.primary} />
                 <ThemedText type="small" style={[styles.verifyHintText, { color: theme.textSecondary }]}>
                   {isDevMode
-                    ? "Тест-режим: письмо не отправлено.\nКод виден в логах сервера (воркфлоу)."
+                    ? t("auth.devMode")
                     : <>Мы отправили 6-значный код на{"\n"}
                         <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>{email}</ThemedText>
                       </>
@@ -368,7 +370,7 @@ export default function AuthScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <>
-                    <ThemedText style={styles.submitButtonText}>Подтвердить</ThemedText>
+                    <ThemedText style={styles.submitButtonText}>{t("auth.confirm")}</ThemedText>
                     <View style={styles.buttonArrows}>
                       <AppIcon name="chevron-right" size={16} color="#FFFFFF" />
                       <AppIcon name="chevron-right" size={16} color="rgba(255,255,255,0.5)" style={{ marginLeft: -8 }} />
@@ -379,27 +381,27 @@ export default function AuthScreen() {
 
               <View style={styles.resendRow}>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Не получили письмо?{" "}
+                  {t("auth.notReceived")}{" "}
                 </ThemedText>
                 <Pressable onPress={handleResend} disabled={resendCooldown > 0 || isLoading}>
                   <ThemedText
                     type="small"
                     style={{ color: resendCooldown > 0 ? theme.textSecondary : theme.primary, fontWeight: "600" }}
                   >
-                    {resendCooldown > 0 ? `Повторно через ${resendCooldown}с` : "Отправить повторно"}
+                    {resendCooldown > 0 ? t("auth.resendIn", { seconds: resendCooldown }) : t("auth.resend")}
                   </ThemedText>
                 </Pressable>
               </View>
 
               <Pressable onPress={() => { setStep("form"); setError(""); }} style={styles.backRow}>
                 <AppIcon name="arrow-left" size={16} color={theme.textSecondary} />
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>Изменить email</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>{t("auth.changeEmail")}</ThemedText>
               </Pressable>
             </>
           ) : (
             <>
               <ThemedText type="h3" style={styles.formTitle}>
-                {isLogin ? "Вход" : "Регистрация"}
+                {isLogin ? t("auth.loginTitle") : t("auth.registerTitle")}
               </ThemedText>
 
               {error ? (
@@ -414,7 +416,7 @@ export default function AuthScreen() {
                   <AppIcon name="mail" size={20} color={theme.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: theme.text }]}
-                    placeholder="Email"
+                    placeholder={t("auth.email")}
                     placeholderTextColor={theme.textSecondary}
                     value={email}
                     onChangeText={setEmail}
@@ -428,7 +430,7 @@ export default function AuthScreen() {
                   <AppIcon name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: theme.text }]}
-                    placeholder="Пароль"
+                    placeholder={t("auth.password")}
                     placeholderTextColor={theme.textSecondary}
                     value={password}
                     onChangeText={setPassword}
@@ -445,7 +447,7 @@ export default function AuthScreen() {
                     <AppIcon name="lock" size={20} color={theme.textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: theme.text }]}
-                      placeholder="Подтвердите пароль"
+                      placeholder={t("auth.confirmPassword")}
                       placeholderTextColor={theme.textSecondary}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -469,7 +471,7 @@ export default function AuthScreen() {
                 ) : (
                   <>
                     <ThemedText style={styles.submitButtonText}>
-                      {isLogin ? "Войти" : "Начать"}
+                      {isLogin ? t("auth.loginBtn") : t("auth.start")}
                     </ThemedText>
                     <View style={styles.buttonArrows}>
                       <AppIcon name="chevron-right" size={16} color="#FFFFFF" />
@@ -481,11 +483,11 @@ export default function AuthScreen() {
 
               <View style={styles.switchContainer}>
                 <ThemedText type="body" style={{ color: theme.textSecondary }}>
-                  {isLogin ? "Нет аккаунта? " : "Уже есть аккаунт? "}
+                  {isLogin ? t("auth.noAccount") : t("auth.alreadyHaveAccount")}
                 </ThemedText>
                 <Pressable onPress={switchMode}>
                   <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>
-                    {isLogin ? "Регистрация" : "Войти"}
+                    {isLogin ? t("auth.switchToRegister") : t("auth.switchToLogin")}
                   </ThemedText>
                 </Pressable>
               </View>

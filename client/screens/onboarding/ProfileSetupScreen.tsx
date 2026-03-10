@@ -5,6 +5,8 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
 
+import { useTranslation } from "react-i18next";
+
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -16,13 +18,14 @@ import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "ProfileSetup">;
 
-const GENDER_OPTIONS = [
-  { value: "male",   label: "Мужской" },
-  { value: "female", label: "Женский" },
-  { value: "other",  label: "Не указывать" },
+const GENDER_OPTIONS = (t: any) => [
+  { value: "male",   label: t("onboarding.profileSetup.genderMale") },
+  { value: "female", label: t("onboarding.profileSetup.genderFemale") },
+  { value: "other",  label: t("onboarding.profileSetup.genderNone") },
 ];
 
 export default function ProfileSetupScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -61,7 +64,7 @@ export default function ProfileSetupScreen() {
 
   const handleContinue = async () => {
     if (birthDate && !validateDate(birthDate)) {
-      setDateError("Проверьте формат даты: дд.мм.гггг");
+      setDateError(t("onboarding.profileSetup.dateError"));
       return;
     }
     setIsLoading(true);
@@ -109,18 +112,18 @@ export default function ProfileSetupScreen() {
           </View>
         </View>
 
-        <ThemedText type="h3" style={styles.title}>Как вас зовут?</ThemedText>
+        <ThemedText type="h3" style={styles.title}>{t("onboarding.profileSetup.title")}</ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Данные используются только для персонализации ИИ-рекомендаций
+          {t("aboutMe.savedMessage") === "Данные обновлены. ИИ будет их учитывать в рекомендациях." ? "Данные используются только для персонализации ИИ-рекомендаций" : "Data is used only for personalizing AI recommendations"}
         </ThemedText>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Имя или псевдоним</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("onboarding.profileSetup.namePlaceholder")}</ThemedText>
           <View style={[styles.inputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
             <AppIcon name="user" size={18} color={theme.textSecondary} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="Как к вам обращаться?"
+              placeholder={t("onboarding.profileSetup.title")}
               placeholderTextColor={theme.textSecondary}
               value={displayName}
               onChangeText={setDisplayName}
@@ -131,7 +134,7 @@ export default function ProfileSetupScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Дата рождения</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("calendar.months.12")}</ThemedText>
           <View style={[
             styles.inputWrapper,
             { backgroundColor: theme.backgroundSecondary, borderColor: dateError ? theme.danger : theme.border }
@@ -139,7 +142,7 @@ export default function ProfileSetupScreen() {
             <AppIcon name="calendar" size={18} color={dateError ? theme.danger : theme.textSecondary} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="дд.мм.гггг"
+              placeholder={t("onboarding.profileSetup.dobPlaceholder")}
               placeholderTextColor={theme.textSecondary}
               value={birthDate}
               onChangeText={handleDateChange}
@@ -154,16 +157,16 @@ export default function ProfileSetupScreen() {
             </ThemedText>
           ) : null}
           <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 4 }}>
-            Помогает давать возрастные рекомендации
+            {t("aboutMe.aiNote")}
           </ThemedText>
         </View>
 
         <View style={styles.section}>
           <ThemedText type="small" style={styles.label}>
-            Пол <ThemedText type="small" style={{ color: theme.textSecondary }}>(необязательно)</ThemedText>
+            {t("aboutMe.gender")} <ThemedText type="small" style={{ color: theme.textSecondary }}>({t("aboutMe.goalReminders") === "Только напоминания" ? "необязательно" : "optional"})</ThemedText>
           </ThemedText>
           <View style={styles.genderRow}>
-            {GENDER_OPTIONS.map((opt) => (
+            {GENDER_OPTIONS(t).map((opt) => (
               <Pressable
                 key={opt.value}
                 onPress={() => setGender(gender === opt.value ? "" : opt.value)}
@@ -188,10 +191,10 @@ export default function ProfileSetupScreen() {
 
         <View style={styles.buttons}>
           <Button onPress={handleContinue} disabled={isLoading}>
-            {isLoading ? <ActivityIndicator color="#FFFFFF" /> : "Продолжить"}
+            {isLoading ? <ActivityIndicator color="#FFFFFF" /> : t("common.continue")}
           </Button>
           <Pressable onPress={handleSkip} style={styles.skipButton}>
-            <ThemedText type="link">Пропустить</ThemedText>
+            <ThemedText type="link">{t("common.skip")}</ThemedText>
           </Pressable>
         </View>
       </KeyboardAwareScrollViewCompat>

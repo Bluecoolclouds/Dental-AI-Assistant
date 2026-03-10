@@ -12,6 +12,7 @@ import {
   Animated,
   Text,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -56,7 +57,7 @@ const CHAT_STORAGE_KEY = "toothy_chat_history";
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Здравствуйте! Я ваш виртуальный стоматологический консультант. Задайте мне любой вопрос о здоровье зубов и полости рта. Также вы можете прикрепить снимки, рентген или другие медицинские документы — я их проанализирую.",
+  content: "aiChat.greeting",
   timestamp: new Date().toISOString(),
 };
 
@@ -146,7 +147,7 @@ async function processStateUpdates(
         await alertsRepo.createAlert({
           userId,
           type: "reminder",
-          title: `Зуб ${update.tooth_id}: ${update.reason || "рекомендована проверка"}`,
+          title: `Зуб ${update.tooth_id}: ${update.reason || t("aiChat.checkTag")}`,
           priority: update.priority || "routine",
           relatedTeeth: [String(update.tooth_id)],
         });
@@ -157,8 +158,8 @@ async function processStateUpdates(
       await alertsRepo.createAlert({
         userId,
         type: "urgent",
-        title: "Требуется срочная консультация",
-        description: safety.urgent_reason || "ИИ рекомендует срочно обратиться к врачу",
+        title: t("aiChat.urgentTag"),
+        description: safety.urgent_reason || t("aiChat.urgentAdvice"),
         priority: "urgent",
         relatedTeeth: [],
       });
@@ -169,6 +170,7 @@ async function processStateUpdates(
 }
 
 export default function AIChatScreen() {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
@@ -179,7 +181,9 @@ export default function AIChatScreen() {
   const { toothData } = useToothData();
   const { latestResult: testResult } = useTestResults();
 
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<Message[]>([
+    { ...WELCOME_MESSAGE, content: t(WELCOME_MESSAGE.content) }
+  ]);
   const [inputText, setInputText] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -345,7 +349,7 @@ export default function AIChatScreen() {
       const assistantMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
-        content: data.response || "Извините, не удалось получить ответ.",
+        content: data.response || t("aiChat.errorResponse"),
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
@@ -374,7 +378,7 @@ export default function AIChatScreen() {
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: "Извините, произошла ошибка. Пожалуйста, попробуйте ещё раз.",
+          content: t("aiChat.errorGeneral"),
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -383,7 +387,7 @@ export default function AIChatScreen() {
 
   const handlePickFile = useCallback(async () => {
     if (pendingFiles.length >= 5) {
-      Alert.alert("Лимит файлов", "Можно прикрепить не более 5 файлов за раз");
+      Alert.alert(t("aiChat.fileLimit"), t("aiChat.fileLimitMsg"));
       return;
     }
     setIsPickingFile(true);
@@ -398,8 +402,8 @@ export default function AIChatScreen() {
       const supported = mimeType.startsWith("image/") || mimeType === "application/pdf";
       if (!supported) {
         Alert.alert(
-          "Формат не поддерживается",
-          "Для анализа поддерживаются только изображения (JPG, PNG) и PDF-файлы.",
+          t("aiChat.unsupportedFormat"),
+          t("aiChat.supportedFormats"),
         );
         return;
       }
@@ -417,7 +421,7 @@ export default function AIChatScreen() {
         },
       ]);
     } catch (e) {
-      Alert.alert("Ошибка", "Не удалось прикрепить файл");
+      Alert.alert(t("common.error"), t("aiChat.attachFailed"));
     } finally {
       setIsPickingFile(false);
     }
@@ -431,7 +435,7 @@ export default function AIChatScreen() {
     const text = inputText.trim();
     if ((!text && pendingFiles.length === 0) || chatMutation.isPending) return;
 
-    const displayText = text || (pendingFiles.length > 0 ? "Проанализируй прикреплённые файлы" : "");
+    const displayText = text || (pendingFiles.length > 0 ? t("aiChat.analyzeFiles") : "");
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -605,7 +609,7 @@ export default function AIChatScreen() {
           <TextInput
             ref={searchInputRef}
             style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Поиск по сообщениям..."
+            placeholder={t("aiChat.searchPlaceholder")}
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -652,7 +656,7 @@ export default function AIChatScreen() {
             <View style={styles.emptySearch}>
               <AppIcon name="search" size={32} color={theme.textSecondary} />
               <ThemedText style={[styles.emptySearchText, { color: theme.textSecondary }]}>
-                Ничего не найдено
+                {t("common.noResults") || "Ничего не найдено"}
               </ThemedText>
             </View>
           ) : null
@@ -715,7 +719,7 @@ export default function AIChatScreen() {
 
           <TextInput
             style={[styles.input, { color: theme.text }]}
-            placeholder="Задайте вопрос или прикрепите файл..."
+            placeholder={t("aiChat.inputPlaceholder")}
             placeholderTextColor={theme.textSecondary}
             value={inputText}
             onChangeText={setInputText}

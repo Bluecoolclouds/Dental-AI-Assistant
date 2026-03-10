@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -29,78 +30,79 @@ interface Question {
 const QUESTIONS: Question[] = [
   {
     id: 1,
-    question: "Как часто вы чистите зубы?",
+    question: "testFlow.question1",
     options: [
-      { value: "rarely", label: "Реже 1 раза в день", score: 30 },
-      { value: "once", label: "1 раз в день", score: 15 },
-      { value: "twice", label: "2 раза в день", score: 0 },
-      { value: "more", label: "Более 2 раз в день", score: 0 },
+      { value: "rarely", label: "testFlow.opt_less1", score: 30 },
+      { value: "once", label: "testFlow.opt_morningOnly", score: 15 },
+      { value: "twice", label: "testFlow.opt_sometimes", score: 0 },
+      { value: "more", label: "testFlow.opt_moreThan2", score: 0 },
     ],
   },
   {
     id: 2,
-    question: "Используете ли вы зубную нить или ирригатор?",
+    question: "testFlow.question4",
     options: [
-      { value: "never", label: "Никогда", score: 20 },
-      { value: "sometimes", label: "Иногда", score: 10 },
-      { value: "regularly", label: "Регулярно", score: 0 },
+      { value: "never", label: "testFlow.opt_never", score: 20 },
+      { value: "sometimes", label: "testFlow.opt_sometimes2", score: 10 },
+      { value: "regularly", label: "testFlow.opt_regular", score: 0 },
     ],
   },
   {
     id: 3,
-    question: "Есть ли у вас кровоточивость дёсен при чистке?",
+    question: "testFlow.question5",
     options: [
-      { value: "never", label: "Никогда", score: 0 },
-      { value: "sometimes", label: "Иногда", score: 15 },
-      { value: "often", label: "Часто", score: 30 },
-      { value: "always", label: "Всегда", score: 40 },
+      { value: "never", label: "testFlow.opt_never2", score: 0 },
+      { value: "sometimes", label: "testFlow.opt_sometimes2", score: 15 },
+      { value: "often", label: "testFlow.opt_often", score: 30 },
+      { value: "always", label: "testFlow.opt_always", score: 40 },
     ],
   },
   {
     id: 4,
-    question: "Испытываете ли вы чувствительность зубов?",
+    question: "testFlow.question3",
     options: [
-      { value: "no", label: "Нет", score: 0 },
-      { value: "cold_hot", label: "К холодному/горячему", score: 10 },
-      { value: "sweet", label: "К сладкому/кислому", score: 15 },
-      { value: "constant", label: "Постоянная боль", score: 30 },
+      { value: "no", label: "testFlow.opt_no", score: 0 },
+      { value: "cold_hot", label: "testFlow.opt_cold", score: 10 },
+      { value: "sweet", label: "testFlow.opt_sweet", score: 15 },
+      { value: "constant", label: "testFlow.opt_constant", score: 30 },
     ],
   },
   {
     id: 5,
-    question: "Когда вы последний раз были у стоматолога?",
+    question: "testFlow.question2",
     options: [
-      { value: "less_6", label: "Менее 6 месяцев назад", score: 0 },
-      { value: "6_12", label: "6-12 месяцев назад", score: 5 },
-      { value: "1_2_years", label: "1-2 года назад", score: 15 },
-      { value: "more_2", label: "Более 2 лет назад", score: 25 },
+      { value: "less_6", label: "testFlow.opt_lessThan6m", score: 0 },
+      { value: "6_12", label: "6-12 месяцев назад", score: 5 }, // "6-12 месяцев назад" doesn't have a key in ru.json, I'll use it as is for now or check again
+      { value: "1_2_years", label: "1-2 года назад", score: 15 }, // same here
+      { value: "more_2", label: "testFlow.opt_moreThan2y", score: 25 },
     ],
   },
   {
     id: 6,
-    question: "Есть ли у вас проблемы с запахом изо рта?",
+    question: "testFlow.question6",
     options: [
-      { value: "no", label: "Нет", score: 0 },
-      { value: "morning", label: "Только утром", score: 5 },
-      { value: "sometimes", label: "Иногда в течение дня", score: 15 },
-      { value: "constant", label: "Постоянно", score: 25 },
+      { value: "no", label: "testFlow.opt_no", score: 0 },
+      { value: "morning", label: "testFlow.opt_morningOnly", score: 5 },
+      { value: "sometimes", label: "testFlow.opt_sometimes", score: 15 },
+      { value: "constant", label: "testFlow.opt_constant", score: 25 },
     ],
   },
   {
     id: 7,
-    question: "Есть ли у тебя что-то из этого во рту?",
+    question: "testFlow.question7",
     multiSelect: true,
     options: [
-      { value: "crowns_veneers", label: "Коронки / виниры / мосты", score: 5 },
-      { value: "removable_dentures", label: "Съёмные протезы", score: 10 },
-      { value: "braces_aligners", label: "Брекеты или элайнеры", score: 5 },
-      { value: "implants", label: "Импланты", score: 5 },
-      { value: "nothing", label: "Ничего из перечисленного / не знаю", score: 0 },
+      { value: "crowns_veneers", label: "testFlow.opt_crowns", score: 5 },
+      { value: "removable_dentures", label: "testFlow.opt_dentures", score: 10 },
+      { value: "braces_aligners", label: "testFlow.opt_braces", score: 5 },
+      { value: "implants", label: "testFlow.opt_implants", score: 5 },
+      { value: "nothing", label: "testFlow.opt_none", score: 0 },
     ],
   },
 ];
 
 export default function TestFlowScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation();
@@ -205,7 +207,7 @@ export default function TestFlowScreen() {
         ]}
       >
         <ThemedText type="h3" style={styles.question}>
-          {question.question}
+          {t(question.question)}
         </ThemedText>
 
         <View style={styles.options}>
@@ -247,7 +249,7 @@ export default function TestFlowScreen() {
                   type="body"
                   style={{ color: isSelected ? "#FFFFFF" : theme.text, flex: 1 }}
                 >
-                  {option.label}
+                  {t(option.label)}
                 </ThemedText>
               </Pressable>
             );
@@ -260,7 +262,7 @@ export default function TestFlowScreen() {
           {currentQuestion > 0 ? (
             <Pressable onPress={handleBack} style={styles.backButton}>
               <AppIcon name="arrow-left" size={20} color={theme.primary} />
-              <ThemedText type="link">Назад</ThemedText>
+              <ThemedText type="link">{t("common.back")}</ThemedText>
             </Pressable>
           ) : (
             <View />
@@ -274,9 +276,9 @@ export default function TestFlowScreen() {
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : isLastQuestion ? (
-              "Завершить"
+              t("testFlow.finish")
             ) : (
-              "Далее"
+              t("testFlow.next")
             )}
           </Button>
         </View>

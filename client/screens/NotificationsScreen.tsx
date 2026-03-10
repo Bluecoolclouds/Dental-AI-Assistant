@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, Pressable, FlatList, ActivityIndicator, Alert as RNAlert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -21,6 +22,7 @@ import {
 } from "@/storage/repositories/alertsRepository";
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
@@ -79,12 +81,12 @@ export default function NotificationsScreen() {
 
   const handleDelete = (id: string) => {
     RNAlert.alert(
-      "Удалить уведомление",
-      "Вы уверены, что хотите удалить это уведомление?",
+      t("notifications.deleteTitle"),
+      t("notifications.deleteConfirm"),
       [
-        { text: "Отмена", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Удалить",
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -132,13 +134,13 @@ export default function NotificationsScreen() {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return "Сегодня";
+      return t("notifications.today");
     } else if (diffDays === 1) {
-      return "Вчера";
+      return t("notifications.yesterday");
     } else if (diffDays < 7) {
-      return `${diffDays} дн. назад`;
+      return `${diffDays} ${t("common.daysAgo", "дн. назад")}`;
     } else {
-      return date.toLocaleDateString("ru-RU", {
+      return date.toLocaleDateString(t("common.locale", "ru-RU"), {
         day: "numeric",
         month: "short",
       });
@@ -150,9 +152,9 @@ export default function NotificationsScreen() {
       elevation={item.isRead ? 0 : 1}
       style={[
         styles.alertCard,
-        item.isDismissed ? { opacity: 0.6 } : null,
-        !item.isRead ? { borderLeftWidth: 3, borderLeftColor: getPriorityColor(item.priority) } : null,
-      ]}
+        item.isDismissed ? { opacity: 0.6 } : {},
+        !item.isRead ? { borderLeftWidth: 3, borderLeftColor: getPriorityColor(item.priority) } : {},
+      ] as any}
     >
       <Pressable
         onPress={() => !item.isRead && handleMarkAsRead(item.id)}
@@ -173,7 +175,7 @@ export default function NotificationsScreen() {
         <View style={styles.textContainer}>
           <View style={styles.headerRow}>
             <ThemedText
-              type={item.isRead ? "body" : "bodyBold"}
+              type={item.isRead ? "body" : "h4"}
               numberOfLines={1}
               style={{ flex: 1 }}
             >
@@ -252,15 +254,15 @@ export default function NotificationsScreen() {
         <AppIcon name="bell-off" size={48} color={theme.primary} />
       </View>
       <ThemedText type="h4" style={styles.emptyTitle}>
-        Нет уведомлений
+        {t("notifications.noNotifications")}
       </ThemedText>
       <ThemedText
         type="body"
         style={{ color: theme.textSecondary, textAlign: "center" }}
       >
         {showDismissed
-          ? "У вас нет уведомлений"
-          : "Активных уведомлений пока нет"}
+          ? t("notifications.noNotifications")
+          : t("notifications.noActive")}
       </ThemedText>
     </View>
   );
@@ -289,7 +291,7 @@ export default function NotificationsScreen() {
             type="small"
             style={{ color: !showDismissed ? "#FFFFFF" : theme.text }}
           >
-            Активные
+            {t("notifications.active", "Активные")}
           </ThemedText>
         </Pressable>
         <Pressable
@@ -305,7 +307,7 @@ export default function NotificationsScreen() {
             type="small"
             style={{ color: showDismissed ? "#FFFFFF" : theme.text }}
           >
-            Все
+            {t("common.all", "Все")}
           </ThemedText>
         </Pressable>
       </View>

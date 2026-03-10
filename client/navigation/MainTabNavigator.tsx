@@ -5,6 +5,7 @@ import { BlurView } from "expo-blur";
 import { Platform, StyleSheet } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
+import { useTranslation } from "react-i18next";
 
 import HomeScreen from "@/screens/HomeScreen";
 import ToothMapScreen from "@/screens/ToothMapScreen";
@@ -25,6 +26,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
   const screenOptions = useScreenOptions();
+  const { t } = useTranslation();
 
   return (
     <Tab.Navigator
@@ -49,14 +51,14 @@ export default function MainTabNavigator() {
               style={StyleSheet.absoluteFill}
             />
           ) : null,
-        ...screenOptions,
+        ...(screenOptions as any),
       }}
     >
       <Tab.Screen
         name="HomeTab"
         component={HomeScreen}
         options={{
-          title: "Главная",
+          title: t("nav.home"),
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="home" size={size} color={color} />
@@ -67,8 +69,8 @@ export default function MainTabNavigator() {
         name="ToothMapTab"
         component={ToothMapScreen}
         options={{
-          title: "Карта",
-          headerTitle: "Карта зубов",
+          title: t("nav.map"),
+          headerTitle: t("home.toothMap"),
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="grid" size={size} color={color} />
           ),
@@ -78,7 +80,7 @@ export default function MainTabNavigator() {
         name="AIChatTab"
         component={AIChatScreen}
         options={{
-          title: "ИИ",
+          title: t("nav.ai"),
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="message-circle" size={size} color={color} />
@@ -89,7 +91,7 @@ export default function MainTabNavigator() {
         name="CalendarTab"
         component={CalendarScreen}
         options={{
-          title: "Календарь",
+          title: t("nav.calendar"),
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="calendar" size={size} color={color} />
@@ -100,7 +102,7 @@ export default function MainTabNavigator() {
         name="ProfileTab"
         component={ProfileScreen}
         options={{
-          title: "Профиль",
+          title: t("nav.profile"),
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="user" size={size} color={color} />

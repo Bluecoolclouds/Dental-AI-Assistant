@@ -3,6 +3,7 @@ import { StyleSheet, View, ScrollView, Pressable, Platform, Image } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -59,6 +60,7 @@ function ToothMascot() {
 
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -68,7 +70,14 @@ export default function HomeScreen() {
   const { latestResult: testResult } = useTestResults();
   const { alerts, dismissAlert } = useAlerts();
 
-  const userName = user?.email?.split("@")[0] || "Пациент";
+  const QUICK_ACTIONS = [
+    { id: "toothmap", name: t("home.toothMap"), icon: "map-pin" as const, bgColor: "#EBF5FF", iconColor: "#4A90D9", route: "ToothMapTab" },
+    { id: "test", name: t("home.runTest"), icon: "clipboard" as const, bgColor: "#F3EAFF", iconColor: "#9333EA", route: "TestFlow" },
+    { id: "recommendations", name: t("home.aiAdvice"), icon: "sun" as const, bgColor: "#FFF8E1", iconColor: "#F59E0B", route: "AIRecommendations" },
+    { id: "profile", name: t("home.profile"), icon: "user" as const, bgColor: "#ECFDF5", iconColor: "#10B981", route: "ProfileTab" },
+  ];
+
+  const userName = user?.email?.split("@")[0] || t("common.patient");
   const defaultAvatar = getDefaultAvatar(profile?.gender ?? null, user?.id ?? "default");
   
   const urgentAlerts = alerts.filter((a) => a.type === "urgent" || a.priority === "urgent");
@@ -105,7 +114,7 @@ export default function HomeScreen() {
               )}
               <View>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Привет 👋
+                  {t("home.greeting")}
                 </ThemedText>
                 <ThemedText style={styles.userName}>{userName}</ThemedText>
               </View>
@@ -129,17 +138,17 @@ export default function HomeScreen() {
               <View style={styles.promoDecorCircle} />
               <View style={styles.promoContent}>
                 <View style={styles.promoTag}>
-                  <ThemedText style={styles.promoTagText}>АКЦИЯ</ThemedText>
+                  <ThemedText style={styles.promoTagText}>{t("home.promo")}</ThemedText>
                 </View>
                 <ThemedText style={styles.promoTitle}>
-                  Бесплатная{"\n"}диагностика
+                  {t("home.promoTitle")}
                 </ThemedText>
                 <ThemedText style={styles.promoSubtitle}>
-                  Пройдите тест и получите рекомендации
+                  {t("home.promoSubtitle")}
                 </ThemedText>
                 <View style={styles.promoButton}>
                   <AppIcon name="phone" size={14} color="#4A90D9" />
-                  <ThemedText style={styles.promoButtonText}>Начать тест</ThemedText>
+                  <ThemedText style={styles.promoButtonText}>{t("home.startTest")}</ThemedText>
                 </View>
               </View>
               <View style={styles.promoMascot}>
@@ -184,7 +193,7 @@ export default function HomeScreen() {
 
         {teethAtRiskAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
-            <ThemedText type="h4" style={{ marginBottom: Spacing.sm, paddingHorizontal: Spacing.lg }}>Зубы под риском</ThemedText>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm, paddingHorizontal: Spacing.lg }}>{t("home.teethAtRisk")}</ThemedText>
             {teethAtRiskAlerts.map((alert) => (
               <Pressable 
                 key={alert.id}
@@ -222,7 +231,7 @@ export default function HomeScreen() {
 
         {reminderAlerts.length > 0 ? (
           <View style={styles.alertsSection}>
-            <ThemedText type="h4" style={{ marginBottom: Spacing.sm, paddingHorizontal: Spacing.lg }}>Напоминания</ThemedText>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm, paddingHorizontal: Spacing.lg }}>{t("home.reminders")}</ThemedText>
             {reminderAlerts.slice(0, 3).map((alert) => (
               <View 
                 key={alert.id}
@@ -256,7 +265,7 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <ThemedText type="h4" style={{ marginBottom: Spacing.md, paddingHorizontal: Spacing.lg }}>
-            Быстрые действия
+            {t("home.quickActions")}
           </ThemedText>
           
           <View style={styles.actionsGrid}>
@@ -290,9 +299,9 @@ export default function HomeScreen() {
                 <AppIcon name="activity" size={24} color="#10B981" />
               </View>
               <View style={styles.healthInfo}>
-                <ThemedText type="body" style={{ fontWeight: "600" }}>Ваше здоровье</ThemedText>
+                <ThemedText type="body" style={{ fontWeight: "600" }}>{t("home.yourHealth")}</ThemedText>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Последняя проверка
+                  {t("home.lastCheck")}
                 </ThemedText>
               </View>
               <AppIcon name="chevron-right" size={24} color={theme.textSecondary} />
@@ -300,12 +309,12 @@ export default function HomeScreen() {
             <View style={styles.healthScores}>
               <View style={styles.healthScore}>
                 <ThemedText type="h3" style={{ color: "#4A90D9" }}>{testResult.teethRiskScore}</ThemedText>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>Зубы</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>{t("home.teeth")}</ThemedText>
               </View>
               <View style={[styles.healthDivider, { backgroundColor: theme.border }]} />
               <View style={styles.healthScore}>
                 <ThemedText type="h3" style={{ color: "#4A90D9" }}>{testResult.gumsRiskScore}</ThemedText>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>Дёсны</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>{t("home.gums")}</ThemedText>
               </View>
             </View>
           </Pressable>
@@ -322,9 +331,9 @@ export default function HomeScreen() {
             <AppIcon name="message-circle" size={20} color="#10B981" />
           </View>
           <View style={styles.feedbackContent}>
-            <ThemedText type="body" style={{ fontWeight: "500" }}>Бета-версия</ThemedText>
+            <ThemedText type="body" style={{ fontWeight: "500" }}>{t("home.beta")}</ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Помогите улучшить приложение
+              {t("home.helpImprove")}
             </ThemedText>
           </View>
           <AppIcon name="chevron-right" size={20} color={theme.textSecondary} />

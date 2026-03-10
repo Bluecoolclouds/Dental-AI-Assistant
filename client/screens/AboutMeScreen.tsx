@@ -6,6 +6,7 @@ import {
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -69,6 +70,7 @@ function formatDateInput(text: string): string {
 }
 
 export default function AboutMeScreen() {
+  const { t } = useTranslation();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
@@ -104,10 +106,35 @@ export default function AboutMeScreen() {
     setBirthDate(formatDateInput(text));
   };
 
+  const GENDER_OPTIONS = [
+    { value: "male",   label: t("aboutMe.genderMale") },
+    { value: "female", label: t("aboutMe.genderFemale") },
+    { value: "other",  label: t("aboutMe.genderNone") },
+  ];
+
+  const GOALS = [
+    { value: "general",    icon: "activity",       label: t("aboutMe.goalGeneral") },
+    { value: "braces",     icon: "git-merge",      label: t("aboutMe.goalBraces") },
+    { value: "extraction", icon: "shield",         label: t("aboutMe.goalExtraction") },
+    { value: "caries",     icon: "alert-triangle", label: t("aboutMe.goalCaries") },
+    { value: "reminders",  icon: "bell",           label: t("aboutMe.goalReminders") },
+  ];
+
+  const ALLERGY_OPTIONS = [
+    { value: "yes",        label: t("aboutMe.allergyYes") },
+    { value: "no",         label: t("aboutMe.allergyNo") },
+    { value: "dont_know",  label: t("aboutMe.allergyUnknown") },
+  ];
+
+  const ILLNESS_OPTIONS = [
+    { value: "yes",  label: t("aboutMe.allergyYes") },
+    { value: "no",   label: t("aboutMe.allergyNo") },
+  ];
+
   const handlePickAvatar = () => {
-    Alert.alert("Изменить фото профиля", undefined, [
+    Alert.alert(t("aboutMe.changePhoto"), undefined, [
       {
-        text: "Выбрать из галереи",
+        text: t("aboutMe.chooseFromGallery"),
         onPress: async () => {
           if (!user?.id) return;
           const path = await pickAvatarFromGallery(user.id);
@@ -118,7 +145,7 @@ export default function AboutMeScreen() {
         },
       },
       {
-        text: "Сделать фото",
+        text: t("aboutMe.takePhoto"),
         onPress: async () => {
           if (!user?.id) return;
           const path = await pickAvatarFromCamera(user.id);
@@ -130,7 +157,7 @@ export default function AboutMeScreen() {
       },
       ...(profile?.avatarUrl
         ? [{
-            text: "Удалить фото",
+            text: t("aboutMe.deletePhoto"),
             style: "destructive" as const,
             onPress: async () => {
               await deleteAvatarFile(profile.avatarUrl);
@@ -138,13 +165,13 @@ export default function AboutMeScreen() {
             },
           }]
         : []),
-      { text: "Отмена", style: "cancel" as const },
+      { text: t("common.cancel"), style: "cancel" as const },
     ]);
   };
 
   const handleSave = async () => {
     if (birthDate && birthDate.length > 0 && birthDate.length < 10) {
-      setDateError("Введите полную дату: дд.мм.гггг");
+      setDateError(t("aboutMe.invalidDate"));
       return;
     }
     setIsSaving(true);
@@ -159,9 +186,9 @@ export default function AboutMeScreen() {
         allergyToAnesthetics: allergy || undefined,
         seriousIllnesses: illnesses || undefined,
       });
-      Alert.alert("Сохранено", "Данные обновлены. ИИ будет их учитывать в рекомендациях.");
+      Alert.alert(t("aboutMe.saved"), t("aboutMe.savedMessage"));
     } catch {
-      Alert.alert("Ошибка", "Не удалось сохранить данные");
+      Alert.alert(t("common.error"), t("aboutMe.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -188,7 +215,7 @@ export default function AboutMeScreen() {
         <View style={[styles.infoBanner, { backgroundColor: theme.primary + "10", borderColor: theme.primary + "25" }]}>
           <AppIcon name="info" size={16} color={theme.primary} />
           <ThemedText type="small" style={{ color: theme.primary, flex: 1 }}>
-            ИИ использует эти данные для точных и безопасных рекомендаций
+            {t("aboutMe.aiNote")}
           </ThemedText>
         </View>
 
@@ -206,17 +233,17 @@ export default function AboutMeScreen() {
             </View>
           </View>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            Нажмите, чтобы изменить фото
+            {t("aboutMe.clickToChange", "Нажмите, чтобы изменить фото")}
           </ThemedText>
         </Pressable>
 
-        <SectionTitle>Личные данные</SectionTitle>
+        <SectionTitle>{t("aboutMe.personalData", "Личные данные")}</SectionTitle>
 
-        <Field label="Имя или псевдоним">
+        <Field label={t("aboutMe.name")}>
           <InputRow icon="user">
             <TextInput
               style={[styles.textInput, { color: theme.text }]}
-              placeholder="Как вас называть?"
+              placeholder={t("aboutMe.namePlaceholder")}
               placeholderTextColor={theme.textSecondary}
               value={displayName}
               onChangeText={setDisplayName}
@@ -225,11 +252,11 @@ export default function AboutMeScreen() {
           </InputRow>
         </Field>
 
-        <Field label="Дата рождения">
+        <Field label={t("aboutMe.dob")}>
           <InputRow icon="calendar" error={!!dateError}>
             <TextInput
               style={[styles.textInput, { color: theme.text }]}
-              placeholder="дд.мм.гггг"
+              placeholder={t("aboutMe.dobPlaceholder")}
               placeholderTextColor={theme.textSecondary}
               value={birthDate}
               onChangeText={handleDateChange}
@@ -244,7 +271,7 @@ export default function AboutMeScreen() {
           ) : null}
         </Field>
 
-        <Field label="Пол">
+        <Field label={t("aboutMe.gender")}>
           <View style={styles.row}>
             {GENDER_OPTIONS.map((opt) => (
               <ChipButton
@@ -257,11 +284,11 @@ export default function AboutMeScreen() {
           </View>
         </Field>
 
-        <Field label="Страна / Город">
+        <Field label={t("aboutMe.location")}>
           <InputRow icon="map-pin">
             <TextInput
               style={[styles.textInput, { color: theme.text }]}
-              placeholder="Например: Россия, Москва"
+              placeholder={t("aboutMe.locationPlaceholder")}
               placeholderTextColor={theme.textSecondary}
               value={location}
               onChangeText={setLocation}
@@ -269,7 +296,7 @@ export default function AboutMeScreen() {
           </InputRow>
         </Field>
 
-        <SectionTitle>Цель использования</SectionTitle>
+        <SectionTitle>{t("aboutMe.usageGoal", "Цель использования")}</SectionTitle>
 
         <View style={styles.goalsList}>
           {GOALS.map((g) => {
@@ -303,11 +330,11 @@ export default function AboutMeScreen() {
           })}
         </View>
 
-        <SectionTitle>Медицинская информация</SectionTitle>
+        <SectionTitle>{t("aboutMe.medicalInfo", "Медицинская информация")}</SectionTitle>
 
         <Field
-          label="Аллергия на анестетики или лекарства у стоматолога?"
-          hint="ИИ не назначает лечение, но учитывает при рекомендациях"
+          label={t("aboutMe.allergy")}
+          hint={t("aboutMe.aiNote")}
         >
           <View style={styles.row}>
             {ALLERGY_OPTIONS.map((opt) => (
@@ -322,8 +349,8 @@ export default function AboutMeScreen() {
         </Field>
 
         <Field
-          label="Есть серьёзные заболевания?"
-          hint="Сердечно-сосудистые, сахарный диабет, нарушения свёртываемости и др."
+          label={t("aboutMe.disease")}
+          hint={t("aboutMe.diseaseNote")}
         >
           <View style={styles.row}>
             {ILLNESS_OPTIONS.map((opt) => (
@@ -339,7 +366,7 @@ export default function AboutMeScreen() {
             <View style={[styles.illnessNote, { backgroundColor: theme.warning + "12", borderColor: theme.warning + "30" }]}>
               <AppIcon name="info" size={14} color={theme.warning} />
               <ThemedText type="small" style={{ color: theme.warning, flex: 1 }}>
-                Подробности можно рассказать в ИИ-чате — он учтёт их в рекомендациях
+                {t("aboutMe.detailsInAiChat", "Подробности можно рассказать в ИИ-чате — он учтёт их в рекомендациях")}
               </ThemedText>
             </View>
           )}
@@ -347,7 +374,7 @@ export default function AboutMeScreen() {
 
         <View style={styles.saveButton}>
           <Button onPress={handleSave} disabled={isSaving}>
-            {isSaving ? <ActivityIndicator color="#FFF" /> : "Сохранить"}
+            {isSaving ? <ActivityIndicator color="#FFF" /> : t("common.save")}
           </Button>
         </View>
       </ScrollView>

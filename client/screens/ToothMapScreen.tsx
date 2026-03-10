@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform, TextInput, Alert, Modal } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useTranslation } from "react-i18next";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppIcon from "@/components/Icons";
@@ -121,6 +122,7 @@ function ToothShape({
 }
 
 export default function ToothMapScreen() {
+  const { t, i18n } = useTranslation();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
@@ -172,7 +174,7 @@ export default function ToothMapScreen() {
       setShowDetailsModal(false);
       setSelectedHistoryEvent(null);
     } catch (error) {
-      Alert.alert("Ошибка", "Не удалось сохранить детали");
+      Alert.alert(t("common.error"), t("toothMap.saveFailed"));
     } finally {
       setIsUpdatingHistory(false);
     }
@@ -180,11 +182,11 @@ export default function ToothMapScreen() {
 
   const handleAddHistory = async () => {
     if (!newHistoryToothId || !newHistoryReason) {
-      Alert.alert("Ошибка", "Укажите номер зуба и описание");
+      Alert.alert(t("common.error"), t("toothMap.specifyToothAndDesc"));
       return;
     }
     if (!VALID_TOOTH_IDS.includes(newHistoryToothId)) {
-      Alert.alert("Ошибка", "Неверный номер зуба. Используйте номера от 11 до 48");
+      Alert.alert(t("common.error"), t("toothMap.invalidToothNumber"));
       return;
     }
     setIsCreatingHistory(true);
@@ -201,7 +203,7 @@ export default function ToothMapScreen() {
       setNewHistoryReason("");
       setNewHistoryEventType("treatment");
     } catch (error) {
-      Alert.alert("Ошибка", "Не удалось добавить запись");
+      Alert.alert(t("common.error"), t("toothMap.addFailed"));
     } finally {
       setIsCreatingHistory(false);
     }
@@ -212,30 +214,30 @@ export default function ToothMapScreen() {
       const fileUri = file.fileUrl.startsWith("file://") ? file.fileUrl : `${FileSystem.documentDirectory}${file.fileUrl}`;
       const info = await FileSystem.getInfoAsync(fileUri);
       if (!info.exists) {
-        Alert.alert("Файл не найден", "Файл был удалён или перемещён");
+        Alert.alert(t("toothMap.fileNotFound"), t("toothMap.fileMovedOrDeleted"));
         return;
       }
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(fileUri);
       } else {
-        Alert.alert("Ошибка", "Открытие файлов не поддерживается на этом устройстве");
+        Alert.alert(t("common.error"), t("toothMap.fileOpenNotSupported"));
       }
     } catch {
-      Alert.alert("Ошибка", "Не удалось открыть файл");
+      Alert.alert(t("common.error"), t("toothMap.fileOpenFailed"));
     }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+    return date.toLocaleDateString(i18n.language === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short", year: "numeric" });
   };
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return "";
-    if (bytes < 1024) return `${bytes} Б`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+    if (bytes < 1024) return `${bytes} ${i18n.language === 'ru' ? 'Б' : 'B'}`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} ${i18n.language === 'ru' ? 'КБ' : 'KB'}`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} ${i18n.language === 'ru' ? 'МБ' : 'MB'}`;
   };
 
   const groupHistoryByDate = (history: ToothHistory[]) => {
@@ -364,26 +366,26 @@ export default function ToothMapScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h3" style={styles.cardTitle}>Ваша карта зубов</ThemedText>
+          <ThemedText type="h3" style={styles.cardTitle}>{t("home.toothMap")}</ThemedText>
 
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: "#FBBF24" }]} />
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Было лечение
+                {t("toothMap.treated")}
               </ThemedText>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: "#4A90D9" }]} />
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Требует внимания
+                {t("toothMap.pain")}
               </ThemedText>
             </View>
           </View>
 
           <View style={styles.archContainer}>
               <ThemedText type="small" style={[styles.archLabel, { color: theme.textSecondary }]}>
-                Верхняя челюсть
+                {t("toothDetail.upperJaw") || "Верхняя челюсть"}
               </ThemedText>
               
               <View style={[styles.archWrapper, { width: archWidth, height: archHeight }]}>
@@ -495,7 +497,7 @@ export default function ToothMapScreen() {
               </View>
 
               <ThemedText type="small" style={[styles.archLabel, { color: theme.textSecondary }]}>
-                Нижняя челюсть
+                {t("toothDetail.lowerJaw") || "Нижняя челюсть"}
               </ThemedText>
             </View>
         </View>
@@ -504,9 +506,9 @@ export default function ToothMapScreen() {
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.cardHeader}>
               <View>
-                <ThemedText type="h4">Зуб {selectedTooth % 10}</ThemedText>
+                <ThemedText type="h4">{t("home.teeth")} {selectedTooth % 10}</ThemedText>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Позиция: {selectedTooth}
+                  {t("toothMap.position") || "Позиция"}: {selectedTooth}
                 </ThemedText>
               </View>
               <Pressable 
@@ -521,13 +523,13 @@ export default function ToothMapScreen() {
               <View style={[styles.treatedBanner, { backgroundColor: "#E8F5E9", borderColor: "#4CAF50" }]}>
                 <AppIcon name="check-circle" size={18} color="#4CAF50" />
                 <ThemedText type="small" style={{ color: "#2E7D32", flex: 1 }}>
-                  Зуб вылечен. Чтобы снова отмечать проблемы, выберите их ниже — статус "вылечен" будет снят.
+                  {t("toothMap.treatedBanner") || "Зуб вылечен. Чтобы снова отмечать проблемы, выберите их ниже — статус \"вылечен\" будет снят."}
                 </ThemedText>
               </View>
             ) : null}
 
             <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
-              Отметьте проблемы:
+              {t("toothMap.markProblems") || "Отметьте проблемы:"}
             </ThemedText>
 
             <View style={styles.problemsGrid}>
@@ -570,7 +572,7 @@ export default function ToothMapScreen() {
               >
                 <AppIcon name="check-circle" size={18} color="#4CAF50" />
                 <ThemedText type="small" style={{ color: "#2E7D32", fontWeight: "600" }}>
-                  Отметить как вылеченный
+                  {t("toothMap.markAsHealed") || "Отметить как вылеченный"}
                 </ThemedText>
               </Pressable>
             )}
@@ -592,7 +594,7 @@ export default function ToothMapScreen() {
                   ) : null}
                 </View>
                 <ThemedText type="body" style={{ flex: 1 }}>
-                  Описать проблему своими словами
+                  {t("toothMap.describeOwnWords") || "Описать проблему своими словами"}
                 </ThemedText>
               </Pressable>
 
@@ -607,7 +609,7 @@ export default function ToothMapScreen() {
                         borderColor: theme.border,
                       }
                     ]}
-                    placeholder="Опишите что беспокоит, когда началось, как проявляется..."
+                    placeholder={t("toothMap.complaintsDesc")}
                     placeholderTextColor={theme.textSecondary}
                     value={customNote}
                     onChangeText={setCustomNote}
@@ -628,11 +630,11 @@ export default function ToothMapScreen() {
                   >
                     <AppIcon name="save" size={16} color="#FFF" />
                     <ThemedText type="small" style={{ color: "#FFF", fontWeight: "600" }}>
-                      Сохранить
+                      {t("common.save")}
                     </ThemedText>
                   </Pressable>
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.xs }}>
-                    Эта информация будет использоваться ИИ-консультантом
+                    {t("toothMap.aiUseNote") || "Эта информация будет использоваться ИИ-консультантом"}
                   </ThemedText>
                 </View>
               ) : null}
@@ -642,7 +644,7 @@ export default function ToothMapScreen() {
               <View style={styles.savingIndicator}>
                 <ActivityIndicator size="small" color={theme.primary} />
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Сохранение...
+                  {t("toothMap.saving")}
                 </ThemedText>
               </View>
             ) : null}
@@ -653,9 +655,9 @@ export default function ToothMapScreen() {
               <AppIcon name="info" size={20} color={theme.primary} />
             </View>
             <View style={styles.hintContent}>
-              <ThemedText type="body" style={{ fontWeight: "500" }}>Как использовать</ThemedText>
+              <ThemedText type="body" style={{ fontWeight: "500" }}>{t("toothMap.howToUse") || "Как использовать"}</ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                Нажмите на зуб, чтобы добавить или отметить проблему
+                {t("onboarding.toothMapIntro.tapToSelect")}
               </ThemedText>
             </View>
           </View>
@@ -664,18 +666,18 @@ export default function ToothMapScreen() {
         <View style={[styles.statsCard, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.statItem}>
             <ThemedText type="h2" style={{ color: theme.primary }}>{treatedCount}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>Зубов отмечено</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>{t("toothMap.teethMarked") || "Зубов отмечено"}</ThemedText>
           </View>
           <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
           <View style={styles.statItem}>
             <ThemedText type="h2" style={{ color: theme.warning }}>{totalProblems}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>Всего проблем</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>{t("toothMap.totalProblems") || "Всего проблем"}</ThemedText>
           </View>
         </View>
 
         <View style={styles.legendSection}>
           <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.md }}>
-            Типы проблем
+            {t("toothMap.problemTypes") || "Типы проблем"}
           </ThemedText>
           <View style={styles.legendGrid}>
             {PROBLEM_TYPES.map((problem) => {
@@ -685,7 +687,7 @@ export default function ToothMapScreen() {
                   <View style={[styles.legendColor, { backgroundColor: config.color + "20" }]}>
                     <AppIcon name={config.icon} size={14} color={config.color} />
                   </View>
-                  <ThemedText type="small">{config.label}</ThemedText>
+                  <ThemedText type="small">{t(`toothMap.${problem}`) || config.label}</ThemedText>
                 </View>
               );
             })}
@@ -713,7 +715,7 @@ export default function ToothMapScreen() {
                   fontWeight: activeTab === "history" ? "600" : "400"
                 }}
               >
-                История
+                {t("toothMap.history") || "История"}
               </ThemedText>
             </Pressable>
             <Pressable
@@ -735,7 +737,7 @@ export default function ToothMapScreen() {
                   fontWeight: activeTab === "files" ? "600" : "400"
                 }}
               >
-                Файлы
+                {t("toothMap.files") || "Файлы"}
               </ThemedText>
             </Pressable>
           </View>
@@ -745,16 +747,17 @@ export default function ToothMapScreen() {
               <Pressable
                 onPress={() => setShowAddHistoryModal(true)}
                 style={({ pressed }) => [
-                  styles.uploadButton,
+                  styles.modalButton,
                   { 
                     backgroundColor: theme.primary,
-                    opacity: pressed ? 0.7 : 1
+                    opacity: pressed ? 0.7 : 1,
+                    marginTop: 0,
                   }
                 ]}
               >
                 <AppIcon name="plus" size={18} color="#FFF" />
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
-                  Добавить запись
+                  {t("toothMap.addRecord") || "Добавить запись"}
                 </ThemedText>
               </Pressable>
 
@@ -762,10 +765,10 @@ export default function ToothMapScreen() {
                 <View style={styles.emptyState}>
                   <AppIcon name="clock" size={32} color={theme.textSecondary} />
                   <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                    История пуста
+                    {t("toothMap.historyEmpty") || "История пуста"}
                   </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                    События будут появляться здесь по мере использования приложения
+                    {t("toothMap.historyEmptyDesc") || "События будут появляться здесь по мере использования приложения"}
                   </ThemedText>
                 </View>
               ) : (
@@ -798,25 +801,25 @@ export default function ToothMapScreen() {
                             {(event.eventType === "resolved" || event.eventType === "treated") ? (
                               <View style={[styles.toothBadge, { backgroundColor: "#4CAF50" + "20" }]}>
                                 <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>
-                                  Вылечен
+                                  {t("toothMap.treated")}
                                 </ThemedText>
                               </View>
                             ) : event.eventType === "problem_noted" ? (
                               <View style={[styles.toothBadge, { backgroundColor: theme.primary + "20" }]}>
                                 <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
-                                  Отмечено
+                                  {t("toothMap.noted") || "Отмечено"}
                                 </ThemedText>
                               </View>
                             ) : event.eventType === "problem_removed" ? (
                               <View style={[styles.toothBadge, { backgroundColor: "#9E9E9E20" }]}>
                                 <ThemedText type="small" style={{ color: "#757575", fontWeight: "600" }}>
-                                  Снято
+                                  {t("toothMap.removed") || "Снято"}
                                 </ThemedText>
                               </View>
                             ) : null}
                           </View>
                           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                            {event.source === "ai" ? "ИИ" : "Вы"}
+                            {event.source === "ai" ? t("toothMap.ai") : t("toothMap.you")}
                           </ThemedText>
                         </View>
                         <ThemedText type="body" style={{ marginTop: Spacing.xs }}>
@@ -826,17 +829,17 @@ export default function ToothMapScreen() {
                           <View style={{ marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: theme.border }}>
                             {event.doctorName ? (
                               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                                Врач: {event.doctorName}
+                                {t("toothMap.doctorName")}: {event.doctorName}
                               </ThemedText>
                             ) : null}
                             {event.clinicName ? (
                               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                                Клиника: {event.clinicName}
+                                {t("toothMap.clinicName")}: {event.clinicName}
                               </ThemedText>
                             ) : null}
                             {event.treatmentDetails ? (
                               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                                Процедура: {event.treatmentDetails}
+                                {t("toothMap.treatmentDetails") || "Процедура"}: {event.treatmentDetails}
                               </ThemedText>
                             ) : null}
                           </View>
@@ -855,7 +858,7 @@ export default function ToothMapScreen() {
                             ]}
                           >
                             <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
-                              Подробнее
+                              {t("common.details") || "Подробнее"}
                             </ThemedText>
                             <AppIcon name="chevron-right" size={14} color={theme.primary} />
                           </Pressable>
@@ -866,11 +869,11 @@ export default function ToothMapScreen() {
                                 startDate.setHours(10, 0, 0, 0);
                                 const notes = [
                                   event.reason,
-                                  event.doctorName ? `Врач: ${event.doctorName}` : "",
-                                  event.clinicName ? `Клиника: ${event.clinicName}` : "",
+                                  event.doctorName ? `${t("toothMap.doctorName")}: ${event.doctorName}` : "",
+                                  event.clinicName ? `${t("toothMap.clinicName")}: ${event.clinicName}` : "",
                                 ].filter(Boolean).join("\n");
                                 addEventToCalendar({
-                                  title: `Зуб ${event.toothId}: ${event.reason}`,
+                                  title: `${t("home.teeth")} ${event.toothId}: ${event.reason}`,
                                   notes,
                                   startDate,
                                   location: event.clinicName || undefined,
@@ -902,7 +905,7 @@ export default function ToothMapScreen() {
               <View style={[styles.filesInfoBanner, { backgroundColor: theme.primary + "12", borderColor: theme.primary + "30" }]}>
                 <AppIcon name="info" size={16} color={theme.primary} />
                 <ThemedText type="small" style={{ color: theme.primary, flex: 1 }}>
-                  Файлы добавляются через ИИ-чат — отправьте снимок или документ в диалоге
+                  {t("materials.fromChatNote")}
                 </ThemedText>
               </View>
 
@@ -913,9 +916,9 @@ export default function ToothMapScreen() {
                   { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 }
                 ]}
               >
-                <AppIcon name="folder-open" size={18} color={theme.primary} />
+                <AppIcon name="folder" size={18} color={theme.primary} />
                 <ThemedText type="body" style={{ color: theme.primary, flex: 1 }}>
-                  Открыть все материалы
+                  {t("toothMap.openAllMaterials") || "Открыть все материалы"}
                 </ThemedText>
                 <AppIcon name="chevron-right" size={18} color={theme.primary} />
               </Pressable>
@@ -924,10 +927,10 @@ export default function ToothMapScreen() {
                 <View style={styles.emptyState}>
                   <AppIcon name="folder" size={32} color={theme.textSecondary} />
                   <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                    Нет загруженных файлов
+                    {t("toothMap.noFiles") || "Нет загруженных файлов"}
                   </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                    Отправьте снимок в ИИ-чате — он появится здесь
+                    {t("toothMap.filesEmptyDesc") || "Отправьте снимок в ИИ-чате — он появится здесь"}
                   </ThemedText>
                 </View>
               ) : (
@@ -965,11 +968,11 @@ export default function ToothMapScreen() {
                           onPress={(e) => {
                             e.stopPropagation();
                             Alert.alert(
-                              "Удалить файл?",
+                              t("toothMap.deleteFile"),
                               file.fileName,
                               [
-                                { text: "Отмена", style: "cancel" },
-                                { text: "Удалить", style: "destructive", onPress: () => deleteFile(file.id) }
+                                { text: t("common.cancel"), style: "cancel" },
+                                { text: t("common.delete"), style: "destructive", onPress: () => deleteFile(file.id) }
                               ]
                             );
                           }}
@@ -997,7 +1000,7 @@ export default function ToothMapScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle">Новая запись</ThemedText>
+              <ThemedText type="h4">{t("toothMap.addRecord") || "Новая запись"}</ThemedText>
               <Pressable onPress={() => setShowAddHistoryModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
                 <AppIcon name="x" size={20} color={theme.text} />
               </Pressable>
@@ -1006,13 +1009,13 @@ export default function ToothMapScreen() {
             <View style={styles.modalBody}>
               <View style={styles.inputGroup}>
                 <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
-                  Номер зуба (FDI)
+                  {t("toothMap.toothNumber") || "Номер зуба (FDI)"}
                 </ThemedText>
                 <TextInput
                   style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={newHistoryToothId}
                   onChangeText={setNewHistoryToothId}
-                  placeholder="Например: 26"
+                  placeholder={t("toothMap.toothNumberPlaceholder")}
                   placeholderTextColor={theme.textSecondary}
                   keyboardType="number-pad"
                   maxLength={2}
@@ -1021,13 +1024,13 @@ export default function ToothMapScreen() {
 
               <View style={styles.inputGroup}>
                 <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
-                  Тип события
+                  {t("toothMap.eventType") || "Тип события"}
                 </ThemedText>
                 <View style={styles.eventTypeButtons}>
                   {([
-                    { value: "treatment", label: "Лечение" },
-                    { value: "resolved", label: "Вылечен" },
-                    { value: "note", label: "Заметка" },
+                    { value: "treatment", label: t("toothMap.treatment") },
+                    { value: "resolved", label: t("toothMap.treated") },
+                    { value: "note", label: t("toothMap.note") },
                   ] as const).map((type) => (
                     <Pressable
                       key={type.value}
@@ -1098,7 +1101,7 @@ export default function ToothMapScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle">Детали визита</ThemedText>
+              <ThemedText type="h4">{t("common.details") || "Детали визита"}</ThemedText>
               <Pressable onPress={() => setShowDetailsModal(false)} style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}>
                 <AppIcon name="x" size={20} color={theme.text} />
               </Pressable>
@@ -1122,39 +1125,39 @@ export default function ToothMapScreen() {
 
               <View style={styles.inputGroup}>
                 <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
-                  Врач
+                  {t("toothMap.doctorName") || "Врач"}
                 </ThemedText>
                 <TextInput
                   style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={detailsDoctorName}
                   onChangeText={setDetailsDoctorName}
-                  placeholder="ФИО врача"
+                  placeholder={t("toothMap.doctorName")}
                   placeholderTextColor={theme.textSecondary}
                 />
               </View>
 
               <View style={styles.inputGroup}>
                 <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
-                  Клиника
+                  {t("toothMap.clinicName") || "Клиника"}
                 </ThemedText>
                 <TextInput
                   style={[styles.modalInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={detailsClinicName}
                   onChangeText={setDetailsClinicName}
-                  placeholder="Название клиники"
+                  placeholder={t("toothMap.clinicName")}
                   placeholderTextColor={theme.textSecondary}
                 />
               </View>
 
               <View style={styles.inputGroup}>
                 <ThemedText type="body" style={{ fontWeight: "600", marginBottom: Spacing.xs }}>
-                  Что было сделано
+                  {t("toothMap.treatmentDetails") || "Что было сделано"}
                 </ThemedText>
                 <TextInput
                   style={[styles.modalInput, styles.modalTextArea, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
                   value={detailsTreatment}
                   onChangeText={setDetailsTreatment}
-                  placeholder="Описание процедуры..."
+                  placeholder={t("toothMap.procedureDesc")}
                   placeholderTextColor={theme.textSecondary}
                   multiline
                   numberOfLines={3}
@@ -1173,7 +1176,7 @@ export default function ToothMapScreen() {
                 ]}
               >
                 <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
-                  {isUpdatingHistory ? "Сохранение..." : "Сохранить"}
+                  {isUpdatingHistory ? t("toothMap.saving") : t("common.save")}
                 </ThemedText>
               </Pressable>
             </View>

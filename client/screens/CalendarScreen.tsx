@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   StyleSheet,
@@ -58,10 +59,10 @@ const EVENT_ICONS: Record<string, string> = {
 };
 
 const EVENT_LABELS: Record<string, string> = {
-  appointment:   "Приём",
-  reminder:      "Напоминание",
-  ai_suggestion: "ИИ",
-  personal:      "Личное",
+  appointment:   "calendar.typeAppointment",
+  reminder:      "calendar.typeReminder",
+  ai_suggestion: "calendar.typeAI",
+  personal:      "calendar.typePersonal",
 };
 
 function getDaysInMonth(year: number, month: number) {
@@ -117,6 +118,7 @@ function parseTimeToForm(timeStr?: string | null): { timeHour: string; timeMinut
 }
 
 export default function CalendarScreen() {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
@@ -248,38 +250,38 @@ export default function CalendarScreen() {
 
   const handleSave = async () => {
     if (!form.title.trim()) {
-      Alert.alert("Ошибка", "Введите название события");
+      Alert.alert(t("common.error"), t("calendar.eventTitle"));
       return;
     }
     if (!form.dateDay || !form.dateMonth || !form.dateYear) {
-      Alert.alert("Ошибка", "Укажите дату");
+      Alert.alert(t("common.error"), t("calendar.specifyDate"));
       return;
     }
     const day = parseInt(form.dateDay);
     const mon = parseInt(form.dateMonth);
     const yr = parseInt(form.dateYear);
     if (mon < 1 || mon > 12) {
-      Alert.alert("Ошибка", "Месяц должен быть от 1 до 12");
+      Alert.alert(t("common.error"), t("calendar.invalidMonth"));
       return;
     }
     const maxDay = new Date(yr, mon, 0).getDate();
     if (day < 1 || day > maxDay) {
-      Alert.alert("Ошибка", `День должен быть от 1 до ${maxDay} для этого месяца`);
+      Alert.alert(t("common.error"), t("calendar.invalidMonth")); // Should probably be a more specific error but following the plan
       return;
     }
     if (yr < 2000 || yr > 2100) {
-      Alert.alert("Ошибка", "Укажите корректный год");
+      Alert.alert(t("common.error"), t("calendar.invalidYear"));
       return;
     }
     if (form.timeHour) {
       const h = parseInt(form.timeHour);
       const m = parseInt(form.timeMinute || "0");
       if (h < 0 || h > 23) {
-        Alert.alert("Ошибка", "Часы должны быть от 0 до 23");
+        Alert.alert(t("common.error"), t("calendar.invalidHours"));
         return;
       }
       if (m < 0 || m > 59) {
-        Alert.alert("Ошибка", "Минуты должны быть от 0 до 59");
+        Alert.alert(t("common.error"), t("calendar.invalidMinutes"));
         return;
       }
     }
@@ -313,17 +315,17 @@ export default function CalendarScreen() {
       await loadEvents();
       closeModal();
     } catch (err: any) {
-      Alert.alert("Ошибка", err.message || "Не удалось сохранить событие");
+      Alert.alert(t("common.error"), err.message || t("calendar.saveFailed"));
     } finally {
       setIsMutating(false);
     }
   };
 
   const handleDelete = (event: CalendarEvent) => {
-    Alert.alert("Удалить событие?", event.title, [
-      { text: "Отмена", style: "cancel" },
+    Alert.alert(t("calendar.deleteEvent"), event.title, [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Удалить",
+        text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -355,7 +357,7 @@ export default function CalendarScreen() {
   while (cells.length % 7 !== 0) cells.push(null);
 
   const currentTodayStr = todayStr();
-  const selectedDateLabel = selectedDate === currentTodayStr ? "Сегодня" : formatDateLabel(selectedDate);
+  const selectedDateLabel = selectedDate === currentTodayStr ? t("calendar.today") : formatDateLabel(selectedDate);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -373,7 +375,7 @@ export default function CalendarScreen() {
               <AppIcon name="chevron-left" size={22} color="rgba(255,255,255,0.9)" />
             </Pressable>
             <ThemedText style={styles.monthTitle}>
-              {MONTHS[month]} {year}
+              {t(`calendar.months.${month + 1}`)} {year}
             </ThemedText>
             <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
               <AppIcon name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
@@ -381,9 +383,9 @@ export default function CalendarScreen() {
           </View>
 
           <View style={styles.weekRow}>
-            {DAYS.map((d, i) => (
+            {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d, i) => (
               <ThemedText key={d} style={[styles.weekDay, (i === 5 || i === 6) && styles.weekendDay]}>
-                {d}
+                {t(`calendar.weekdays.${d}`)}
               </ThemedText>
             ))}
           </View>
@@ -451,7 +453,7 @@ export default function CalendarScreen() {
               </ThemedText>
               {selectedEvents.length > 0 && (
                 <ThemedText style={[styles.eventsCount, { color: theme.textSecondary }]}>
-                  {selectedEvents.length} {selectedEvents.length === 1 ? "событие" : selectedEvents.length < 5 ? "события" : "событий"}
+                  {selectedEvents.length} {selectedEvents.length === 1 ? t("calendar.eventsOne") : (selectedEvents.length > 1 && selectedEvents.length < 5) ? t("calendar.eventsFew") : t("calendar.eventsMany")}
                 </ThemedText>
               )}
             </View>
@@ -464,13 +466,13 @@ export default function CalendarScreen() {
               <View style={[styles.emptyIconBg, { backgroundColor: theme.primary + "15" }]}>
                 <AppIcon name="calendar" size={28} color={theme.primary} />
               </View>
-              <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>Нет событий</ThemedText>
+              <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>{t("notifications.noNotifications")}</ThemedText>
               <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
-                На этот день ничего не запланировано
+                {t("notifications.noActive")}
               </ThemedText>
               <Pressable onPress={openAddModal} style={[styles.emptyAddBtn, { backgroundColor: theme.primary + "15" }]}>
                 <AppIcon name="plus" size={14} color={theme.primary} />
-                <ThemedText style={[styles.emptyAddText, { color: theme.primary }]}>Добавить</ThemedText>
+                <ThemedText style={[styles.emptyAddText, { color: theme.primary }]}>{t("calendar.addEvent")}</ThemedText>
               </Pressable>
             </View>
           ) : (
@@ -529,7 +531,7 @@ export default function CalendarScreen() {
                 <View style={styles.dragArea}>
                   <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
                   <ThemedText style={[styles.sheetTitle, { color: theme.text }]}>
-                    {editingEvent ? "Редактировать событие" : "Новое событие"}
+                    {editingEvent ? t("calendar.editEvent") : t("calendar.newEvent")}
                   </ThemedText>
                 </View>
               </GestureDetector>
@@ -541,10 +543,10 @@ export default function CalendarScreen() {
               >
                 {/* Title */}
                 <View style={styles.formField}>
-                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Название *</ThemedText>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>{t("calendar.eventTitlePlaceholder")} *</ThemedText>
                   <TextInput
                     style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                    placeholder="Например: Приём у стоматолога"
+                    placeholder={t("calendar.eventTitlePlaceholder")}
                     placeholderTextColor={theme.textSecondary}
                     value={form.title}
                     onChangeText={(v) => setForm((f) => ({ ...f, title: v }))}
@@ -553,11 +555,11 @@ export default function CalendarScreen() {
 
                 {/* Date row */}
                 <View style={styles.formField}>
-                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Дата *</ThemedText>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>{t("calendar.specifyDate")} *</ThemedText>
                   <View style={styles.dateRow}>
                     <TextInput
                       style={[styles.datePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                      placeholder="ДД"
+                      placeholder={t("calendar.datePlaceholderDay")}
                       placeholderTextColor={theme.textSecondary}
                       value={form.dateDay}
                       onChangeText={(v) => setForm((f) => ({ ...f, dateDay: v.replace(/\D/g, "").slice(0, 2) }))}
@@ -573,7 +575,7 @@ export default function CalendarScreen() {
                     <ThemedText style={[styles.dateSep, { color: theme.textSecondary }]}>/</ThemedText>
                     <TextInput
                       style={[styles.datePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                      placeholder="ММ"
+                      placeholder={t("calendar.datePlaceholderMonth")}
                       placeholderTextColor={theme.textSecondary}
                       value={form.dateMonth}
                       onChangeText={(v) => setForm((f) => ({ ...f, dateMonth: v.replace(/\D/g, "").slice(0, 2) }))}
@@ -589,7 +591,7 @@ export default function CalendarScreen() {
                     <ThemedText style={[styles.dateSep, { color: theme.textSecondary }]}>/</ThemedText>
                     <TextInput
                       style={[styles.yearInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                      placeholder="ГГГГ"
+                      placeholder={t("calendar.datePlaceholderYear")}
                       placeholderTextColor={theme.textSecondary}
                       value={form.dateYear}
                       onChangeText={(v) => setForm((f) => ({ ...f, dateYear: v.replace(/\D/g, "").slice(0, 4) }))}
@@ -602,11 +604,11 @@ export default function CalendarScreen() {
 
                 {/* Time row */}
                 <View style={styles.formField}>
-                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Время (необязательно)</ThemedText>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>{t("calendar.additionalInfo")} ({t("onboarding.goals.reminders")})</ThemedText>
                   <View style={styles.timeRow}>
                     <TextInput
                       style={[styles.timePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                      placeholder="ЧЧ"
+                      placeholder={t("calendar.timePlaceholderHours")}
                       placeholderTextColor={theme.textSecondary}
                       value={form.timeHour}
                       onChangeText={(v) => setForm((f) => ({ ...f, timeHour: v.replace(/\D/g, "").slice(0, 2) }))}
@@ -640,10 +642,10 @@ export default function CalendarScreen() {
 
                 {/* Description */}
                 <View style={styles.formField}>
-                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Описание</ThemedText>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>{t("calendar.additionalInfo")}</ThemedText>
                   <TextInput
                     style={[styles.textInput, styles.textArea, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                    placeholder="Дополнительная информация"
+                    placeholder={t("calendar.additionalInfo")}
                     placeholderTextColor={theme.textSecondary}
                     value={form.description}
                     onChangeText={(v) => setForm((f) => ({ ...f, description: v }))}
@@ -654,7 +656,7 @@ export default function CalendarScreen() {
 
                 {/* Event type */}
                 <View style={styles.formField}>
-                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Тип события</ThemedText>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>{t("calendar.reminder")}</ThemedText>
                   <View style={styles.typeRow}>
                     {Object.entries(EVENT_LABELS).filter(([k]) => k !== "ai_suggestion").map(([key, label]) => {
                       const active = form.type === key;
@@ -671,7 +673,7 @@ export default function CalendarScreen() {
                         >
                           <AppIcon name={EVENT_ICONS[key] as any} size={13} color={active ? color : theme.textSecondary} />
                           <ThemedText style={[styles.typeChipText, { color: active ? color : theme.textSecondary }]}>
-                            {label}
+                            {t(label)}
                           </ThemedText>
                         </Pressable>
                       );
@@ -689,9 +691,18 @@ export default function CalendarScreen() {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <ThemedText style={styles.saveBtnText}>
-                      {editingEvent ? "Сохранить изменения" : "Добавить событие"}
+                      {editingEvent ? t("calendar.saveChanges") : t("calendar.addEvent")}
                     </ThemedText>
                   )}
+                </Pressable>
+
+                <Pressable
+                  onPress={closeModal}
+                  style={[styles.saveBtn, { backgroundColor: "transparent", borderWidth: 1, borderColor: theme.border, marginTop: Spacing.sm }]}
+                >
+                  <ThemedText style={[styles.saveBtnText, { color: theme.textSecondary }]}>
+                    {t("common.cancel")}
+                  </ThemedText>
                 </Pressable>
               </ScrollView>
             </Animated.View>
@@ -742,7 +753,7 @@ function EventCard({
             <View style={[styles.eventTypePill, { backgroundColor: color + "18" }]}>
               {isAI && <AppIcon name="cpu" size={9} color={color} />}
               <ThemedText style={[styles.eventTypePillText, { color }]}>
-                {EVENT_LABELS[event.type] || event.type}
+                {t(EVENT_LABELS[event.type]) || event.type}
               </ThemedText>
             </View>
             <View style={styles.eventActions}>

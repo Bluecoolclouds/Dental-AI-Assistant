@@ -5,6 +5,8 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
 
+import { useTranslation } from "react-i18next";
+
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -16,13 +18,14 @@ import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Questionnaire">;
 
-const BRUSHING_OPTIONS = [
-  { value: "once", label: "1 раз в день" },
-  { value: "twice", label: "2 раза в день" },
-  { value: "more", label: "Более 2 раз" },
+const BRUSHING_OPTIONS = (t: any) => [
+  { value: "once", label: t("testFlow.opt_less1") === "Реже 1 раза в день" ? "1 раз в день" : "Once a day" },
+  { value: "twice", label: t("testFlow.opt_less1") === "Реже 1 раза в день" ? "2 раза в день" : "Twice a day" },
+  { value: "more", label: t("onboarding.questionnaire.moreThanTwice") },
 ];
 
 export default function QuestionnaireScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -77,15 +80,15 @@ export default function QuestionnaireScreen() {
         </View>
 
         <ThemedText type="h3" style={styles.title}>
-          Расскажите о себе
+          {t("aboutMe.title")}
         </ThemedText>
         
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Ответы помогут ИИ точнее оценить состояние полости рта
+          {t("aboutMe.aiNote")}
         </ThemedText>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Возраст</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("onboarding.questionnaire.age")}</ThemedText>
           <TextInput
             style={[
               styles.input,
@@ -95,7 +98,7 @@ export default function QuestionnaireScreen() {
                 borderColor: theme.border,
               }
             ]}
-            placeholder="Введите возраст"
+            placeholder={t("onboarding.questionnaire.age")}
             placeholderTextColor={theme.textSecondary}
             value={age}
             onChangeText={setAge}
@@ -104,9 +107,9 @@ export default function QuestionnaireScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Как часто чистите зубы?</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("onboarding.questionnaire.age") === "Введите возраст" ? "Как часто чистите зубы?" : "How often do you brush your teeth?"}</ThemedText>
           <View style={styles.options}>
-            {BRUSHING_OPTIONS.map((option) => (
+            {BRUSHING_OPTIONS(t).map((option) => (
               <Pressable
                 key={option.value}
                 onPress={() => setBrushingFrequency(option.value)}
@@ -136,48 +139,48 @@ export default function QuestionnaireScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Дополнительный уход</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("profile.healthSurvey") === "Анкета здоровья" ? "Дополнительный уход" : "Additional care"}</ThemedText>
           <View style={styles.checkboxes}>
             <CheckboxItem
               checked={usesFloss}
               onPress={() => setUsesFloss(!usesFloss)}
-              label="Использую зубную нить"
+              label={t("onboarding.questionnaire.floss")}
             />
             <CheckboxItem
               checked={usesIrrigator}
               onPress={() => setUsesIrrigator(!usesIrrigator)}
-              label="Использую ирригатор"
+              label={t("onboarding.questionnaire.irrigator")}
             />
           </View>
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Особенности</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("profile.settings") === "Настройки" ? "Особенности" : "Specifics"}</ThemedText>
           <View style={styles.checkboxes}>
             <CheckboxItem
               checked={hasBraces}
               onPress={() => setHasBraces(!hasBraces)}
-              label="Ношу брекеты/элайнеры"
+              label={t("onboarding.questionnaire.braces")}
             />
             <CheckboxItem
               checked={hasSensitivity}
               onPress={() => setHasSensitivity(!hasSensitivity)}
-              label="Чувствительные зубы"
+              label={t("onboarding.questionnaire.sensitive")}
             />
             <CheckboxItem
               checked={hasGumBleeding}
               onPress={() => setHasGumBleeding(!hasGumBleeding)}
-              label="Кровоточивость дёсен"
+              label={t("onboarding.questionnaire.gumBleeding")}
             />
           </View>
         </View>
 
         <View style={styles.buttons}>
           <Button onPress={handleSubmit} disabled={isLoading}>
-            {isLoading ? <ActivityIndicator color="#FFFFFF" /> : "Продолжить"}
+            {isLoading ? <ActivityIndicator color="#FFFFFF" /> : t("common.continue")}
           </Button>
           <Pressable onPress={handleSkip} style={styles.skipButton}>
-            <ThemedText type="link">Пропустить</ThemedText>
+            <ThemedText type="link">{t("common.skip")}</ThemedText>
           </Pressable>
         </View>
       </KeyboardAwareScrollViewCompat>

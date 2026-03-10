@@ -5,6 +5,8 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
 
+import { useTranslation } from "react-i18next";
+
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -15,40 +17,41 @@ import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Goals">;
 
-const GOALS = [
+const GOALS = (t: any) => [
   {
     value: "general",
     icon: "activity",
-    title: "Общий мониторинг",
-    description: "Хочу отслеживать общее состояние зубов и дёсен",
+    title: t("onboarding.goals.general"),
+    description: t("onboarding.goals.generalDesc"),
   },
   {
     value: "braces",
     icon: "git-merge",
-    title: "Брекеты / элайнеры",
-    description: "Ношу ортодонтическую конструкцию, хочу отслеживать лечение",
+    title: t("onboarding.goals.braces"),
+    description: t("onboarding.goals.bracesDesc"),
   },
   {
     value: "extraction",
     icon: "shield",
-    title: "Удаление зуба",
-    description: "Готовлюсь к удалению или уже было — хочу следить за заживлением",
+    title: t("onboarding.goals.extraction"),
+    description: t("onboarding.goals.extractionDesc"),
   },
   {
     value: "caries",
     icon: "alert-triangle",
-    title: "Профилактика кариеса",
-    description: "Частые кариесы — хочу улучшить уход и профилактику",
+    title: t("onboarding.goals.cariesPrev"),
+    description: t("onboarding.goals.cariesPrevDesc"),
   },
   {
     value: "reminders",
     icon: "bell",
-    title: "Только напоминания",
-    description: "Хочу напоминания: чистка зубов, ирригатор, осмотр у врача",
+    title: t("onboarding.goals.reminders"),
+    description: t("onboarding.goals.remindersDesc"),
   },
 ];
 
 export default function GoalsScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -114,13 +117,13 @@ export default function GoalsScreen() {
           </View>
         </View>
 
-        <ThemedText type="h3" style={styles.title}>Какова ваша цель?</ThemedText>
+        <ThemedText type="h3" style={styles.title}>{t("onboarding.goals.general") === "Общий мониторинг" ? "Какова ваша цель?" : "What is your goal?"}</ThemedText>
         <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Выберите одно — это поможет ИИ давать точные советы
+          {t("onboarding.goals.general") === "Общий мониторинг" ? "Выберите одно — это поможет ИИ давать точные советы" : "Select one — this helps AI provide accurate advice"}
         </ThemedText>
 
         <View style={styles.goalsList}>
-          {GOALS.map((goal) => {
+          {GOALS(t).map((goal) => {
             const selected = selectedGoal === goal.value;
             return (
               <Pressable
@@ -175,9 +178,9 @@ export default function GoalsScreen() {
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : selectedGoal ? (
-              "Продолжить"
+              t("common.continue")
             ) : (
-              "Пропустить"
+              t("common.skip")
             )}
           </Button>
         </View>

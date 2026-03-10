@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
 import * as Font from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
+import { initI18n } from "@/i18n";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -24,6 +25,7 @@ import { ThemedText } from "@/components/ThemedText";
 function AppContent() {
   const [isDbReady, setIsDbReady] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [i18nReady, setI18nReady] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,8 +56,19 @@ function AppContent() {
       }
     }
 
+    async function initLocalization() {
+      try {
+        await initI18n();
+      } catch (e) {
+        console.warn("i18n init error:", e);
+      } finally {
+        setI18nReady(true);
+      }
+    }
+
     loadFonts();
     initDb();
+    initLocalization();
   }, []);
 
   if (Platform.OS === "web") {
@@ -84,7 +97,7 @@ function AppContent() {
     );
   }
 
-  if (!isDbReady || !fontsLoaded) {
+  if (!isDbReady || !fontsLoaded || !i18nReady) {
     return (
       <ThemedView style={styles.splashContainer}>
         <ActivityIndicator size="large" color="#2563EB" />

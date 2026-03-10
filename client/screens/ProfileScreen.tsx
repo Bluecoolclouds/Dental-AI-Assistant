@@ -24,6 +24,8 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useProfile } from "@/hooks/useLocalData";
 import { pickAvatarFromGallery, pickAvatarFromCamera, deleteAvatarFile } from "@/utils/avatar";
 import { getDefaultAvatar } from "@/utils/defaultAvatar";
+import { useTranslation } from "react-i18next";
+import { changeLanguage, type SupportedLanguage } from "@/i18n";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -67,13 +69,13 @@ async function cancelDentalReminders() {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-const MENU_ITEMS = [
-  { icon: "user" as const, label: "О себе", color: "#4A90D9", route: "AboutMe" },
-  { icon: "clipboard" as const, label: "Анкета здоровья", color: "#0D9488", route: null },
-  { icon: "folder" as const, label: "Материалы", color: "#F59E0B", route: "Materials" },
-  { icon: "heart" as const, label: "Избранные врачи", color: "#EF4444", route: null },
-  { icon: "bell" as const, label: "Уведомления", color: "#4A90D9", route: "Notifications" },
-  { icon: "settings" as const, label: "Настройки", color: "#6B7280", route: null },
+const MENU_ITEM_DEFS = [
+  { icon: "user" as const, key: "about", color: "#4A90D9", route: "AboutMe" },
+  { icon: "clipboard" as const, key: "healthSurvey", color: "#0D9488", route: null },
+  { icon: "folder" as const, key: "materials", color: "#F59E0B", route: "Materials" },
+  { icon: "heart" as const, key: "favoriteDoctors", color: "#EF4444", route: null },
+  { icon: "bell" as const, key: "notifications", color: "#4A90D9", route: "Notifications" },
+  { icon: "settings" as const, key: "settings", color: "#6B7280", route: null },
 ];
 
 export default function ProfileScreen() {
@@ -81,6 +83,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user, logout } = useAuthContext();
+  const { t, i18n: i18nInstance } = useTranslation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
@@ -88,10 +91,16 @@ export default function ProfileScreen() {
   const { profile, updateProfile } = useProfile();
   const defaultAvatar = getDefaultAvatar(profile?.gender ?? null, user?.id ?? "default");
 
+  const currentLang = i18nInstance.language as SupportedLanguage;
+
+  const handleLanguageToggle = async (lang: SupportedLanguage) => {
+    await changeLanguage(lang);
+  };
+
   const handlePickAvatar = () => {
-    Alert.alert("Изменить фото", undefined, [
+    Alert.alert(t("profile.changePhoto"), undefined, [
       {
-        text: "Выбрать из галереи",
+        text: t("profile.chooseFromGallery"),
         onPress: async () => {
           if (!user?.id) return;
           const path = await pickAvatarFromGallery(user.id);
@@ -102,7 +111,7 @@ export default function ProfileScreen() {
         },
       },
       {
-        text: "Сделать фото",
+        text: t("profile.takePhoto"),
         onPress: async () => {
           if (!user?.id) return;
           const path = await pickAvatarFromCamera(user.id);
@@ -114,15 +123,15 @@ export default function ProfileScreen() {
       },
       profile?.avatarUrl
         ? {
-            text: "Удалить фото",
+            text: t("profile.deletePhoto"),
             style: "destructive",
             onPress: async () => {
               await deleteAvatarFile(profile.avatarUrl);
               await updateProfile({ avatarUrl: "" });
             },
           }
-        : { text: "Отмена", style: "cancel" },
-      ...(profile?.avatarUrl ? [{ text: "Отмена", style: "cancel" as const }] : []),
+        : { text: t("common.cancel"), style: "cancel" },
+      ...(profile?.avatarUrl ? [{ text: t("common.cancel"), style: "cancel" as const }] : []),
     ]);
   };
 
@@ -165,8 +174,8 @@ export default function ProfileScreen() {
     const Notifications = getNotifications();
     if (!Notifications) {
       Alert.alert(
-        "Недоступно в Expo Go",
-        "Уведомления работают только в полноценной сборке приложения.",
+        t("profile.notAvailableExpo"),
+        t("profile.notificationsExpoNote"),
       );
       return;
     }
@@ -184,12 +193,12 @@ export default function ProfileScreen() {
         if (finalStatus !== "granted") {
           if (Platform.OS !== "web") {
             Alert.alert(
-              "Разрешение требуется",
-              "Для уведомлений нужно разрешение. Откройте настройки?",
+              t("profile.permissionRequired"),
+              t("profile.notificationsPermission"),
               [
-                { text: "Отмена", style: "cancel" },
+                { text: t("common.cancel"), style: "cancel" },
                 { 
-                  text: "Открыть настройки", 
+                  text: t("profile.openSettings"), 
                   onPress: async () => {
                     try {
                       await Linking.openSettings();
@@ -207,7 +216,7 @@ export default function ProfileScreen() {
         await scheduleDentalReminders();
         setNotificationsEnabled(true);
         await AsyncStorage.setItem(NOTIFICATIONS_KEY, "true");
-        Alert.alert("Готово", "Напоминания о чистке зубов включены!");
+        Alert.alert(t("common.done"), t("profile.reminderEnabled"));
       } else {
         await cancelDentalReminders();
         setNotificationsEnabled(false);
@@ -215,7 +224,7 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       console.log("Error toggling notifications:", error);
-      Alert.alert("Ошибка", "Не удалось изменить настройки уведомлений");
+      Alert.alert(t("common.error"), t("profile.notificationsFailed"));
     } finally {
       setNotificationsLoading(false);
     }
@@ -223,12 +232,12 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      "Выход",
-      "Вы уверены, что хотите выйти?",
+      t("profile.logoutTitle"),
+      t("profile.logoutConfirm"),
       [
-        { text: "Отмена", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Выйти",
+          text: t("profile.logout"),
           style: "destructive",
           onPress: async () => {
             setIsLoggingOut(true);
@@ -239,7 +248,7 @@ export default function ProfileScreen() {
     );
   };
 
-  const userName = profile?.displayName || user?.email?.split("@")[0] || "Пользователь";
+  const userName = profile?.displayName || user?.email?.split("@")[0] || t("common.user");
 
   return (
     <KeyboardAwareScrollViewCompat
@@ -252,7 +261,7 @@ export default function ProfileScreen() {
         style={[styles.headerGradient, { paddingTop: insets.top + Spacing.lg }]}
       >
         <View style={styles.headerTop}>
-          <ThemedText style={styles.headerTitle}>Профиль</ThemedText>
+          <ThemedText style={styles.headerTitle}>{t("profile.title")}</ThemedText>
           <Pressable 
             style={styles.headerNotifButton}
             onPress={() => navigation.navigate("Notifications")}
@@ -286,7 +295,7 @@ export default function ProfileScreen() {
               <ThemedText style={styles.profileName}>{userName}</ThemedText>
               <ThemedText style={styles.profileEmail}>{user?.email}</ThemedText>
               <View style={styles.premiumBadge}>
-                <ThemedText style={styles.premiumText}>Пользователь</ThemedText>
+                <ThemedText style={styles.premiumText}>{t("common.user")}</ThemedText>
               </View>
             </View>
           </View>
@@ -294,17 +303,17 @@ export default function ProfileScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <ThemedText style={styles.statValue}>12</ThemedText>
-              <ThemedText style={styles.statLabel}>Записей</ThemedText>
+              <ThemedText style={styles.statLabel}>{t("profile.records")}</ThemedText>
             </View>
             <View style={[styles.statDivider, { backgroundColor: "#F1F5F9" }]} />
             <View style={styles.statItem}>
               <ThemedText style={styles.statValue}>8</ThemedText>
-              <ThemedText style={styles.statLabel}>Завершено</ThemedText>
+              <ThemedText style={styles.statLabel}>{t("profile.completed")}</ThemedText>
             </View>
             <View style={[styles.statDivider, { backgroundColor: "#F1F5F9" }]} />
             <View style={styles.statItem}>
               <ThemedText style={styles.statValue}>4</ThemedText>
-              <ThemedText style={styles.statLabel}>Впереди</ThemedText>
+              <ThemedText style={styles.statLabel}>{t("profile.upcoming")}</ThemedText>
             </View>
           </View>
         </View>
@@ -312,9 +321,9 @@ export default function ProfileScreen() {
 
       <View style={styles.menuSection}>
         <View style={[styles.menuCard, { backgroundColor: theme.backgroundDefault }]}>
-          {MENU_ITEMS.map((item, index) => (
+          {MENU_ITEM_DEFS.map((item, index) => (
             <Pressable
-              key={item.label}
+              key={item.key}
               onPress={() => {
                 if (item.route) {
                   navigation.navigate(item.route as any);
@@ -323,13 +332,13 @@ export default function ProfileScreen() {
               style={({ pressed }) => [
                 styles.menuItem,
                 { opacity: pressed ? 0.7 : 1 },
-                index !== MENU_ITEMS.length - 1 && styles.menuItemBorder,
+                index !== MENU_ITEM_DEFS.length - 1 && styles.menuItemBorder,
               ]}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + "15" }]}>
                 <AppIcon name={item.icon} size={20} color={item.color} />
               </View>
-              <ThemedText style={styles.menuLabel}>{item.label}</ThemedText>
+              <ThemedText style={styles.menuLabel}>{t(`profile.${item.key}`)}</ThemedText>
               <AppIcon name="chevron-right" size={20} color={theme.textSecondary} />
             </Pressable>
           ))}
@@ -342,9 +351,9 @@ export default function ProfileScreen() {
             <AppIcon name="bell" size={20} color="#4A90D9" />
           </View>
           <View style={styles.notifContent}>
-            <ThemedText type="body">Напоминания о чистке</ThemedText>
+            <ThemedText type="body">{t("profile.reminders")}</ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              В 8:00 и 21:00 каждый день
+              8:00 / 21:00
             </ThemedText>
           </View>
           {notificationsLoading ? (
@@ -357,6 +366,47 @@ export default function ProfileScreen() {
               thumbColor={notificationsEnabled ? "#4A90D9" : theme.textSecondary}
             />
           )}
+        </View>
+      </View>
+
+      <View style={styles.notificationToggleSection}>
+        <View style={[styles.notificationToggle, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={[styles.menuIcon, { backgroundColor: "#6366F1" + "15" }]}>
+            <AppIcon name="globe" size={20} color="#6366F1" />
+          </View>
+          <View style={styles.notifContent}>
+            <ThemedText type="body">{t("profile.language")}</ThemedText>
+          </View>
+          <View style={styles.langToggle}>
+            <Pressable
+              onPress={() => handleLanguageToggle("ru")}
+              style={[
+                styles.langBtn,
+                currentLang === "ru" && { backgroundColor: "#6366F1" },
+              ]}
+            >
+              <ThemedText
+                type="small"
+                style={{ color: currentLang === "ru" ? "#FFFFFF" : theme.textSecondary, fontWeight: "600" }}
+              >
+                RU
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => handleLanguageToggle("en")}
+              style={[
+                styles.langBtn,
+                currentLang === "en" && { backgroundColor: "#6366F1" },
+              ]}
+            >
+              <ThemedText
+                type="small"
+                style={{ color: currentLang === "en" ? "#FFFFFF" : theme.textSecondary, fontWeight: "600" }}
+              >
+                EN
+              </ThemedText>
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -374,14 +424,14 @@ export default function ProfileScreen() {
           ) : (
             <>
               <AppIcon name="log-out" size={20} color="#EF4444" />
-              <ThemedText style={styles.logoutText}>Выйти</ThemedText>
+              <ThemedText style={styles.logoutText}>{t("profile.logout")}</ThemedText>
             </>
           )}
         </Pressable>
       </View>
 
       <View style={styles.versionSection}>
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>Версия 1.0.0</ThemedText>
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>{t("profile.version")}</ThemedText>
       </View>
 
       <View style={{ height: insets.bottom + 100 }} />
@@ -605,5 +655,18 @@ const styles = StyleSheet.create({
   versionSection: {
     alignItems: "center",
     marginTop: Spacing.xl,
+  },
+  langToggle: {
+    flexDirection: "row",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "#6366F1",
+    overflow: "hidden",
+  },
+  langBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minWidth: 40,
+    alignItems: "center",
   },
 });

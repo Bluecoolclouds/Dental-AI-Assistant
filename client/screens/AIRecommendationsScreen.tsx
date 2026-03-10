@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -24,6 +25,7 @@ const RECOMMENDATION_ICONS: Record<string, keyof typeof AppIcon.glyphMap> = {
 };
 
 export default function AIRecommendationsScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
@@ -102,7 +104,7 @@ export default function AIRecommendationsScreen() {
       <ThemedView style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={theme.primary} />
         <ThemedText type="body" style={[styles.loadingText, { color: theme.textSecondary }]}>
-          ИИ анализирует ваши данные...
+          {t("common.loading")}
         </ThemedText>
       </ThemedView>
     );
@@ -123,9 +125,9 @@ export default function AIRecommendationsScreen() {
           <View style={[styles.aiIcon, { backgroundColor: theme.primary }]}>
             <AppIcon name="cpu" size={28} color="#FFFFFF" />
           </View>
-          <ThemedText type="h4">Персональные рекомендации</ThemedText>
+          <ThemedText type="h4">{t("aiRecommendations.title")}</ThemedText>
           <ThemedText type="body" style={[styles.headerDescription, { color: theme.textSecondary }]}>
-            На основе вашей анкеты, карты зубов и результатов теста
+            {t("aiRecommendations.headerDescription", "На основе вашей анкеты, карты зубов и результатов теста")}
           </ThemedText>
         </View>
 
@@ -134,7 +136,7 @@ export default function AIRecommendationsScreen() {
             {recommendations.map((rec: any, index: number) => (
               <RecommendationCard
                 key={index}
-                title={rec.title || `Рекомендация ${index + 1}`}
+                title={rec.title || `${t("aiRecommendations.recommendation", "Рекомендация")} ${index + 1}`}
                 description={rec.description || rec}
                 category={rec.category || "default"}
                 priority={rec.priority || "normal"}
@@ -144,26 +146,26 @@ export default function AIRecommendationsScreen() {
         ) : (
           <View style={styles.defaultRecommendations}>
             <RecommendationCard
-              title="Регулярная чистка"
-              description="Чистите зубы минимум 2 раза в день по 2 минуты. Используйте зубную щётку с мягкой щетиной и меняйте её каждые 3 месяца."
+              title={t("aiRecommendations.regularBrushing")}
+              description={t("aiRecommendations.regularBrushingDesc")}
               category="brushing"
               priority="high"
             />
             <RecommendationCard
-              title="Зубная нить"
-              description="Используйте зубную нить или ирригатор ежедневно для очистки межзубных промежутков, куда не достаёт щётка."
+              title={t("aiRecommendations.floss")}
+              description={t("aiRecommendations.flossDesc")}
               category="flossing"
               priority="normal"
             />
             <RecommendationCard
-              title="Питание"
-              description="Ограничьте употребление сладких и кислых продуктов. Пейте воду после еды, чтобы смыть остатки пищи."
+              title={t("aiRecommendations.diet")}
+              description={t("aiRecommendations.dietDesc")}
               category="diet"
               priority="normal"
             />
             <RecommendationCard
-              title="Визиты к стоматологу"
-              description="Посещайте стоматолога каждые 6 месяцев для профессиональной чистки и осмотра, даже если ничего не беспокоит."
+              title={t("aiRecommendations.dentistVisits")}
+              description={t("aiRecommendations.dentistVisitsDesc")}
               category="visit"
               priority="high"
             />
@@ -173,7 +175,7 @@ export default function AIRecommendationsScreen() {
         <View style={[styles.disclaimer, { backgroundColor: theme.warning + "15", borderColor: theme.warning }]}>
           <AppIcon name="alert-triangle" size={20} color={theme.warning} />
           <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
-            Рекомендации носят информационный характер и не заменяют консультацию стоматолога. При острой боли или проблемах обратитесь к врачу.
+            {t("onboarding.disclaimer.text1")} {t("onboarding.disclaimer.text2")}
           </ThemedText>
         </View>
       </ScrollView>
@@ -192,6 +194,7 @@ function RecommendationCard({
   category: string;
   priority: string;
 }) {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const icon = RECOMMENDATION_ICONS[category] || RECOMMENDATION_ICONS.default;
   const priorityColor = priority === "high" ? theme.danger : theme.primary;
@@ -207,7 +210,7 @@ function RecommendationCard({
           {priority === "high" ? (
             <View style={[styles.priorityBadge, { backgroundColor: theme.danger + "15" }]}>
               <ThemedText type="small" style={{ color: theme.danger, fontWeight: "500" }}>
-                Важно
+                {t("aiChat.urgentTag")}
               </ThemedText>
             </View>
           ) : null}

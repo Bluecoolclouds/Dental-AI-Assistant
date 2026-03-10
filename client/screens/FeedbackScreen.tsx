@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, View, TextInput, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 
 import { ThemedView } from "@/components/ThemedView";
@@ -12,13 +13,15 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useFeedback } from "@/hooks/useLocalData";
 
-const CATEGORIES = [
-  { value: "bug", label: "Ошибка", icon: "alert-circle" as const },
-  { value: "feature", label: "Идея", icon: "star" as const },
-  { value: "other", label: "Другое", icon: "message-circle" as const },
+const CATEGORIES = (t: any) => [
+  { value: "bug", label: t("feedback.bug"), icon: "alert-circle" as const },
+  { value: "feature", label: t("feedback.idea"), icon: "star" as const },
+  { value: "other", label: t("feedback.other"), icon: "message-circle" as const },
 ];
 
 export default function FeedbackScreen() {
+  const { t } = useTranslation();
+  const categories = CATEGORIES(t);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { theme } = useTheme();
@@ -30,7 +33,7 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (!message.trim()) {
-      Alert.alert("Ошибка", "Пожалуйста, введите сообщение");
+      Alert.alert(t("common.error"), t("feedback.emptyMessage"));
       return;
     }
     
@@ -38,12 +41,12 @@ export default function FeedbackScreen() {
     try {
       await createFeedback(category, message.trim());
       Alert.alert(
-        "Спасибо!",
-        "Ваш отзыв успешно сохранён. Мы ценим вашу обратную связь!",
+        t("feedback.success"),
+        t("feedback.successMessage"),
         [{ text: "OK", onPress: () => navigation.goBack() }]
       );
     } catch (error) {
-      Alert.alert("Ошибка", "Не удалось сохранить отзыв. Попробуйте позже.");
+      Alert.alert(t("common.error"), t("feedback.saveFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -58,13 +61,13 @@ export default function FeedbackScreen() {
         ]}
       >
         <ThemedText type="body" style={[styles.description, { color: theme.textSecondary }]}>
-          Это бета-версия приложения. Ваши отзывы помогут нам сделать его лучше!
+          {t("home.betaDescription", "Это бета-версия приложения. Ваши отзывы помогут нам сделать его лучше!")}
         </ThemedText>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Тип отзыва</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("feedback.type", "Тип отзыва")}</ThemedText>
           <View style={styles.categories}>
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const isSelected = category === cat.value;
               return (
                 <Pressable
@@ -97,7 +100,7 @@ export default function FeedbackScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>Сообщение</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("feedback.message", "Сообщение")}</ThemedText>
           <TextInput
             style={[
               styles.textArea,
@@ -107,7 +110,7 @@ export default function FeedbackScreen() {
                 borderColor: theme.border,
               }
             ]}
-            placeholder="Опишите проблему или идею..."
+            placeholder={t("feedback.placeholder")}
             placeholderTextColor={theme.textSecondary}
             value={message}
             onChangeText={setMessage}
@@ -121,7 +124,7 @@ export default function FeedbackScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            "Сохранить"
+            t("common.save")
           )}
         </Button>
       </KeyboardAwareScrollViewCompat>

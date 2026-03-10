@@ -5,6 +5,8 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
 
+import { useTranslation } from "react-i18next";
+
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -15,6 +17,7 @@ import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "ToothMapIntro">;
 
 export default function ToothMapIntroScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -58,23 +61,23 @@ export default function ToothMapIntroScreen() {
         </View>
 
         <ThemedText type="h3" style={styles.title}>
-          Интерактивная карта зубов
+          {t("home.toothMap")}
         </ThemedText>
         
         <ThemedText type="body" style={[styles.description, { color: theme.textSecondary }]}>
-          Отметьте проблемные зубы на карте: боль, сколы, пломбы, кровоточивость дёсен и другие ощущения.
+          {t("onboarding.toothMapIntro.tapToSelect") === "Нажмите на зуб для выбора" ? "Отметьте проблемные зубы на карте: боль, сколы, пломбы, кровоточивость дёсен и другие ощущения." : "Mark problem teeth on the map: pain, chips, fillings, bleeding gums and other sensations."}
         </ThemedText>
 
         <View style={styles.features}>
-          <FeatureRow icon="mouse-pointer" text="Нажмите на зуб для выбора" />
-          <FeatureRow icon="list" text="Укажите тип проблемы" />
-          <FeatureRow icon="save" text="Сохраните изменения" />
+          <FeatureRow icon="mouse-pointer" text={t("onboarding.toothMapIntro.tapToSelect")} />
+          <FeatureRow icon="list" text={t("onboarding.toothMapIntro.specifyProblem")} />
+          <FeatureRow icon="save" text={t("onboarding.toothMapIntro.saveChanges")} />
         </View>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
         <Button onPress={() => navigation.navigate("Disclaimer")}>
-          Далее
+          {t("common.next")}
         </Button>
       </View>
     </ThemedView>

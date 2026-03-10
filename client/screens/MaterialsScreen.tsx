@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useTranslation } from "react-i18next";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
@@ -29,20 +30,21 @@ const FILE_TYPES: Record<string, { label: string; icon: string; color: string }>
   other:    { label: "Другое",    icon: "paperclip",   color: "#6B7280" },
 };
 
-function formatSize(bytes?: number | null): string {
+function formatSize(bytes?: number | null, t?: any): string {
   if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+  if (bytes < 1024) return `${bytes} ${t ? t("materials.bytes", "Б") : "Б"}`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} ${t ? t("materials.kb", "КБ") : "КБ"}`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} ${t ? t("materials.mb", "МБ") : "МБ"}`;
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("ru-RU", {
+function formatDate(dateStr: string, t?: any): string {
+  return new Date(dateStr).toLocaleDateString(t ? t("common.locale", "ru-RU") : "ru-RU", {
     day: "numeric", month: "long", year: "numeric",
   });
 }
 
 export default function MaterialsScreen() {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
@@ -51,6 +53,14 @@ export default function MaterialsScreen() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [files, setFiles] = useState<ToothFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const FILE_TYPES: Record<string, { label: string; icon: string; color: string }> = {
+    ct:       { label: t("materials.ct"),        icon: "layers",      color: "#8B5CF6" },
+    xray:     { label: t("materials.xray"),   icon: "aperture",    color: "#3B82F6" },
+    photo:    { label: t("materials.photo"),      icon: "image",       color: "#10B981" },
+    document: { label: t("materials.document"),  icon: "file-text",   color: "#F59E0B" },
+    other:    { label: t("materials.other"),    icon: "paperclip",   color: "#6B7280" },
+  };
 
   const loadFiles = useCallback(async () => {
     if (!user?.id) return;
@@ -71,32 +81,32 @@ export default function MaterialsScreen() {
 
   const handleOpenFile = async (file: ToothFile) => {
     try {
-      const docDir = FileSystem.documentDirectory || "";
+      const docDir = (FileSystem as any).documentDirectory || "";
       const isLocalFile = file.fileUrl.startsWith(docDir) || file.fileUrl.startsWith("file://");
       if (isLocalFile) {
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
           await Sharing.shareAsync(file.fileUrl);
         } else {
-          Alert.alert("Недоступно", "Открытие файлов не поддерживается на этом устройстве.");
+          Alert.alert(t("materials.unavailable"), t("materials.openNotSupported"));
         }
         return;
       }
-      Alert.alert("Файл из чата", "Этот файл был добавлен через ИИ-чат.");
+      Alert.alert(t("materials.fromChat"), t("materials.fromChatNote"));
     } catch {
-      Alert.alert("Ошибка", "Не удалось открыть файл");
+      Alert.alert(t("common.error"), t("materials.openFailed"));
     }
   };
 
   const handleDelete = (file: ToothFile) => {
-    Alert.alert("Удалить файл?", file.fileName, [
-      { text: "Отмена", style: "cancel" },
+    Alert.alert(t("materials.deleteFile"), file.fileName, [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Удалить",
+        text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
           try {
-            const docDir = FileSystem.documentDirectory || "";
+            const docDir = (FileSystem as any).documentDirectory || "";
             const isLocalFile = file.fileUrl.startsWith(docDir) || file.fileUrl.startsWith("file://");
             if (isLocalFile) {
               const info = await FileSystem.getInfoAsync(file.fileUrl);
@@ -108,7 +118,7 @@ export default function MaterialsScreen() {
             await loadFiles();
           } catch (err) {
             console.error("Delete error:", err);
-            Alert.alert("Ошибка", "Не удалось удалить файл");
+            Alert.alert(t("common.error"), t("materials.deleteFailed"));
           }
         },
       },
@@ -133,7 +143,7 @@ export default function MaterialsScreen() {
         <View style={[styles.infoBanner, { backgroundColor: theme.primary + "12", borderColor: theme.primary + "30" }]}>
           <AppIcon name="info" size={16} color={theme.primary} />
           <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>
-            Файлы добавляются через ИИ-чат. Отправьте снимок или документ — он появится здесь.
+            {t("materials.infoBanner", "Файлы добавляются через ИИ-чат. Отправьте снимок или документ — он появится здесь.")}
           </ThemedText>
         </View>
 
@@ -152,7 +162,7 @@ export default function MaterialsScreen() {
             ]}
           >
             <ThemedText style={[styles.filterChipText, { color: !selectedType ? theme.primary : theme.textSecondary }]}>
-              Все
+              {t("common.all", "Все")}
             </ThemedText>
           </Pressable>
           {typeKeys.map((key) => {
@@ -184,9 +194,9 @@ export default function MaterialsScreen() {
             <View style={[styles.emptyIconBg, { backgroundColor: theme.primary + "15" }]}>
               <AppIcon name="folder" size={28} color={theme.primary} />
             </View>
-            <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>Нет файлов</ThemedText>
+            <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>{t("materials.noFiles", "Нет файлов")}</ThemedText>
             <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Отправьте снимок или документ в ИИ-чат, и они появятся здесь
+              {t("materials.noFilesDesc", "Отправьте снимок или документ в ИИ-чат, и они появятся здесь")}
             </ThemedText>
           </View>
         ) : (
@@ -214,13 +224,13 @@ export default function MaterialsScreen() {
                       </ThemedText>
                       <View style={styles.fileMeta}>
                         <ThemedText style={[styles.fileSizeText, { color: theme.textSecondary }]}>
-                          {formatDate(file.createdAt)}
+                          {formatDate(file.createdAt, t)}
                         </ThemedText>
                         {file.fileSize ? (
                           <>
                             <ThemedText style={[styles.fileDot, { color: theme.textSecondary }]}>·</ThemedText>
                             <ThemedText style={[styles.fileSizeText, { color: theme.textSecondary }]}>
-                              {formatSize(file.fileSize)}
+                              {formatSize(file.fileSize, t)}
                             </ThemedText>
                           </>
                         ) : null}

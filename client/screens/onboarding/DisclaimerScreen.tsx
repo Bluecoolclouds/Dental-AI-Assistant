@@ -3,6 +3,8 @@ import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppIcon from "@/components/Icons";
 
+import { useTranslation } from "react-i18next";
+
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -12,6 +14,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useLocalData";
 
 export default function DisclaimerScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { refresh } = useAuthContext();
@@ -52,20 +55,20 @@ export default function DisclaimerScreen() {
         </View>
 
         <ThemedText type="h3" style={styles.title}>
-          Важное предупреждение
+          {t("onboarding.disclaimer.title")}
         </ThemedText>
         
         <View style={[styles.disclaimerBox, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
           <ThemedText type="body" style={[styles.disclaimerText, { color: theme.textSecondary }]}>
-            Рекомендации в приложении носят исключительно информационный характер и не заменяют консультацию стоматолога.
+            {t("onboarding.disclaimer.text1")}
           </ThemedText>
           
           <ThemedText type="body" style={[styles.disclaimerText, { color: theme.textSecondary }]}>
-            При боли, отёке, кровотечении или других острых симптомах немедленно обратитесь к врачу.
+            {t("onboarding.disclaimer.text2")}
           </ThemedText>
           
           <ThemedText type="body" style={[styles.disclaimerText, { color: theme.textSecondary }]}>
-            Приложение помогает понять, на что стоит обратить внимание, и напомнит о регулярных визитах к стоматологу.
+            {t("onboarding.disclaimer.text3")}
           </ThemedText>
         </View>
 
@@ -85,14 +88,14 @@ export default function DisclaimerScreen() {
             {accepted ? <AppIcon name="check" size={18} color="#FFFFFF" /> : null}
           </View>
           <ThemedText type="body" style={styles.checkboxLabel}>
-            Я понимаю и принимаю условия
+            {t("onboarding.disclaimer.accept")}
           </ThemedText>
         </Pressable>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
         <Button onPress={handleComplete} disabled={!accepted || isLoading}>
-          {isLoading ? <ActivityIndicator color="#FFFFFF" /> : "Начать пользоваться"}
+          {isLoading ? <ActivityIndicator color="#FFFFFF" /> : t("onboarding.disclaimer.begin")}
         </Button>
       </View>
     </ThemedView>

@@ -27,6 +27,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 
+import { useTranslation } from "react-i18next";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
@@ -56,6 +57,7 @@ function ToothLogo() {
 type AuthMode = "register" | "login";
 
 export default function WelcomeScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -109,15 +111,15 @@ export default function WelcomeScreen() {
   const handleSubmit = async () => {
     setError("");
     if (!email.trim() || !password.trim()) {
-      setError("Заполните все поля");
+      setError(t("auth.errors.fillAll"));
       return;
     }
     if (authMode === "register" && password !== confirmPassword) {
-      setError("Пароли не совпадают");
+      setError(t("auth.errors.passwordMismatch"));
       return;
     }
     if (password.length < 6) {
-      setError("Пароль должен быть не менее 6 символов");
+      setError(t("auth.errors.shortPassword"));
       return;
     }
     setIsLoading(true);
@@ -128,7 +130,7 @@ export default function WelcomeScreen() {
           : await register(email.trim(), password);
 
       if (!result.success) {
-        setError(result.error || "Произошла ошибка");
+        setError(result.error || t("common.error"));
       } else if (authMode === "register") {
         animateClose(() => {
           setSheetVisible(false);
@@ -183,10 +185,10 @@ export default function WelcomeScreen() {
 
       <View style={styles.mainContent}>
         <ThemedText style={styles.heroTitle}>
-          Следите за{"\n"}здоровьем{"\n"}ваших зубов
+          {t("welcome.tagline")}
         </ThemedText>
         <ThemedText style={styles.heroSubtitle}>
-          Контролируйте здоровье зубов и дёсен с помощью ИИ-рекомендаций
+          {t("auth.loginSubtitle")}
         </ThemedText>
       </View>
 
@@ -197,7 +199,7 @@ export default function WelcomeScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.xl }]}>
         <Pressable onPress={() => openSheet("register")} style={styles.primaryButton}>
-          <ThemedText style={styles.primaryButtonText}>Начать</ThemedText>
+          <ThemedText style={styles.primaryButtonText}>{t("auth.start")}</ThemedText>
         </Pressable>
       </View>
 
@@ -230,7 +232,7 @@ export default function WelcomeScreen() {
               <View style={styles.dragArea}>
                 <View style={styles.sheetHandle} />
                 <ThemedText style={styles.sheetTitle}>
-                  {isLogin ? "Вход" : "Регистрация"}
+                  {isLogin ? t("auth.loginTitle") : t("auth.registerTitle")}
                 </ThemedText>
               </View>
             </GestureDetector>
@@ -259,7 +261,7 @@ export default function WelcomeScreen() {
                   <AppIcon name="mail" size={18} color={theme.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: theme.text }]}
-                    placeholder="Email"
+                    placeholder={t("auth.email")}
                     placeholderTextColor={theme.textSecondary}
                     value={email}
                     onChangeText={setEmail}
@@ -278,7 +280,7 @@ export default function WelcomeScreen() {
                   <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: theme.text }]}
-                    placeholder="Пароль"
+                    placeholder={t("auth.password")}
                     placeholderTextColor={theme.textSecondary}
                     value={password}
                     onChangeText={setPassword}
@@ -304,7 +306,7 @@ export default function WelcomeScreen() {
                     <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: theme.text }]}
-                      placeholder="Подтвердите пароль"
+                      placeholder={t("auth.confirmPassword")}
                       placeholderTextColor={theme.textSecondary}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -327,18 +329,18 @@ export default function WelcomeScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <ThemedText style={styles.submitButtonText}>
-                    {isLogin ? "Войти" : "Создать аккаунт"}
+                    {isLogin ? t("auth.loginBtn") : t("welcome.register")}
                   </ThemedText>
                 )}
               </Pressable>
 
               <View style={styles.switchContainer}>
                 <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
-                  {isLogin ? "Нет аккаунта? " : "Уже есть аккаунт? "}
+                  {isLogin ? t("welcome.noAccount") : t("welcome.haveAccount")}
                 </ThemedText>
                 <Pressable onPress={switchMode}>
                   <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
-                    {isLogin ? "Регистрация" : "Войти"}
+                    {isLogin ? t("auth.registerTitle") : t("auth.loginBtn")}
                   </ThemedText>
                 </Pressable>
               </View>
