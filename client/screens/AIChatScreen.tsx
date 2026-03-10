@@ -187,6 +187,9 @@ export default function AIChatScreen() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightAnim = useRef(new Animated.Value(0)).current;
   const searchBarAnim = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
 
@@ -199,8 +202,9 @@ export default function AIChatScreen() {
     }).start(() => searchInputRef.current?.focus());
   }, [searchBarAnim]);
 
-  const closeSearch = useCallback(() => {
+  const closeSearch = useCallback((targetId?: string) => {
     setSearchQuery("");
+    if (targetId) setJumpToMessageId(targetId);
     Animated.timing(searchBarAnim, {
       toValue: 0,
       duration: 180,
@@ -213,6 +217,29 @@ export default function AIChatScreen() {
     const q = searchQuery.toLowerCase();
     return messages.filter((m) => m.content.toLowerCase().includes(q));
   }, [messages, searchQuery]);
+
+  const hasQuery = searchQuery.trim().length > 0;
+
+  useEffect(() => {
+    if (!jumpToMessageId || isSearching) return;
+    const item = messages.find((m) => m.id === jumpToMessageId);
+    if (!item) { setJumpToMessageId(null); return; }
+    const timer = setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToItem({ item, animated: true, viewPosition: 0.4 });
+      } catch {}
+      setHighlightedMessageId(jumpToMessageId);
+      setJumpToMessageId(null);
+      highlightAnim.setValue(1);
+      Animated.timing(highlightAnim, {
+        toValue: 0,
+        duration: 1400,
+        delay: 400,
+        useNativeDriver: false,
+      }).start(() => setHighlightedMessageId(null));
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [jumpToMessageId, isSearching, messages, highlightAnim]);
 
   useEffect(() => {
     const load = async () => {
@@ -475,13 +502,17 @@ export default function AIChatScreen() {
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
       const isUser = item.role === "user";
-      return (
-        <View
-          style={[
-            styles.messageContainer,
-            isUser ? styles.userMessageContainer : styles.assistantMessageContainer,
-          ]}
-        >
+      const isFlashed = item.id === highlightedMessageId;
+
+      const flashBg = isFlashed
+        ? highlightAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["rgba(74,144,217,0)", "rgba(74,144,217,0.18)"],
+          })
+        : "transparent";
+
+      const inner = (
+        <>
           {!isUser && (
             <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
               <AppIcon name="cpu" size={16} color="#FFFFFF" />
@@ -511,10 +542,34 @@ export default function AIChatScreen() {
               {renderHighlightedText(item.content, isUser)}
             </View>
           </View>
-        </View>
+        </>
+      );
+
+      return (
+        <Animated.View
+          style={[
+            styles.messageContainer,
+            isUser ? styles.userMessageContainer : styles.assistantMessageContainer,
+            { backgroundColor: flashBg, borderRadius: BorderRadius.md },
+          ]}
+        >
+          {hasQuery ? (
+            <Pressable
+              style={[
+                styles.messageInner,
+                isUser ? styles.userMessageContainer : styles.assistantMessageContainer,
+              ]}
+              onPress={() => closeSearch(item.id)}
+            >
+              {inner}
+            </Pressable>
+          ) : (
+            inner
+          )}
+        </Animated.View>
       );
     },
-    [theme, renderHighlightedText],
+    [theme, renderHighlightedText, hasQuery, highlightedMessageId, highlightAnim, closeSearch],
   );
 
   const canSend = (inputText.trim().length > 0 || pendingFiles.length > 0) && !chatMutation.isPending;
@@ -528,7 +583,6 @@ export default function AIChatScreen() {
     outputRange: [0, 1],
   });
 
-  const hasQuery = searchQuery.trim().length > 0;
   const resultCount = hasQuery ? filteredMessages.length : 0;
 
   return (
@@ -563,7 +617,7 @@ export default function AIChatScreen() {
               {resultCount > 0 ? `${resultCount}` : "0"}
             </ThemedText>
           )}
-          <Pressable onPress={closeSearch} hitSlop={8}>
+          <Pressable onPress={() => closeSearch()} hitSlop={8}>
             <AppIcon name="x" size={18} color={theme.textSecondary} />
           </Pressable>
         </View>
@@ -571,7 +625,7 @@ export default function AIChatScreen() {
 
       <Pressable
         style={[styles.searchFab, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border, top: insets.top + Spacing.md }]}
-        onPress={isSearching ? closeSearch : openSearch}
+        onPress={isSearching ? () => closeSearch() : openSearch}
         hitSlop={4}
       >
         <AppIcon name={isSearching ? "x" : "search"} size={18} color={theme.primary} />
@@ -789,6 +843,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  messageInner: {
+    flexDirection: "row",
+    flex: 1,
+    alignItems: "flex-end",
   },
   searchBar: {
     position: "absolute",
