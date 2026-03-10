@@ -107,7 +107,7 @@ export default function MaterialsScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + Spacing["3xl"] }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing["3xl"] }]}
       >
         {/* Info Banner */}
         <View style={[styles.infoBanner, { backgroundColor: theme.primary + "12", borderColor: theme.primary + "30" }]}>
@@ -263,7 +263,7 @@ function FileCard({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingTop: Spacing.lg },
+  scroll: {},
   infoBanner: {
     flexDirection: "row",
     alignItems: "flex-start",

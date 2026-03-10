@@ -9,11 +9,11 @@ import {
   Modal,
   Alert,
   Platform,
-  FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 
 import AppIcon from "@/components/Icons";
 import { ThemedText } from "@/components/ThemedText";
@@ -30,10 +30,17 @@ const MONTHS = [
 ];
 
 const EVENT_COLORS: Record<string, string> = {
-  appointment: "#4A90D9",
-  reminder:    "#F59E0B",
+  appointment:   "#4A90D9",
+  reminder:      "#F59E0B",
   ai_suggestion: "#8B5CF6",
-  personal:    "#10B981",
+  personal:      "#10B981",
+};
+
+const EVENT_ICONS: Record<string, string> = {
+  appointment:   "user",
+  reminder:      "bell",
+  ai_suggestion: "cpu",
+  personal:      "heart",
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -245,138 +252,170 @@ export default function CalendarScreen() {
   while (cells.length % 7 !== 0) cells.push(null);
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
+  const currentTodayStr = todayStr();
+
+  const selectedDateLabel = selectedDate === currentTodayStr
+    ? "Сегодня"
+    : formatDateLabel(selectedDate);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md, backgroundColor: theme.backgroundRoot }]}>
-        <ThemedText style={[styles.headerTitle, { color: theme.text }]}>Календарь</ThemedText>
-        <Pressable
-          onPress={() => aiSuggestMutation.mutate()}
-          disabled={aiSuggestMutation.isPending}
-          style={[styles.aiButton, { backgroundColor: "#8B5CF6" + "18" }]}
-        >
-          {aiSuggestMutation.isPending ? (
-            <ActivityIndicator size="small" color="#8B5CF6" />
-          ) : (
-            <>
-              <AppIcon name="cpu" size={16} color="#8B5CF6" />
-              <ThemedText style={styles.aiButtonText}>ИИ</ThemedText>
-            </>
-          )}
-        </Pressable>
-      </View>
+      <LinearGradient
+        colors={["#4A90D9", "#357ABD"]}
+        style={[styles.header, { paddingTop: insets.top + Spacing.md }]}
+      >
+        <View style={styles.headerTop}>
+          <View style={styles.monthNav}>
+            <Pressable onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
+              <AppIcon name="chevron-left" size={22} color="rgba(255,255,255,0.9)" />
+            </Pressable>
+            <ThemedText style={styles.monthTitle}>
+              {MONTHS[month]} {year}
+            </ThemedText>
+            <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
+              <AppIcon name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
+            </Pressable>
+          </View>
+
+          <Pressable
+            onPress={() => aiSuggestMutation.mutate()}
+            disabled={aiSuggestMutation.isPending}
+            style={styles.aiButton}
+          >
+            {aiSuggestMutation.isPending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <AppIcon name="cpu" size={15} color="#FFFFFF" />
+                <ThemedText style={styles.aiButtonText}>ИИ</ThemedText>
+              </>
+            )}
+          </Pressable>
+        </View>
+
+        <View style={styles.weekRow}>
+          {DAYS.map((d, i) => (
+            <ThemedText key={d} style={[styles.weekDay, (i === 5 || i === 6) && styles.weekendDay]}>
+              {d}
+            </ThemedText>
+          ))}
+        </View>
+
+        <View style={styles.grid}>
+          {cells.map((day, idx) => {
+            if (!day) return <View key={`empty-${idx}`} style={styles.cell} />;
+            const dateStr = toDateStr(year, month, day);
+            const isToday = dateStr === currentTodayStr;
+            const isSelected = dateStr === selectedDate;
+            const dayEvents = eventsByDate[dateStr] || [];
+            const isWeekend = (idx % 7 === 5) || (idx % 7 === 6);
+
+            return (
+              <Pressable
+                key={dateStr}
+                style={[styles.cell]}
+                onPress={() => setSelectedDate(dateStr)}
+              >
+                <View style={[
+                  styles.dayCircle,
+                  isSelected && styles.dayCircleSelected,
+                  isToday && !isSelected && styles.dayCircleToday,
+                ]}>
+                  <ThemedText style={[
+                    styles.dayNum,
+                    isWeekend && !isSelected && styles.weekendNum,
+                    isSelected && styles.dayNumSelected,
+                    isToday && !isSelected && styles.dayNumToday,
+                  ]}>
+                    {day}
+                  </ThemedText>
+                </View>
+                {dayEvents.length > 0 && (
+                  <View style={styles.dotsRow}>
+                    {dayEvents.slice(0, 3).map((e, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.dot,
+                          { backgroundColor: isSelected ? "rgba(255,255,255,0.7)" : (EVENT_COLORS[e.type] || "#4A90D9") },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.headerBottom} />
+      </LinearGradient>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 80 }}
       >
-        <View style={[styles.calendarCard, { backgroundColor: theme.background }]}>
-          <View style={styles.monthNav}>
-            <Pressable onPress={prevMonth} style={styles.navBtn} hitSlop={8}>
-              <AppIcon name="chevron-left" size={22} color={theme.text} />
-            </Pressable>
-            <ThemedText style={[styles.monthTitle, { color: theme.text }]}>
-              {MONTHS[month]} {year}
-            </ThemedText>
-            <Pressable onPress={nextMonth} style={styles.navBtn} hitSlop={8}>
-              <AppIcon name="chevron-right" size={22} color={theme.text} />
-            </Pressable>
-          </View>
-
-          <View style={styles.weekRow}>
-            {DAYS.map((d) => (
-              <ThemedText key={d} style={[styles.weekDay, { color: theme.textSecondary }]}>{d}</ThemedText>
-            ))}
-          </View>
-
-          <View style={styles.grid}>
-            {cells.map((day, idx) => {
-              if (!day) return <View key={`empty-${idx}`} style={styles.cell} />;
-              const dateStr = toDateStr(year, month, day);
-              const isToday = dateStr === todayStr();
-              const isSelected = dateStr === selectedDate;
-              const dayEvents = eventsByDate[dateStr] || [];
-              return (
-                <Pressable
-                  key={dateStr}
-                  style={[
-                    styles.cell,
-                    isSelected && { backgroundColor: theme.primary },
-                    isToday && !isSelected && { borderColor: theme.primary, borderWidth: 1.5 },
-                  ]}
-                  onPress={() => setSelectedDate(dateStr)}
-                >
-                  <ThemedText
-                    style={[
-                      styles.dayNum,
-                      { color: isSelected ? "#FFFFFF" : theme.text },
-                      isToday && !isSelected && { color: theme.primary, fontWeight: "700" },
-                    ]}
-                  >
-                    {day}
-                  </ThemedText>
-                  {dayEvents.length > 0 && (
-                    <View style={styles.dotsRow}>
-                      {dayEvents.slice(0, 3).map((e, i) => (
-                        <View
-                          key={i}
-                          style={[
-                            styles.dot,
-                            { backgroundColor: isSelected ? "rgba(255,255,255,0.8)" : EVENT_COLORS[e.type] || theme.primary },
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
         <View style={styles.eventsSection}>
           <View style={styles.eventsSectionHeader}>
-            <ThemedText style={[styles.eventsSectionTitle, { color: theme.text }]}>
-              {selectedDate === todayStr() ? "Сегодня" : formatDateLabel(selectedDate)}
-            </ThemedText>
-            <Pressable onPress={openAddModal} style={[styles.addBtn, { backgroundColor: theme.primary }]}>
-              <AppIcon name="plus" size={18} color="#FFFFFF" />
-            </Pressable>
+            <View>
+              <ThemedText style={[styles.selectedDateLabel, { color: theme.textSecondary }]}>
+                {selectedDateLabel}
+              </ThemedText>
+              {selectedEvents.length > 0 && (
+                <ThemedText style={[styles.eventsCount, { color: theme.textSecondary }]}>
+                  {selectedEvents.length} {selectedEvents.length === 1 ? "событие" : selectedEvents.length < 5 ? "события" : "событий"}
+                </ThemedText>
+              )}
+            </View>
           </View>
 
           {eventsQuery.isLoading ? (
-            <ActivityIndicator color={theme.primary} style={{ marginTop: Spacing.xl }} />
+            <ActivityIndicator color={theme.primary} style={{ marginTop: Spacing["3xl"] }} />
           ) : selectedEvents.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: theme.background }]}>
-              <AppIcon name="calendar" size={32} color={theme.textSecondary} />
+              <View style={[styles.emptyIconBg, { backgroundColor: theme.primary + "15" }]}>
+                <AppIcon name="calendar" size={28} color={theme.primary} />
+              </View>
+              <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>Нет событий</ThemedText>
               <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
-                Нет событий на этот день
+                На этот день ничего не запланировано
               </ThemedText>
-              <Pressable onPress={openAddModal}>
-                <ThemedText style={[styles.emptyLink, { color: theme.primary }]}>Добавить событие</ThemedText>
+              <Pressable onPress={openAddModal} style={[styles.emptyAddBtn, { backgroundColor: theme.primary + "15" }]}>
+                <AppIcon name="plus" size={14} color={theme.primary} />
+                <ThemedText style={[styles.emptyAddText, { color: theme.primary }]}>Добавить</ThemedText>
               </Pressable>
             </View>
           ) : (
-            selectedEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                theme={theme}
-                onEdit={() => openEditModal(event)}
-                onDelete={() => handleDelete(event)}
-                onToggle={() => handleToggleComplete(event)}
-              />
-            ))
+            <View style={styles.timeline}>
+              {selectedEvents.map((event, index) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  theme={theme}
+                  isLast={index === selectedEvents.length - 1}
+                  onEdit={() => openEditModal(event)}
+                  onDelete={() => handleDelete(event)}
+                  onToggle={() => handleToggleComplete(event)}
+                />
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
 
+      <Pressable
+        onPress={openAddModal}
+        style={[styles.fab, { backgroundColor: theme.primary, bottom: tabBarHeight + Spacing.lg }]}
+      >
+        <AppIcon name="plus" size={24} color="#FFFFFF" />
+      </Pressable>
+
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal}>
         <Pressable style={styles.modalOverlay} onPress={closeModal} />
         <View style={[styles.modalSheet, { backgroundColor: theme.background, paddingBottom: insets.bottom + Spacing.xl }]}>
-          <View style={styles.modalHandle} />
+          <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
           <ThemedText style={[styles.modalTitle, { color: theme.text }]}>
-            {editingEvent ? "Редактировать" : "Новое событие"}
+            {editingEvent ? "Редактировать событие" : "Новое событие"}
           </ThemedText>
 
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -432,21 +471,25 @@ export default function CalendarScreen() {
             <View style={styles.formField}>
               <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Тип</ThemedText>
               <View style={styles.typeRow}>
-                {Object.entries(EVENT_LABELS).filter(([k]) => k !== "ai_suggestion").map(([key, label]) => (
-                  <Pressable
-                    key={key}
-                    onPress={() => setForm((f) => ({ ...f, type: key }))}
-                    style={[
-                      styles.typeChip,
-                      { borderColor: EVENT_COLORS[key] },
-                      form.type === key && { backgroundColor: EVENT_COLORS[key] },
-                    ]}
-                  >
-                    <ThemedText style={[styles.typeChipText, { color: form.type === key ? "#FFFFFF" : EVENT_COLORS[key] }]}>
-                      {label}
-                    </ThemedText>
-                  </Pressable>
-                ))}
+                {Object.entries(EVENT_LABELS).filter(([k]) => k !== "ai_suggestion").map(([key, label]) => {
+                  const active = form.type === key;
+                  const color = EVENT_COLORS[key];
+                  return (
+                    <Pressable
+                      key={key}
+                      onPress={() => setForm((f) => ({ ...f, type: key }))}
+                      style={[
+                        styles.typeChip,
+                        { borderColor: active ? color : theme.border, backgroundColor: active ? color + "18" : "transparent" },
+                      ]}
+                    >
+                      <AppIcon name={EVENT_ICONS[key] as any} size={13} color={active ? color : theme.textSecondary} />
+                      <ThemedText style={[styles.typeChipText, { color: active ? color : theme.textSecondary }]}>
+                        {label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
 
@@ -471,65 +514,84 @@ export default function CalendarScreen() {
 function EventCard({
   event,
   theme,
+  isLast,
   onEdit,
   onDelete,
   onToggle,
 }: {
   event: CalendarEvent;
   theme: any;
+  isLast: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
 }) {
   const color = EVENT_COLORS[event.type] || "#4A90D9";
+  const icon = EVENT_ICONS[event.type] || "calendar";
   const isAI = event.source === "ai";
 
   return (
-    <View style={[styles.eventCard, { backgroundColor: theme.background, borderLeftColor: color }]}>
-      <Pressable onPress={onToggle} style={styles.eventCheckbox}>
-        <View style={[
-          styles.checkbox,
-          { borderColor: color },
-          event.isCompleted && { backgroundColor: color },
-        ]}>
-          {event.isCompleted && <AppIcon name="check" size={12} color="#FFFFFF" />}
+    <View style={styles.timelineRow}>
+      <View style={styles.timelineLeft}>
+        {event.time ? (
+          <ThemedText style={[styles.timelineTime, { color: theme.textSecondary }]}>{event.time}</ThemedText>
+        ) : (
+          <ThemedText style={[styles.timelineTime, { color: "transparent" }]}>—</ThemedText>
+        )}
+        <View style={[styles.timelineDot, { backgroundColor: color }]}>
+          <AppIcon name={icon as any} size={10} color="#FFFFFF" />
         </View>
-      </Pressable>
-
-      <View style={styles.eventContent}>
-        <View style={styles.eventTopRow}>
-          <View style={[styles.eventTypeBadge, { backgroundColor: color + "20" }]}>
-            {isAI && <AppIcon name="cpu" size={10} color={color} style={{ marginRight: 3 }} />}
-            <ThemedText style={[styles.eventTypeBadgeText, { color }]}>
-              {EVENT_LABELS[event.type] || event.type}
-            </ThemedText>
-          </View>
-          {event.time ? (
-            <ThemedText style={[styles.eventTime, { color: theme.textSecondary }]}>{event.time}</ThemedText>
-          ) : null}
-        </View>
-
-        <ThemedText
-          style={[styles.eventTitle, { color: theme.text }, event.isCompleted && styles.strikethrough]}
-          numberOfLines={2}
-        >
-          {event.title}
-        </ThemedText>
-
-        {event.description ? (
-          <ThemedText style={[styles.eventDesc, { color: theme.textSecondary }]} numberOfLines={2}>
-            {event.description}
-          </ThemedText>
-        ) : null}
+        {!isLast && <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />}
       </View>
 
-      <View style={styles.eventActions}>
-        <Pressable onPress={onEdit} hitSlop={8} style={styles.actionBtn}>
-          <AppIcon name="edit-2" size={16} color={theme.textSecondary} />
-        </Pressable>
-        <Pressable onPress={onDelete} hitSlop={8} style={styles.actionBtn}>
-          <AppIcon name="trash-2" size={16} color={theme.danger} />
-        </Pressable>
+      <View style={[styles.eventCard, { backgroundColor: theme.background }]}>
+        <View style={styles.eventCardInner}>
+          <View style={styles.eventCardTop}>
+            <View style={styles.eventCardMeta}>
+              <View style={[styles.eventTypePill, { backgroundColor: color + "18" }]}>
+                {isAI && <AppIcon name="cpu" size={9} color={color} />}
+                <ThemedText style={[styles.eventTypePillText, { color }]}>
+                  {EVENT_LABELS[event.type] || event.type}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={styles.eventActions}>
+              <Pressable onPress={onEdit} hitSlop={8} style={styles.actionBtn}>
+                <AppIcon name="edit-2" size={14} color={theme.textSecondary} />
+              </Pressable>
+              <Pressable onPress={onDelete} hitSlop={8} style={styles.actionBtn}>
+                <AppIcon name="trash-2" size={14} color={theme.danger} />
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable onPress={onToggle} style={styles.eventTitleRow}>
+            <View style={[
+              styles.checkbox,
+              { borderColor: color },
+              event.isCompleted && { backgroundColor: color },
+            ]}>
+              {event.isCompleted && <AppIcon name="check" size={10} color="#FFFFFF" />}
+            </View>
+            <ThemedText
+              style={[
+                styles.eventTitle,
+                { color: theme.text },
+                event.isCompleted && styles.strikethrough,
+              ]}
+              numberOfLines={2}
+            >
+              {event.title}
+            </ThemedText>
+          </Pressable>
+
+          {event.description ? (
+            <ThemedText style={[styles.eventDesc, { color: theme.textSecondary }]} numberOfLines={2}>
+              {event.description}
+            </ThemedText>
+          ) : null}
+        </View>
+        <View style={[styles.eventCardAccent, { backgroundColor: color }]} />
       </View>
     </View>
   );
@@ -543,14 +605,32 @@ function formatDateLabel(dateStr: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
   header: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 0,
+  },
+  headerTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  headerTitle: { fontSize: 24, fontWeight: "700" },
+  monthNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  navBtn: {
+    padding: Spacing.xs,
+  },
+  monthTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    minWidth: 140,
+    textAlign: "center",
+  },
   aiButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -558,25 +638,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
-  aiButtonText: { color: "#8B5CF6", fontSize: 13, fontWeight: "600" },
-  calendarCard: {
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-    }),
+  aiButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
   },
-  monthNav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Spacing.lg,
-  },
-  navBtn: { padding: Spacing.sm },
-  monthTitle: { fontSize: 18, fontWeight: "700" },
   weekRow: {
     flexDirection: "row",
     marginBottom: Spacing.sm,
@@ -586,6 +654,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
     fontWeight: "600",
+    color: "rgba(255,255,255,0.7)",
+  },
+  weekendDay: {
+    color: "rgba(255,200,200,0.85)",
   },
   grid: {
     flexDirection: "row",
@@ -596,121 +668,302 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: BorderRadius.sm,
-    marginVertical: 1,
   },
-  dayNum: { fontSize: 14, fontWeight: "500" },
+  dayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayCircleSelected: {
+    backgroundColor: "#FFFFFF",
+  },
+  dayCircleToday: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.8)",
+  },
+  dayNum: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.9)",
+  },
+  weekendNum: {
+    color: "rgba(255,200,200,0.9)",
+  },
+  dayNumSelected: {
+    color: "#4A90D9",
+    fontWeight: "700",
+  },
+  dayNumToday: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
   dotsRow: {
     flexDirection: "row",
     gap: 2,
     marginTop: 2,
+    height: 4,
   },
-  dot: { width: 4, height: 4, borderRadius: 2 },
-  eventsSection: { marginTop: Spacing.xl, paddingHorizontal: Spacing.lg },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  headerBottom: {
+    height: Spacing.lg,
+  },
+
+  eventsSection: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+  },
   eventsSectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: Spacing.lg,
   },
-  eventsSectionTitle: { fontSize: 17, fontWeight: "700" },
-  addBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
+  selectedDateLabel: {
+    fontSize: 18,
+    fontWeight: "700",
+    textTransform: "capitalize",
   },
+  eventsCount: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+
   emptyCard: {
     alignItems: "center",
     padding: Spacing["3xl"],
     borderRadius: BorderRadius.xl,
     gap: Spacing.md,
-  },
-  emptyText: { fontSize: 14, textAlign: "center" },
-  emptyLink: { fontSize: 14, fontWeight: "600" },
-  eventCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    borderRadius: BorderRadius.lg,
-    borderLeftWidth: 4,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
     ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
-      android: { elevation: 1 },
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      android: { elevation: 2 },
     }),
   },
-  eventCheckbox: { marginRight: Spacing.md, paddingTop: 2 },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
+  emptyIconBg: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
   },
-  eventContent: { flex: 1 },
-  eventTopRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: 4 },
-  eventTypeBadge: {
+  emptyTitle: { fontSize: 16, fontWeight: "700" },
+  emptyText: { fontSize: 14, textAlign: "center" },
+  emptyAddBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  eventTypeBadgeText: { fontSize: 11, fontWeight: "600" },
-  eventTime: { fontSize: 12 },
-  eventTitle: { fontSize: 15, fontWeight: "600", marginBottom: 2 },
-  eventDesc: { fontSize: 13, lineHeight: 18 },
-  strikethrough: { textDecorationLine: "line-through", opacity: 0.5 },
-  eventActions: { flexDirection: "column", gap: Spacing.sm, marginLeft: Spacing.sm },
-  actionBtn: { padding: 4 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  modalSheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    maxHeight: "85%",
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16 },
-      android: { elevation: 16 },
-    }),
-  },
-  modalHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: "#E2E8F0",
-    alignSelf: "center",
-    marginBottom: Spacing.lg,
-  },
-  modalTitle: { fontSize: 20, fontWeight: "700", marginBottom: Spacing.xl },
-  formField: { marginBottom: Spacing.lg },
-  formRow: { flexDirection: "row" },
-  fieldLabel: { fontSize: 13, fontWeight: "500", marginBottom: Spacing.sm },
-  textInput: {
-    height: 48,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.lg,
-    fontSize: 15,
-  },
-  textArea: { height: 80, paddingTop: Spacing.md, textAlignVertical: "top" },
-  typeRow: { flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" },
-  typeChip: {
+    gap: 5,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.xl,
-    borderWidth: 1.5,
+    marginTop: Spacing.sm,
   },
-  typeChipText: { fontSize: 13, fontWeight: "600" },
-  saveBtn: {
-    height: 52,
-    borderRadius: BorderRadius.xl,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.md,
+  emptyAddText: { fontSize: 14, fontWeight: "600" },
+
+  timeline: {
+    gap: 0,
+  },
+  timelineRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
     marginBottom: Spacing.md,
   },
-  saveBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  timelineLeft: {
+    alignItems: "center",
+    width: 44,
+    paddingTop: 2,
+  },
+  timelineTime: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  timelineDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    marginTop: 4,
+    borderRadius: 1,
+    minHeight: 16,
+  },
+  eventCard: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    flexDirection: "row",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6 },
+      android: { elevation: 2 },
+    }),
+  },
+  eventCardAccent: {
+    width: 4,
+  },
+  eventCardInner: {
+    flex: 1,
+    padding: Spacing.md,
+    gap: 6,
+  },
+  eventCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  eventCardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  eventTypePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  eventTypePillText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  eventActions: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  actionBtn: {
+    padding: 4,
+  },
+  eventTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  eventTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+    lineHeight: 20,
+  },
+  strikethrough: {
+    textDecorationLine: "line-through",
+    opacity: 0.5,
+  },
+  eventDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+    paddingLeft: 26,
+  },
+
+  fab: {
+    position: "absolute",
+    right: Spacing.xl,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+      android: { elevation: 6 },
+    }),
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.xl,
+    maxHeight: "85%",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.1, shadowRadius: 12 },
+      android: { elevation: 8 },
+    }),
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: Spacing.xl,
+  },
+  formField: {
+    marginBottom: Spacing.lg,
+  },
+  formRow: {
+    flexDirection: "row",
+    marginBottom: Spacing.lg,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+  },
+  textInput: {
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 11,
+    fontSize: 15,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: "top",
+    paddingTop: 11,
+  },
+  typeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  typeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1.5,
+  },
+  typeChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  saveBtn: {
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  saveBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });
