@@ -780,7 +780,8 @@ export default function ToothMapScreen() {
                           styles.historyItem, 
                           { 
                             backgroundColor: theme.backgroundSecondary,
-                            borderLeftColor: event.eventType === "resolved" ? "#4CAF50" :
+                            borderLeftColor: (event.eventType === "resolved" || event.eventType === "treated") ? "#4CAF50" :
+                                            event.eventType === "problem_removed" ? "#9E9E9E" :
                                             event.priority === "urgent" ? "#F44336" : 
                                             event.priority === "soon" ? "#FF9800" : theme.primary
                           }
@@ -793,10 +794,22 @@ export default function ToothMapScreen() {
                                 {event.toothId}
                               </ThemedText>
                             </View>
-                            {event.eventType === "resolved" ? (
+                            {(event.eventType === "resolved" || event.eventType === "treated") ? (
                               <View style={[styles.toothBadge, { backgroundColor: "#4CAF50" + "20" }]}>
                                 <ThemedText type="small" style={{ color: "#4CAF50", fontWeight: "600" }}>
                                   Вылечен
+                                </ThemedText>
+                              </View>
+                            ) : event.eventType === "problem_noted" ? (
+                              <View style={[styles.toothBadge, { backgroundColor: theme.primary + "20" }]}>
+                                <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+                                  Отмечено
+                                </ThemedText>
+                              </View>
+                            ) : event.eventType === "problem_removed" ? (
+                              <View style={[styles.toothBadge, { backgroundColor: "#9E9E9E20" }]}>
+                                <ThemedText type="small" style={{ color: "#757575", fontWeight: "600" }}>
+                                  Снято
                                 </ThemedText>
                               </View>
                             ) : null}

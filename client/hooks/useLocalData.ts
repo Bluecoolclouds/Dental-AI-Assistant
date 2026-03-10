@@ -54,6 +54,7 @@ const PROBLEM_LABELS: Record<string, string> = {
   bleeding: "кровоточивость",
   chip: "скол",
   filling: "пломба",
+  treated: "вылечен",
 };
 
 const URGENT_PROBLEMS = ["cavity", "pain", "crack", "sensitivity", "gum_issue", "bleeding"];
@@ -85,10 +86,11 @@ export function useToothData() {
     try {
       const existingTooth = toothData.find((t) => t.toothNumber === toothNumber);
       const existingProblems = (existingTooth?.problems || []).filter((p) => p !== "treated");
-      
+
       const realProblems = problems.filter((p) => p !== "treated");
-      const newProblems = realProblems.filter((p) => !existingProblems.includes(p));
-      const urgentNewProblems = newProblems.filter((p) => URGENT_PROBLEMS.includes(p));
+      const addedProblems = realProblems.filter((p) => !existingProblems.includes(p));
+      const removedProblems = existingProblems.filter((p) => !realProblems.includes(p));
+      const urgentNewProblems = addedProblems.filter((p) => URGENT_PROBLEMS.includes(p));
 
       await toothRepo.createOrUpdateTooth({
         userId: user.id,
@@ -97,11 +99,35 @@ export function useToothData() {
         notes,
       });
 
+      if (addedProblems.length > 0) {
+        await historyRepo.createToothHistory({
+          userId: user.id,
+          toothId: toothNumber.toString(),
+          eventType: "problem_noted",
+          reason: `Отмечено: ${addedProblems.map((p) => PROBLEM_LABELS[p] || p).join(", ")}`,
+          priority: URGENT_PROBLEMS.some((u) => addedProblems.includes(u)) ? "important" : "normal",
+          markForCheck: URGENT_PROBLEMS.some((u) => addedProblems.includes(u)),
+          source: "user",
+        });
+      }
+
+      if (removedProblems.length > 0) {
+        await historyRepo.createToothHistory({
+          userId: user.id,
+          toothId: toothNumber.toString(),
+          eventType: "problem_removed",
+          reason: `Снято: ${removedProblems.map((p) => PROBLEM_LABELS[p] || p).join(", ")}`,
+          priority: "normal",
+          markForCheck: false,
+          source: "user",
+        });
+      }
+
       if (urgentNewProblems.length > 0) {
         const problemNames = urgentNewProblems
           .map((p) => PROBLEM_LABELS[p] || p)
           .join(", ");
-        
+
         await alertsRepo.createAlert({
           userId: user.id,
           type: "warning",
