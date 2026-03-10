@@ -79,7 +79,6 @@ export function useAuth() {
       await saveCurrentUser(newUser.id, newUser.email);
       
       setUser({ id: newUser.id, email: newUser.email });
-      setIsAuthenticated(true);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || "Ошибка регистрации" };
