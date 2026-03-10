@@ -5,7 +5,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppIcon from "@/components/Icons";
 import Svg, { Ellipse, G } from "react-native-svg";
-import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { useNavigation } from "@react-navigation/native";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -23,6 +25,14 @@ const VALID_TOOTH_IDS = [
   "31", "32", "33", "34", "35", "36", "37", "38",
   "41", "42", "43", "44", "45", "46", "47", "48",
 ];
+
+const FILE_TYPES: Record<string, { label: string; icon: string; color: string }> = {
+  ct:       { label: "КТ",        icon: "layers",      color: "#8B5CF6" },
+  xray:     { label: "Рентген",   icon: "aperture",    color: "#3B82F6" },
+  photo:    { label: "Фото",      icon: "image",       color: "#10B981" },
+  document: { label: "Документ",  icon: "file-text",   color: "#F59E0B" },
+  other:    { label: "Другое",    icon: "paperclip",   color: "#6B7280" },
+};
 
 type DataTab = "history" | "files";
 
@@ -114,6 +124,7 @@ export default function ToothMapScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { theme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
 
@@ -137,11 +148,9 @@ export default function ToothMapScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingHistory, setIsCreatingHistory] = useState(false);
   const [isUpdatingHistory, setIsUpdatingHistory] = useState(false);
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
-
   const { toothData, isLoading, saveTooth, markToothAsHealed } = useToothData();
   const { history: historyData, createHistory, updateHistory, refetch: refetchHistory } = useToothHistory();
-  const { files: filesData, uploadFile, deleteFile } = useToothFiles();
+  const { files: filesData, deleteFile } = useToothFiles();
 
   const handleOpenDetails = (event: ToothHistory) => {
     setSelectedHistoryEvent(event);
@@ -198,32 +207,22 @@ export default function ToothMapScreen() {
     }
   };
 
-  const handlePickDocument = async () => {
+  const handleOpenFile = async (file: ToothFile) => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/*", "application/pdf"],
-        copyToCacheDirectory: true,
-      });
-      
-      if (!result.canceled && result.assets?.[0]) {
-        const asset = result.assets[0];
-        const fileType = asset.mimeType?.includes("pdf") ? "document" : 
-                         asset.mimeType?.includes("image") ? "photo" : "other";
-        
-        setIsUploadingFile(true);
-        try {
-          await uploadFile({
-            fileName: asset.name,
-            fileType,
-            fileUrl: asset.uri,
-            fileSize: asset.size,
-          });
-        } finally {
-          setIsUploadingFile(false);
-        }
+      const fileUri = file.fileUrl.startsWith("file://") ? file.fileUrl : `${FileSystem.documentDirectory}${file.fileUrl}`;
+      const info = await FileSystem.getInfoAsync(fileUri);
+      if (!info.exists) {
+        Alert.alert("Файл не найден", "Файл был удалён или перемещён");
+        return;
       }
-    } catch (error) {
-      Alert.alert("Ошибка", "Не удалось загрузить файл");
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        Alert.alert("Ошибка", "Открытие файлов не поддерживается на этом устройстве");
+      }
+    } catch {
+      Alert.alert("Ошибка", "Не удалось открыть файл");
     }
   };
 
@@ -900,25 +899,26 @@ export default function ToothMapScreen() {
             </View>
           ) : (
             <View style={styles.tabContent}>
+              <View style={[styles.filesInfoBanner, { backgroundColor: theme.primary + "12", borderColor: theme.primary + "30" }]}>
+                <AppIcon name="info" size={16} color={theme.primary} />
+                <ThemedText type="small" style={{ color: theme.primary, flex: 1 }}>
+                  Файлы добавляются через ИИ-чат — отправьте снимок или документ в диалоге
+                </ThemedText>
+              </View>
+
               <Pressable
-                onPress={handlePickDocument}
-                disabled={isUploadingFile}
+                onPress={() => navigation.navigate("Materials")}
                 style={({ pressed }) => [
-                  styles.uploadButton,
-                  { 
-                    backgroundColor: theme.primary,
-                    opacity: pressed || isUploadingFile ? 0.7 : 1
-                  }
+                  styles.materialsNavButton,
+                  { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 }
                 ]}
               >
-                <AppIcon name="upload" size={18} color="#FFF" />
-                <ThemedText type="body" style={{ color: "#FFF", fontWeight: "600" }}>
-                  {isUploadingFile ? "Загрузка..." : "Загрузить файл"}
+                <AppIcon name="folder-open" size={18} color={theme.primary} />
+                <ThemedText type="body" style={{ color: theme.primary, flex: 1 }}>
+                  Открыть все материалы
                 </ThemedText>
+                <AppIcon name="chevron-right" size={18} color={theme.primary} />
               </Pressable>
-              <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                КТ-снимки, рентген, фото зубов, документы
-              </ThemedText>
 
               {filesData.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -926,50 +926,61 @@ export default function ToothMapScreen() {
                   <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
                     Нет загруженных файлов
                   </ThemedText>
+                  <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
+                    Отправьте снимок в ИИ-чате — он появится здесь
+                  </ThemedText>
                 </View>
               ) : (
                 <View style={styles.filesList}>
-                  {filesData.map((file) => (
-                    <View 
-                      key={file.id} 
-                      style={[styles.fileItem, { backgroundColor: theme.backgroundSecondary }]}
-                    >
-                      <View style={[styles.fileIcon, { backgroundColor: theme.primary + "15" }]}>
-                        <AppIcon 
-                          name={file.fileType === "document" ? "file-text" : "image"} 
-                          size={20} 
-                          color={theme.primary} 
-                        />
-                      </View>
-                      <View style={styles.fileInfo}>
-                        <ThemedText type="body" numberOfLines={1}>
-                          {file.fileName}
-                        </ThemedText>
-                        <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                          {formatDate(file.createdAt as unknown as string)} {formatFileSize(file.fileSize ?? undefined)}
-                        </ThemedText>
-                      </View>
+                  {filesData.map((file) => {
+                    const ft = FILE_TYPES[file.fileType] ?? FILE_TYPES.other;
+                    return (
                       <Pressable
-                        onPress={() => {
-                          Alert.alert(
-                            "Удалить файл?",
-                            file.fileName,
-                            [
-                              { text: "Отмена", style: "cancel" },
-                              { 
-                                text: "Удалить", 
-                                style: "destructive",
-                                onPress: () => deleteFile(file.id)
-                              }
-                            ]
-                          );
-                        }}
-                        style={styles.deleteFileButton}
+                        key={file.id}
+                        onPress={() => handleOpenFile(file)}
+                        style={({ pressed }) => [
+                          styles.fileItem,
+                          { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.8 : 1 }
+                        ]}
                       >
-                        <AppIcon name="trash-2" size={18} color={theme.textSecondary} />
+                        <View style={[styles.fileIcon, { backgroundColor: ft.color + "18" }]}>
+                          <AppIcon name={ft.icon as any} size={20} color={ft.color} />
+                        </View>
+                        <View style={styles.fileInfo}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <View style={[styles.fileTypeBadge, { backgroundColor: ft.color + "18" }]}>
+                              <ThemedText type="small" style={{ color: ft.color, fontWeight: "600", fontSize: 10 }}>
+                                {ft.label}
+                              </ThemedText>
+                            </View>
+                          </View>
+                          <ThemedText type="body" numberOfLines={1} style={{ fontWeight: "500" }}>
+                            {file.fileName}
+                          </ThemedText>
+                          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                            {formatDate(file.createdAt as unknown as string)}{file.fileSize ? `  ·  ${formatFileSize(file.fileSize ?? undefined)}` : ""}
+                          </ThemedText>
+                        </View>
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            Alert.alert(
+                              "Удалить файл?",
+                              file.fileName,
+                              [
+                                { text: "Отмена", style: "cancel" },
+                                { text: "Удалить", style: "destructive", onPress: () => deleteFile(file.id) }
+                              ]
+                            );
+                          }}
+                          style={styles.deleteFileButton}
+                          hitSlop={8}
+                        >
+                          <AppIcon name="trash-2" size={18} color={theme.textSecondary} />
+                        </Pressable>
                       </Pressable>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -1484,13 +1495,25 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
-  uploadButton: {
+  filesInfoBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  materialsNavButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    gap: Spacing.md,
+    padding: Spacing.md,
     borderRadius: BorderRadius.md,
+  },
+  fileTypeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
   },
   filesList: {
     gap: Spacing.sm,
