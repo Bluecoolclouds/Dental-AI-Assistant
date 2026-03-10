@@ -107,7 +107,22 @@ async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> 
       file_url TEXT NOT NULL,
       file_size INTEGER,
       description TEXT,
+      ai_description TEXT,
       related_teeth TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS calendar_events (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      date TEXT NOT NULL,
+      time TEXT,
+      type TEXT NOT NULL DEFAULT 'appointment',
+      source TEXT NOT NULL DEFAULT 'user',
+      description TEXT,
+      related_teeth TEXT DEFAULT '[]',
+      is_completed INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);

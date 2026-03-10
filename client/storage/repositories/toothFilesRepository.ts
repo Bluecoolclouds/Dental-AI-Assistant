@@ -8,6 +8,7 @@ export interface ToothFile {
   fileUrl: string;
   fileSize: number | null;
   description: string | null;
+  aiDescription: string | null;
   relatedTeeth: string[];
   createdAt: string;
 }
@@ -19,6 +20,7 @@ export interface CreateToothFileInput {
   fileUrl: string;
   fileSize?: number;
   description?: string;
+  aiDescription?: string;
   relatedTeeth?: string[];
 }
 
@@ -41,6 +43,7 @@ function rowToFile(row: any): ToothFile {
     fileUrl: row.file_url,
     fileSize: row.file_size,
     description: row.description,
+    aiDescription: row.ai_description || null,
     relatedTeeth: JSON.parse(row.related_teeth || "[]"),
     createdAt: row.created_at,
   };
@@ -51,8 +54,8 @@ export async function createToothFile(input: CreateToothFileInput): Promise<Toot
   const id = generateId();
   
   await db.runAsync(
-    `INSERT INTO tooth_files (id, user_id, file_name, file_type, file_url, file_size, description, related_teeth)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tooth_files (id, user_id, file_name, file_type, file_url, file_size, description, ai_description, related_teeth)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.userId,
@@ -61,6 +64,7 @@ export async function createToothFile(input: CreateToothFileInput): Promise<Toot
       input.fileUrl,
       input.fileSize || null,
       input.description || null,
+      input.aiDescription || null,
       JSON.stringify(input.relatedTeeth || []),
     ]
   );

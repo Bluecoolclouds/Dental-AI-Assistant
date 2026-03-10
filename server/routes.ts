@@ -310,11 +310,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { message, history, userId, files: incomingFiles } = req.body;
+      const { message, history, userId, files: incomingFiles, userContext } = req.body;
 
       if (!message || typeof message !== "string") {
         return res.status(400).json({ error: "Требуется сообщение" });
       }
+
+      const localMode = !!userContext;
 
       let userProfile = null;
       let toothData: any[] = [];
@@ -322,7 +324,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let upcomingEvents: any[] = [];
       let existingFiles: any[] = [];
 
-      if (userId) {
+      if (localMode) {
+        userProfile = userContext.profile || null;
+        toothData = userContext.toothData || [];
+        latestTest = userContext.latestTest || null;
+        upcomingEvents = userContext.upcomingEvents || [];
+        existingFiles = (userContext.existingFiles || []).map((f: any) => ({
+          fileName: f.fileName,
+          aiDescription: f.aiDescription,
+          description: f.aiDescription,
+        }));
+      } else if (userId) {
         try {
           [userProfile, toothData, latestTest, existingFiles] = await Promise.all([
             storage.getProfile(userId),
@@ -344,26 +356,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Auto-describe and save new files uploaded in this message
+      // Auto-describe new files — in local mode, return descriptions without saving to server DB
       const savedNewFiles: any[] = [];
-      if (Array.isArray(incomingFiles) && incomingFiles.length > 0 && userId) {
+      if (Array.isArray(incomingFiles) && incomingFiles.length > 0) {
         for (const f of incomingFiles as UploadedFile[]) {
           try {
             const isImage = f.mimeType?.startsWith("image/");
             const isPdf = f.mimeType === "application/pdf";
             if (!isImage && !isPdf) {
-              // Save without AI description for unsupported types
-              const saved = await storage.createToothFile({
-                userId,
-                fileName: f.name,
-                fileType: detectFileTypeFromMime(f.mimeType, f.name),
-                fileUrl: `chat-upload://${f.name}`,
-                fileSize: f.size ?? null,
-                description: null,
-                aiDescription: null,
-                relatedTeeth: [],
-              });
-              savedNewFiles.push(saved);
+              if (!localMode && userId) {
+                const saved = await storage.createToothFile({
+                  userId,
+                  fileName: f.name,
+                  fileType: detectFileTypeFromMime(f.mimeType, f.name),
+                  fileUrl: `chat-upload://${f.name}`,
+                  fileSize: f.size ?? null,
+                  description: null,
+                  aiDescription: null,
+                  relatedTeeth: [],
+                });
+                savedNewFiles.push(saved);
+              } else {
+                savedNewFiles.push({ fileName: f.name, aiDescription: null, _base64: f.base64Data, _mimeType: f.mimeType });
+              }
               continue;
             }
             // Generate AI description using fast model
@@ -382,24 +397,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
               messages: [{ role: "user", content: descContent }],
             });
             const aiDesc = (descResp.content[0] as any).text?.trim() || null;
-            const saved = await storage.createToothFile({
-              userId,
-              fileName: f.name,
-              fileType: detectFileTypeFromMime(f.mimeType, f.name),
-              fileUrl: `chat-upload://${f.name}`,
-              fileSize: f.size ?? null,
-              description: null,
-              aiDescription: aiDesc,
-              relatedTeeth: [],
-            });
-            savedNewFiles.push({ ...saved, _base64: f.base64Data, _mimeType: f.mimeType });
+            if (!localMode && userId) {
+              const saved = await storage.createToothFile({
+                userId,
+                fileName: f.name,
+                fileType: detectFileTypeFromMime(f.mimeType, f.name),
+                fileUrl: `chat-upload://${f.name}`,
+                fileSize: f.size ?? null,
+                description: null,
+                aiDescription: aiDesc,
+                relatedTeeth: [],
+              });
+              savedNewFiles.push({ ...saved, _base64: f.base64Data, _mimeType: f.mimeType });
+            } else {
+              savedNewFiles.push({ fileName: f.name, aiDescription: aiDesc, _base64: f.base64Data, _mimeType: f.mimeType });
+            }
           } catch (e) {
             console.error("File auto-describe error:", e);
           }
         }
       }
 
-      // Build file manifest for system prompt (existing files from DB)
+      // Build file manifest for system prompt
       const manifestFiles = [...existingFiles, ...savedNewFiles.map(f => ({ ...f, aiDescription: f.aiDescription }))];
       const fileManifest = manifestFiles.length > 0
         ? `\n\nУ пользователя есть загруженные медицинские документы (файл-индекс):\n` +
@@ -538,7 +557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 Каждую запись из teeth_updates бэкенд сохраняет как событие истории для соответствующего tooth_id и, если mark_for_check = true, ещё и создаёт напоминание.`;
 
-      const userContext = {
+      const claudeUserContext = {
         user_profile: userProfile ? {
           age: userProfile.age,
           oral_hygiene: {
@@ -552,14 +571,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } : null,
         tooth_map: {
           teeth: toothData.map((t: any) => ({
-            tooth_id: String(t.toothNumber),
+            tooth_id: String(t.toothNumber || t.tooth_number),
             problems: t.problems,
             notes: t.notes
           }))
         },
         analysis: latestTest ? {
-          gum_risk: latestTest.gumsRiskScore > 60 ? "high" : latestTest.gumsRiskScore > 30 ? "medium" : "low",
-          tooth_risk: latestTest.teethRiskScore > 60 ? "high" : latestTest.teethRiskScore > 30 ? "medium" : "low"
+          gum_risk: (latestTest.gumsRiskScore ?? latestTest.gums_risk_score) > 60 ? "high" : (latestTest.gumsRiskScore ?? latestTest.gums_risk_score) > 30 ? "medium" : "low",
+          tooth_risk: (latestTest.teethRiskScore ?? latestTest.teeth_risk_score) > 60 ? "high" : (latestTest.teethRiskScore ?? latestTest.teeth_risk_score) > 30 ? "medium" : "low"
         } : null,
         calendar: upcomingEvents.length > 0 ? upcomingEvents.map((e) => ({
           title: e.title,
@@ -620,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       userContentBlocks.push({
         type: "text",
-        text: `Контекст пользователя:\n${JSON.stringify(userContext, null, 2)}\n\nСообщение: ${message}`,
+        text: `Контекст пользователя:\n${JSON.stringify(claudeUserContext, null, 2)}\n\nСообщение: ${message}`,
       });
 
       claudeMessages.push({ role: "user", content: userContentBlocks });
@@ -650,7 +669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: f.id, fileName: f.fileName, fileType: f.fileType, aiDescription: f.aiDescription
         }));
         
-        if (userId && parsed.state_updates) {
+        if (!localMode && userId && parsed.state_updates) {
           const { teeth_updates, reminders } = parsed.state_updates;
           
           if (Array.isArray(teeth_updates) && teeth_updates.length > 0) {
@@ -730,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        if (userId && parsed.safety?.needs_urgent_care) {
+        if (!localMode && userId && parsed.safety?.needs_urgent_care) {
           await storage.createAlert({
             userId,
             type: "urgent",

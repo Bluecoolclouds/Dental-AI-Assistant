@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
@@ -30,9 +29,9 @@ import AppIcon from "@/components/Icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import type { CalendarEvent } from "@shared/schema";
+import * as calendarRepo from "@/storage/repositories/calendarRepository";
+import type { CalendarEvent } from "@/storage/repositories/calendarRepository";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_THRESHOLD = 120;
@@ -122,12 +121,15 @@ export default function CalendarScreen() {
   const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const qc = useQueryClient();
 
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState(todayStr());
+
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMutating, setIsMutating] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -173,16 +175,22 @@ export default function CalendarScreen() {
     transform: [{ translateY: sheetY.value }],
   }));
 
-  const eventsQuery = useQuery<CalendarEvent[]>({
-    queryKey: [`/api/calendar/${user?.id}`, year, month],
-    queryFn: async () => {
-      const res = await apiRequest("GET", `/api/calendar/${user?.id}?year=${year}&month=${month + 1}`);
-      return res.json();
-    },
-    enabled: !!user?.id,
-  });
+  const loadEvents = useCallback(async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      const data = await calendarRepo.getCalendarEventsByMonth(user.id, year, month + 1);
+      setEvents(data);
+    } catch (err) {
+      console.error("Error loading calendar events:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id, year, month]);
 
-  const events = eventsQuery.data || [];
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {};
@@ -205,43 +213,6 @@ export default function CalendarScreen() {
       setForm(EMPTY_FORM);
     });
   }, []);
-
-  const createMutation = useMutation({
-    mutationFn: async (data: Partial<CalendarEvent>) => {
-      const res = await apiRequest("POST", "/api/calendar", { ...data, userId: user?.id });
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [`/api/calendar/${user?.id}`] });
-      closeModal();
-    },
-    onError: (err: Error) => {
-      Alert.alert("Не удалось создать событие", err.message);
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<CalendarEvent> }) => {
-      const res = await apiRequest("PATCH", `/api/calendar/${id}`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [`/api/calendar/${user?.id}`] });
-      closeModal();
-    },
-    onError: (err: Error) => {
-      Alert.alert("Не удалось сохранить событие", err.message);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/calendar/${id}`);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [`/api/calendar/${user?.id}`] });
-    },
-  });
 
   const prevMonth = useCallback(() => {
     setMonth((m) => {
@@ -275,7 +246,7 @@ export default function CalendarScreen() {
     setModalVisible(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) {
       Alert.alert("Ошибка", "Введите название события");
       return;
@@ -316,30 +287,63 @@ export default function CalendarScreen() {
     const timeStr = form.timeHour
       ? `${String(parseInt(form.timeHour)).padStart(2, "0")}:${String(parseInt(form.timeMinute || "0")).padStart(2, "0")}`
       : undefined;
-    const payload = {
-      title: form.title.trim(),
-      description: form.description.trim() || undefined,
-      date: dateStr,
-      time: timeStr,
-      type: form.type,
-      source: "user" as const,
-    };
-    if (editingEvent) {
-      updateMutation.mutate({ id: editingEvent.id, data: payload });
-    } else {
-      createMutation.mutate(payload);
+
+    setIsMutating(true);
+    try {
+      if (editingEvent) {
+        await calendarRepo.updateCalendarEvent(editingEvent.id, {
+          title: form.title.trim(),
+          description: form.description.trim() || undefined,
+          date: dateStr,
+          time: timeStr,
+          type: form.type,
+        });
+      } else {
+        if (!user?.id) return;
+        await calendarRepo.createCalendarEvent({
+          userId: user.id,
+          title: form.title.trim(),
+          description: form.description.trim() || undefined,
+          date: dateStr,
+          time: timeStr,
+          type: form.type,
+          source: "user",
+        });
+      }
+      await loadEvents();
+      closeModal();
+    } catch (err: any) {
+      Alert.alert("Ошибка", err.message || "Не удалось сохранить событие");
+    } finally {
+      setIsMutating(false);
     }
   };
 
   const handleDelete = (event: CalendarEvent) => {
     Alert.alert("Удалить событие?", event.title, [
       { text: "Отмена", style: "cancel" },
-      { text: "Удалить", style: "destructive", onPress: () => deleteMutation.mutate(event.id) },
+      {
+        text: "Удалить",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await calendarRepo.deleteCalendarEvent(event.id);
+            await loadEvents();
+          } catch (err) {
+            console.error("Delete error:", err);
+          }
+        },
+      },
     ]);
   };
 
-  const handleToggleComplete = (event: CalendarEvent) => {
-    updateMutation.mutate({ id: event.id, data: { isCompleted: !event.isCompleted } });
+  const handleToggleComplete = async (event: CalendarEvent) => {
+    try {
+      await calendarRepo.updateCalendarEvent(event.id, { isCompleted: !event.isCompleted });
+      await loadEvents();
+    } catch (err) {
+      console.error("Toggle error:", err);
+    }
   };
 
   const daysInMonth = getDaysInMonth(year, month);
@@ -350,7 +354,6 @@ export default function CalendarScreen() {
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const isMutating = createMutation.isPending || updateMutation.isPending;
   const currentTodayStr = todayStr();
   const selectedDateLabel = selectedDate === currentTodayStr ? "Сегодня" : formatDateLabel(selectedDate);
 
@@ -450,7 +453,7 @@ export default function CalendarScreen() {
             </View>
           </View>
 
-          {eventsQuery.isLoading ? (
+          {isLoading ? (
             <ActivityIndicator color={theme.primary} style={{ marginTop: Spacing["3xl"] }} />
           ) : selectedEvents.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: theme.backgroundDefault }]}>
@@ -728,7 +731,7 @@ function EventCard({
         {!isLast && <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />}
       </View>
 
-      <View style={[styles.eventCard, { backgroundColor: theme.background }]}>
+      <View style={[styles.eventCard, { backgroundColor: theme.backgroundDefault }]}>
         <View style={[styles.eventCardAccent, { backgroundColor: color }]} />
         <View style={styles.eventCardInner}>
           <View style={styles.eventCardTop}>
@@ -1046,7 +1049,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
   },
   formField: { marginBottom: Spacing.lg },
-  formRow: { flexDirection: "row", marginBottom: Spacing.lg },
   fieldLabel: {
     fontSize: 13,
     fontWeight: "600",

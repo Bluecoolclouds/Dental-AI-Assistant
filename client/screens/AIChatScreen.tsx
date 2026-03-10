@@ -13,7 +13,7 @@ import {
 import AppIcon from "@/components/Icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
@@ -23,6 +23,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
+import { useProfile, useToothData, useTestResults } from "@/hooks/useLocalData";
+import * as calendarRepo from "@/storage/repositories/calendarRepository";
+import * as filesRepo from "@/storage/repositories/toothFilesRepository";
+import * as alertsRepo from "@/storage/repositories/alertsRepository";
 
 interface PendingFile {
   name: string;
@@ -70,13 +74,108 @@ function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max - 1) + "…" : str;
 }
 
+function detectFileType(mimeType: string, name: string): string {
+  if (mimeType.startsWith("image/")) return "photo";
+  if (mimeType === "application/pdf") {
+    const lower = name.toLowerCase();
+    if (lower.includes("кт") || lower.includes("ct") || lower.includes("томо")) return "ct";
+    if (lower.includes("рентген") || lower.includes("xray") || lower.includes("рг")) return "xray";
+    return "document";
+  }
+  return "other";
+}
+
+async function saveFileLocally(
+  userId: string,
+  file: PendingFile,
+  aiDescription: string | null
+): Promise<void> {
+  try {
+    const docsDir = FileSystem.documentDirectory;
+    if (!docsDir) return;
+
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9._\-А-Яа-я]/g, "_");
+    const destUri = `${docsDir}tooth_files/${userId}_${Date.now()}_${safeFileName}`;
+
+    const dirInfo = await FileSystem.getInfoAsync(`${docsDir}tooth_files/`);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(`${docsDir}tooth_files/`, { intermediates: true });
+    }
+
+    await FileSystem.copyAsync({ from: file.localUri, to: destUri });
+
+    await filesRepo.createToothFile({
+      userId,
+      fileName: file.name,
+      fileType: detectFileType(file.mimeType, file.name),
+      fileUrl: destUri,
+      fileSize: file.size,
+      aiDescription: aiDescription || undefined,
+    });
+  } catch (err) {
+    console.error("Error saving file locally:", err);
+  }
+}
+
+async function processStateUpdates(
+  userId: string,
+  stateUpdates: any,
+  safety: any
+): Promise<void> {
+  try {
+    if (Array.isArray(stateUpdates?.reminders)) {
+      for (const reminder of stateUpdates.reminders) {
+        if (!reminder.title) continue;
+        await alertsRepo.createAlert({
+          userId,
+          type: "reminder",
+          title: reminder.title,
+          description: reminder.description,
+          priority: "routine",
+          relatedTeeth: reminder.related_teeth || [],
+          dueTime: reminder.due_time,
+        });
+      }
+    }
+
+    if (Array.isArray(stateUpdates?.teeth_updates)) {
+      for (const update of stateUpdates.teeth_updates) {
+        if (!update.tooth_id || !update.mark_for_check) continue;
+        await alertsRepo.createAlert({
+          userId,
+          type: "reminder",
+          title: `Зуб ${update.tooth_id}: ${update.reason || "рекомендована проверка"}`,
+          priority: update.priority || "routine",
+          relatedTeeth: [String(update.tooth_id)],
+        });
+      }
+    }
+
+    if (safety?.needs_urgent_care) {
+      await alertsRepo.createAlert({
+        userId,
+        type: "urgent",
+        title: "Требуется срочная консультация",
+        description: safety.urgent_reason || "ИИ рекомендует срочно обратиться к врачу",
+        priority: "urgent",
+        relatedTeeth: [],
+      });
+    }
+  } catch (err) {
+    console.error("Error processing state updates:", err);
+  }
+}
+
 export default function AIChatScreen() {
   const { theme } = useTheme();
   const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const flatListRef = useRef<FlatList>(null);
-  const qc = useQueryClient();
+
+  const { profile } = useProfile();
+  const { toothData } = useToothData();
+  const { latestResult: testResult } = useTestResults();
 
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputText, setInputText] = useState("");
@@ -121,10 +220,48 @@ export default function AIChatScreen() {
         .slice(-10)
         .map((m) => ({ role: m.role, content: m.content }));
 
+      const [upcomingEvents, existingFilesList] = await Promise.all([
+        user?.id ? calendarRepo.getUpcomingCalendarEvents(user.id) : Promise.resolve([]),
+        user?.id ? filesRepo.getAllToothFiles(user.id) : Promise.resolve([]),
+      ]);
+
+      const userContext = {
+        profile: profile ? {
+          age: profile.age,
+          brushingFrequency: profile.brushingFrequency,
+          usesFloss: profile.usesFloss,
+          usesIrrigator: profile.usesIrrigator,
+          hasBraces: profile.hasBraces,
+          hasSensitivity: profile.hasSensitivity,
+          hasGumBleeding: profile.hasGumBleeding,
+          hasCrownsVeneers: profile.hasCrownsVeneers,
+          hasRemovableDentures: profile.hasRemovableDentures,
+          hasImplants: profile.hasImplants,
+        } : null,
+        toothData: toothData?.map((t) => ({ toothNumber: t.toothNumber, problems: t.problems, notes: t.notes })) || [],
+        latestTest: testResult ? {
+          teethRiskScore: testResult.teethRiskScore,
+          gumsRiskScore: testResult.gumsRiskScore,
+          overallRiskLevel: testResult.overallRiskLevel,
+        } : null,
+        upcomingEvents: upcomingEvents.map((e) => ({
+          title: e.title,
+          date: e.date,
+          time: e.time,
+          type: e.type,
+          description: e.description,
+        })),
+        existingFiles: existingFilesList.map((f) => ({
+          fileName: f.fileName,
+          aiDescription: f.aiDescription || f.description,
+          fileType: f.fileType,
+        })),
+      };
+
       const payload: any = {
         message: text,
-        userId: user?.id,
         history: chatHistory,
+        userContext,
       };
 
       if (files.length > 0) {
@@ -139,7 +276,7 @@ export default function AIChatScreen() {
       const response = await apiRequest("POST", new URL("/api/chat", getApiUrl()).toString(), payload);
       return response.json();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       const assistantMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
@@ -147,9 +284,23 @@ export default function AIChatScreen() {
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
-      // Invalidate files cache if new files were saved
-      if (data._savedFiles?.length > 0 && user?.id) {
-        qc.invalidateQueries({ queryKey: [`/api/tooth-files/${user.id}`] });
+
+      if (user?.id) {
+        const savedDescriptions: Record<string, string | null> = {};
+        if (Array.isArray(data._savedFiles)) {
+          for (const sf of data._savedFiles) {
+            savedDescriptions[sf.fileName || sf.file_name] = sf.aiDescription || sf.ai_description || null;
+          }
+        }
+
+        for (const file of variables.files) {
+          const desc = savedDescriptions[file.name] ?? null;
+          await saveFileLocally(user.id, file, desc);
+        }
+
+        if (data.state_updates || data.safety) {
+          await processStateUpdates(user.id, data.state_updates, data.safety);
+        }
       }
     },
     onError: () => {
@@ -179,7 +330,6 @@ export default function AIChatScreen() {
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
       const mimeType = asset.mimeType || "application/octet-stream";
-      // Only allow images and PDFs for now
       const supported = mimeType.startsWith("image/") || mimeType === "application/pdf";
       if (!supported) {
         Alert.alert(
@@ -188,7 +338,6 @@ export default function AIChatScreen() {
         );
         return;
       }
-      // Convert to base64
       const base64Data = await FileSystem.readAsStringAsync(asset.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });

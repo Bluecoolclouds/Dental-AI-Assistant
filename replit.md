@@ -5,17 +5,29 @@
 This is a React Native mobile application for dental health monitoring built with Expo. The app helps users track oral health through an interactive tooth map, health questionnaires, and AI-powered recommendations. Users can mark dental problems on a 32-tooth diagram, complete health assessments, and receive personalized care suggestions based on their data.
 
 **Primary Technologies:**
-- React Native (Expo SDK 54) with new architecture enabled
-- Express.js backend with PostgreSQL database
-- OpenAI integration for AI recommendations
+- React Native (Expo SDK 55, RN 0.83.2, React 19.2.0)
+- Expo SDK 55 with new architecture + React Compiler
+- Express.js backend (AI routes only) — data stored locally on device
+- Anthropic Claude (claude-opus-4-5 main, claude-haiku-4-5 fast)
+- expo-sqlite for local device database (all user data)
+- expo-secure-store for auth token
+- expo-file-system + expo-sharing for local file management
 - React Navigation (stack + bottom tabs)
-- TanStack Query for data fetching
-- Drizzle ORM for database operations
+- TanStack Query for AI mutation requests
+- Custom local data hooks (useLocalData.ts)
+
+## Architecture — LOCAL FIRST
+
+All user data is stored on the device in SQLite (`client/storage/database.ts`). The server is only used for AI API calls (Anthropic Claude). This means:
+- App works standalone as an APK without server dependency for core features
+- Server required only for: AI chat, AI recommendations, AI calendar suggestions
+- Files (X-rays, photos, PDFs) stored in device's document directory via expo-file-system
+- Calendar events, tooth data, profiles, alerts — all local SQLite
 
 ## Recent Changes
-- **2026-03-09**: Added Calendar feature — `calendar_events` DB table, full CRUD API (`/api/calendar`), AI event suggestions endpoint (`/api/calendar/ai-suggest/:userId`), and `CalendarScreen` with custom monthly grid, swipe navigation, event management (add/edit/delete/complete), type badges (appointment/reminder/personal/AI), and AI suggestions button. Replaced AnalysisTab with CalendarTab in bottom navigation.
-- **2026-03-09**: Upgraded to Expo SDK 55 (from SDK 54). Updated react-native to 0.83.2, react to 19.2.0, and all expo-* packages to SDK 55 compatible versions. Added `EXPO_NO_REACT_NATIVE_DEVTOOLS=1` and `CI=1` to dev script to prevent DevTools download issues in Replit environment.
-- **2026-03-09**: Migrated from Replit Agent to Replit environment. Installed missing `tsx` and related packages, provisioned PostgreSQL database, pushed schema with drizzle-kit, and configured the workflow to serve on port 5000 with webview output.
+- **2026-03-10**: MAJOR — Migrated to local-first architecture. All user data (calendar, files, profile, teeth, test results, alerts) now stored in local SQLite on device. Server only handles AI calls. Added `calendar_events` table + `calendarRepository.ts`. Refactored CalendarScreen, MaterialsScreen, AIChatScreen to use local storage. Modified server `/api/chat` to accept `userContext` from client (instead of fetching from server DB). Files uploaded in chat are now saved locally via expo-file-system. Added expo-sharing for file opening.
+- **2026-03-09**: Added Calendar feature — `calendar_events` DB table, full CRUD API, CalendarScreen redesign with gradient header, timeline events, animated bottom sheet modal, FDI tooth numbering.
+- **2026-03-09**: Upgraded to Expo SDK 55. Auth bottom sheet fixed for Android. MaterialsScreen top padding fix.
 - **2026-02-24**: Design overhaul - migrated from teal (#0097A7) to blue (#4A90D9) "Dentcor" theme
   - Updated color palette in constants/theme.ts
   - Redesigned WelcomeScreen with blue gradient splash, tooth illustrations, branding
