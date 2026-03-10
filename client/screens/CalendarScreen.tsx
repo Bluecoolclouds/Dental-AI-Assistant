@@ -419,15 +419,19 @@ export default function CalendarScreen() {
                   </View>
                   {dayEvents.length > 0 && (
                     <View style={styles.dotsRow}>
-                      {dayEvents.slice(0, 3).map((e, i) => (
-                        <View
-                          key={i}
-                          style={[
-                            styles.dot,
-                            { backgroundColor: isSelected ? "rgba(255,255,255,0.7)" : (EVENT_COLORS[e.type] || "#4A90D9") },
-                          ]}
-                        />
-                      ))}
+                      {dayEvents.slice(0, 3).map((e, i) => {
+                        const isReminder = e.type === "reminder";
+                        return (
+                          <View
+                            key={i}
+                            style={[
+                              styles.dot,
+                              isReminder && styles.dotLarge,
+                              { backgroundColor: isSelected ? "rgba(255,255,255,0.85)" : (EVENT_COLORS[e.type] || "#4A90D9") },
+                            ]}
+                          />
+                        );
+                      })}
                     </View>
                   )}
                 </Pressable>
@@ -859,9 +863,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 2,
     marginTop: 2,
-    height: 4,
+    height: 8,
+    alignItems: "center",
   },
-  dot: { width: 4, height: 4, borderRadius: 2 },
+  dot: { width: 5, height: 5, borderRadius: 3 },
+  dotLarge: { width: 8, height: 8, borderRadius: 4 },
   headerBottom: { height: Spacing.lg },
 
   eventsSection: {
