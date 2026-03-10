@@ -145,9 +145,12 @@ export default function WelcomeScreen() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (_, g) =>
-        g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+        g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+      onMoveShouldSetPanResponderCapture: (_, g) =>
+        g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
       onPanResponderMove: (_, g) => {
         if (g.dy > 0) {
           translateY.setValue(g.dy);
@@ -169,6 +172,7 @@ export default function WelcomeScreen() {
           }).start();
         }
       },
+      onPanResponderTerminationRequest: () => false,
     })
   ).current;
 
@@ -486,10 +490,11 @@ const styles = StyleSheet.create({
     }),
   },
   dragArea: {
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.lg,
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.sm,
+    paddingBottom: Spacing.lg,
     alignItems: "center",
+    minHeight: 72,
   },
   sheetHandle: {
     width: 40,
