@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppIcon from "@/components/Icons";
 
@@ -42,7 +42,12 @@ export default function DisclaimerScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.xl }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
             <View style={[styles.progressFill, { backgroundColor: theme.primary, width: "100%" }]} />
@@ -91,13 +96,13 @@ export default function DisclaimerScreen() {
             {t("onboarding.disclaimer.accept")}
           </ThemedText>
         </Pressable>
-      </View>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
-        <Button onPress={handleComplete} disabled={!accepted || isLoading}>
-          {isLoading ? <ActivityIndicator color="#FFFFFF" /> : t("onboarding.disclaimer.begin")}
-        </Button>
-      </View>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
+          <Button onPress={handleComplete} disabled={!accepted || isLoading}>
+            {isLoading ? <ActivityIndicator color="#FFFFFF" /> : t("onboarding.disclaimer.begin")}
+          </Button>
+        </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -106,8 +111,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  content: {
     padding: Spacing["2xl"],
   },
   progressContainer: {
@@ -166,6 +173,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    padding: Spacing["2xl"],
+    paddingTop: Spacing["2xl"],
   },
 });
