@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, ScrollView, Pressable, Platform } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Platform, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -12,8 +12,10 @@ import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useTestResults, useAlerts } from "@/hooks/useLocalData";
+import { getDefaultAvatar } from "@/utils/defaultAvatar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -62,11 +64,13 @@ export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user } = useAuthContext();
+  const { profile } = useProfile();
 
   const { latestResult: testResult } = useTestResults();
   const { alerts, dismissAlert } = useAlerts();
 
   const userName = user?.email?.split("@")[0] || "Пациент";
+  const defaultAvatar = getDefaultAvatar(profile?.gender ?? null, user?.id ?? "default");
   
   const urgentAlerts = alerts.filter((a) => a.type === "urgent" || a.priority === "urgent");
   const teethAtRiskAlerts = alerts.filter((a) => a.type === "teeth_at_risk");
@@ -87,14 +91,19 @@ export default function HomeScreen() {
         <View style={[styles.headerCard, { paddingTop: insets.top + Spacing.lg }]}>
           <View style={styles.header}>
             <View style={styles.userInfo}>
-              <LinearGradient
-                colors={["#5B9FE3", "#4A90D9"]}
-                style={styles.avatar}
-              >
-                <ThemedText style={styles.avatarText}>
-                  {userName.charAt(0).toUpperCase()}
-                </ThemedText>
-              </LinearGradient>
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <LinearGradient
+                  colors={defaultAvatar.colors}
+                  style={styles.avatar}
+                >
+                  <AppIcon name={defaultAvatar.icon as any} size={22} color="#FFFFFF" />
+                </LinearGradient>
+              )}
               <View>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
                   Привет 👋
