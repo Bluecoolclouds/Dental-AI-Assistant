@@ -66,12 +66,12 @@ async function cancelDentalReminders() {
 }
 
 const MENU_ITEMS = [
-  { icon: "clipboard" as const, label: "Анкета здоровья", color: "#0D9488" },
-  { icon: "folder" as const, label: "Материалы", color: "#F59E0B" },
-  { icon: "heart" as const, label: "Избранные врачи", color: "#EF4444" },
-  { icon: "bell" as const, label: "Уведомления", color: "#4A90D9" },
-  { icon: "settings" as const, label: "Настройки", color: "#6B7280" },
-  { icon: "help-circle" as const, label: "Центр помощи", color: "#8B5CF6" },
+  { icon: "user" as const, label: "О себе", color: "#4A90D9", route: "AboutMe" },
+  { icon: "clipboard" as const, label: "Анкета здоровья", color: "#0D9488", route: null },
+  { icon: "folder" as const, label: "Материалы", color: "#F59E0B", route: "Materials" },
+  { icon: "heart" as const, label: "Избранные врачи", color: "#EF4444", route: null },
+  { icon: "bell" as const, label: "Уведомления", color: "#4A90D9", route: "Notifications" },
+  { icon: "settings" as const, label: "Настройки", color: "#6B7280", route: null },
 ];
 
 export default function ProfileScreen() {
@@ -198,7 +198,7 @@ export default function ProfileScreen() {
     );
   };
 
-  const userName = user?.email?.split("@")[0] || "Пользователь";
+  const userName = profile?.displayName || user?.email?.split("@")[0] || "Пользователь";
 
   return (
     <KeyboardAwareScrollViewCompat
@@ -268,10 +268,8 @@ export default function ProfileScreen() {
             <Pressable
               key={item.label}
               onPress={() => {
-                if (item.label === "Уведомления") {
-                  navigation.navigate("Notifications");
-                } else if (item.label === "Материалы") {
-                  navigation.navigate("Materials");
+                if (item.route) {
+                  navigation.navigate(item.route as any);
                 }
               }}
               style={({ pressed }) => [

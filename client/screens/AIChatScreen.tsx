@@ -227,6 +227,13 @@ export default function AIChatScreen() {
 
       const userContext = {
         profile: profile ? {
+          displayName: profile.displayName,
+          birthDate: profile.birthDate,
+          gender: profile.gender,
+          goals: profile.goals,
+          location: profile.location,
+          allergyToAnesthetics: profile.allergyToAnesthetics,
+          seriousIllnesses: profile.seriousIllnesses,
           age: profile.age,
           brushingFrequency: profile.brushingFrequency,
           usesFloss: profile.usesFloss,

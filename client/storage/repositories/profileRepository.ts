@@ -7,6 +7,9 @@ export interface UserProfile {
   birthDate: string | null;
   gender: string | null;
   goals: string | null;
+  location: string | null;
+  allergyToAnesthetics: string | null;
+  seriousIllnesses: string | null;
   age: number | null;
   brushingFrequency: string | null;
   usesFloss: boolean;
@@ -28,6 +31,9 @@ export interface CreateProfileInput {
   birthDate?: string;
   gender?: string;
   goals?: string;
+  location?: string;
+  allergyToAnesthetics?: string;
+  seriousIllnesses?: string;
   age?: number;
   brushingFrequency?: string;
   usesFloss?: boolean;
@@ -50,6 +56,9 @@ function rowToProfile(row: any): UserProfile {
     birthDate: row.birth_date ?? null,
     gender: row.gender ?? null,
     goals: row.goals ?? null,
+    location: row.location ?? null,
+    allergyToAnesthetics: row.allergy_to_anesthetics ?? null,
+    seriousIllnesses: row.serious_illnesses ?? null,
     age: row.age,
     brushingFrequency: row.brushing_frequency,
     usesFloss: !!row.uses_floss,
@@ -145,6 +154,18 @@ export async function updateProfile(userId: string, updates: Partial<CreateProfi
   if (updates.goals !== undefined) {
     setClauses.push("goals = ?");
     values.push(updates.goals);
+  }
+  if (updates.location !== undefined) {
+    setClauses.push("location = ?");
+    values.push(updates.location);
+  }
+  if (updates.allergyToAnesthetics !== undefined) {
+    setClauses.push("allergy_to_anesthetics = ?");
+    values.push(updates.allergyToAnesthetics);
+  }
+  if (updates.seriousIllnesses !== undefined) {
+    setClauses.push("serious_illnesses = ?");
+    values.push(updates.seriousIllnesses);
   }
   if (updates.age !== undefined) {
     setClauses.push("age = ?");
