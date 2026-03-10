@@ -272,6 +272,7 @@ export const PROBLEM_TYPES = [
   "bleeding",
   "sensitivity",
   "cavity",
+  "treated",
 ] as const;
 
 export type ProblemType = typeof PROBLEM_TYPES[number];

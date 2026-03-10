@@ -22,6 +22,7 @@ const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Ap
   bleeding: { label: "Кровоточивость", icon: "droplet", color: "#E91E63", description: "Кровоточивость дёсен может быть признаком гингивита" },
   sensitivity: { label: "Чувствительность", icon: "wind", color: "#F5A623", description: "Повышенная чувствительность может указывать на обнажение дентина" },
   cavity: { label: "Кариес", icon: "circle", color: "#795548", description: "Кариес требует лечения у стоматолога" },
+  treated: { label: "Вылечен", icon: "check-circle", color: "#4CAF50", description: "Зуб был успешно вылечен у стоматолога" },
 };
 
 export default function ToothDetailScreen() {

@@ -84,9 +84,10 @@ export function useToothData() {
     if (!user?.id) return;
     try {
       const existingTooth = toothData.find((t) => t.toothNumber === toothNumber);
-      const existingProblems = existingTooth?.problems || [];
+      const existingProblems = (existingTooth?.problems || []).filter((p) => p !== "treated");
       
-      const newProblems = problems.filter((p) => !existingProblems.includes(p));
+      const realProblems = problems.filter((p) => p !== "treated");
+      const newProblems = realProblems.filter((p) => !existingProblems.includes(p));
       const urgentNewProblems = newProblems.filter((p) => URGENT_PROBLEMS.includes(p));
 
       await toothRepo.createOrUpdateTooth({
@@ -118,7 +119,41 @@ export function useToothData() {
     }
   }, [user?.id, load, toothData]);
 
-  return { toothData, isLoading, saveTooth, refetch: load };
+  const markToothAsHealed = useCallback(async (toothNumber: number, notes?: string) => {
+    if (!user?.id) return;
+    try {
+      const existingTooth = toothData.find((t) => t.toothNumber === toothNumber);
+      const existingProblems = (existingTooth?.problems || []).filter((p) => p !== "treated");
+
+      if (existingProblems.length > 0) {
+        const problemNames = existingProblems.map((p) => PROBLEM_LABELS[p] || p).join(", ");
+        await historyRepo.createToothHistory({
+          userId: user.id,
+          toothId: toothNumber.toString(),
+          eventType: "treated",
+          reason: `Зуб вылечен. Ранее отмечено: ${problemNames}`,
+          priority: "normal",
+          markForCheck: false,
+          source: "user",
+          treatmentDetails: notes || null,
+        });
+      }
+
+      await toothRepo.createOrUpdateTooth({
+        userId: user.id,
+        toothNumber,
+        problems: ["treated"],
+        notes: existingTooth?.notes || undefined,
+      });
+
+      await load();
+    } catch (error) {
+      console.error("Error marking tooth as healed:", error);
+      throw error;
+    }
+  }, [user?.id, load, toothData]);
+
+  return { toothData, isLoading, saveTooth, markToothAsHealed, refetch: load };
 }
 
 export function useTestResults() {

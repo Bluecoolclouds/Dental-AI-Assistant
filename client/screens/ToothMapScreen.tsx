@@ -36,6 +36,7 @@ const PROBLEM_CONFIG: Record<ProblemType, { label: string; icon: keyof typeof Ap
   bleeding: { label: "Кровоточ.", icon: "droplet", color: "#E91E63" },
   sensitivity: { label: "Чувствит.", icon: "wind", color: "#FF9800" },
   cavity: { label: "Кариес", icon: "circle", color: "#795548" },
+  treated: { label: "Вылечен", icon: "check-circle", color: "#4CAF50" },
 };
 
 interface ToothPosition {
@@ -138,7 +139,7 @@ export default function ToothMapScreen() {
   const [isUpdatingHistory, setIsUpdatingHistory] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
-  const { toothData, isLoading, saveTooth } = useToothData();
+  const { toothData, isLoading, saveTooth, markToothAsHealed } = useToothData();
   const { history: historyData, createHistory, updateHistory } = useToothHistory();
   const { files: filesData, uploadFile, deleteFile } = useToothFiles();
 
@@ -272,6 +273,7 @@ export default function ToothMapScreen() {
   const getToothProblemColor = useCallback((toothNumber: number): string => {
     const problems = getToothProblems(toothNumber);
     if (problems.length === 0) return theme.border;
+    if (problems.includes("treated")) return PROBLEM_CONFIG.treated.color;
     const firstProblem = problems[0] as ProblemType;
     return PROBLEM_CONFIG[firstProblem]?.color || theme.border;
   }, [getToothProblems, theme]);
@@ -283,7 +285,7 @@ export default function ToothMapScreen() {
   const handleProblemToggle = async (problem: ProblemType) => {
     if (!selectedTooth) return;
 
-    const currentProblems = getToothProblems(selectedTooth);
+    const currentProblems = getToothProblems(selectedTooth).filter((p) => p !== "treated");
     const newProblems = currentProblems.includes(problem)
       ? currentProblems.filter((p) => p !== problem)
       : [...currentProblems, problem];
@@ -292,6 +294,16 @@ export default function ToothMapScreen() {
     setIsSaving(true);
     try {
       await saveTooth(selectedTooth, newProblems, notes);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMarkAsHealed = async () => {
+    if (!selectedTooth) return;
+    setIsSaving(true);
+    try {
+      await markToothAsHealed(selectedTooth);
     } finally {
       setIsSaving(false);
     }
@@ -504,14 +516,23 @@ export default function ToothMapScreen() {
               </Pressable>
             </View>
 
+            {getToothProblems(selectedTooth).includes("treated") ? (
+              <View style={[styles.treatedBanner, { backgroundColor: "#E8F5E9", borderColor: "#4CAF50" }]}>
+                <AppIcon name="check-circle" size={18} color="#4CAF50" />
+                <ThemedText type="small" style={{ color: "#2E7D32", flex: 1 }}>
+                  Зуб вылечен. Чтобы снова отмечать проблемы, выберите их ниже — статус "вылечен" будет снят.
+                </ThemedText>
+              </View>
+            ) : null}
+
             <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
               Отметьте проблемы:
             </ThemedText>
 
             <View style={styles.problemsGrid}>
-              {PROBLEM_TYPES.map((problem) => {
+              {PROBLEM_TYPES.filter((p) => p !== "treated").map((problem) => {
                 const config = PROBLEM_CONFIG[problem];
-                const isActive = getToothProblems(selectedTooth).includes(problem);
+                const isActive = getToothProblems(selectedTooth).filter((p) => p !== "treated").includes(problem);
                 return (
                   <Pressable
                     key={problem}
@@ -536,6 +557,22 @@ export default function ToothMapScreen() {
                 );
               })}
             </View>
+
+            {!getToothProblems(selectedTooth).includes("treated") && (
+              <Pressable
+                onPress={handleMarkAsHealed}
+                disabled={isSaving}
+                style={({ pressed }) => [
+                  styles.healedButton,
+                  { opacity: pressed || isSaving ? 0.7 : 1 }
+                ]}
+              >
+                <AppIcon name="check-circle" size={18} color="#4CAF50" />
+                <ThemedText type="small" style={{ color: "#2E7D32", fontWeight: "600" }}>
+                  Отметить как вылеченный
+                </ThemedText>
+              </Pressable>
+            )}
 
             <View style={styles.customNoteSection}>
               <Pressable
@@ -1236,6 +1273,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1.5,
+  },
+  treatedBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  healedButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: "#4CAF50",
+    backgroundColor: "#E8F5E9",
   },
   savingIndicator: {
     flexDirection: "row",
