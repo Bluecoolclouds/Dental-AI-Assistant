@@ -61,7 +61,7 @@ function ToothIllustration({ style }: { style?: any }) {
   );
 }
 
-function DentcorLogo() {
+function ToothyLogo() {
   return (
     <View style={styles.logoContainer}>
       <Svg width={40} height={40} viewBox="0 0 40 40">
@@ -74,7 +74,7 @@ function DentcorLogo() {
         />
       </Svg>
       <View>
-        <ThemedText style={styles.logoText}>Dentcor</ThemedText>
+        <ThemedText style={styles.logoText}>Toothy</ThemedText>
         <ThemedText style={styles.logoSubtext}>DENTAL CARE</ThemedText>
       </View>
     </View>
@@ -276,7 +276,7 @@ export default function AuthScreen() {
         style={styles.gradientBackground}
       >
         <View style={[styles.headerSection, { paddingTop: insets.top + Spacing.xl }]}>
-          <DentcorLogo />
+          <ToothyLogo />
           <View style={styles.heroContent}>
             <ThemedText style={styles.heroTitle}>
               {step === "verify" ? t("auth.checkEmail") : isLogin ? t("auth.welcomeBack") : t("auth.feelConfident")}

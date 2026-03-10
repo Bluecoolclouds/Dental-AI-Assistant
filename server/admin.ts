@@ -146,7 +146,7 @@ export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Dentcor — Аналитика</title>
+<title>Toothy — Аналитика</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -181,7 +181,7 @@ export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>
 <header>
   <svg width="28" height="28" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="white"/><path d="M13,18 C13,12 16,9 20,9 C24,9 27,12 27,18 L26,28 C26,31 25,34 23,34 C22,34 21,32 20.5,30 L20,30 L19.5,30 C19,32 18,34 17,34 C15,34 14,31 14,28 Z" fill="#4A90D9"/></svg>
   <div>
-    <h1>Dentcor Admin</h1>
+    <h1>Toothy Admin</h1>
     <span>Панель аналитики · ${new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}</span>
   </div>
 </header>
@@ -247,7 +247,7 @@ export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>
   </table>
 </div>
 
-<footer>Dentcor Admin · Данные обновляются при каждом открытии страницы</footer>
+<footer>Toothy Admin · Данные обновляются при каждом открытии страницы</footer>
 
 <script>
 const PROB_RU = ${JSON.stringify(PROBLEM_RU)};

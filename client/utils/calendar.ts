@@ -17,16 +17,16 @@ async function getDefaultCalendarId(): Promise<string | null> {
 
   if (Platform.OS === "android") {
     const newCalendarId = await Calendar.createCalendarAsync({
-      title: "Dentcor",
-      color: "#0097A7",
+      title: "Toothy",
+      color: "#4A90D9",
       entityType: Calendar.EntityTypes.EVENT,
       source: {
         isLocalAccount: true,
-        name: "Dentcor",
+        name: "Toothy",
         type: Calendar.CalendarType.LOCAL,
       },
-      name: "Dentcor",
-      ownerAccount: "dentcor",
+      name: "Toothy",
+      ownerAccount: "toothy",
       accessLevel: Calendar.CalendarAccessLevel.OWNER,
     });
     return newCalendarId;

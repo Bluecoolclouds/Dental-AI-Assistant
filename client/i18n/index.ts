@@ -6,7 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ru from "./ru.json";
 import en from "./en.json";
 
-export const LANGUAGE_KEY = "@dentcor_language";
+export const LANGUAGE_KEY = "@toothy_language";
 
 export const SUPPORTED_LANGUAGES = ["ru", "en"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];

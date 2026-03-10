@@ -260,7 +260,7 @@ export default function WelcomeScreen() {
         <View style={styles.brandRow}>
           <ToothLogo />
           <View>
-            <ThemedText style={styles.brandName}>Dentcor</ThemedText>
+            <ThemedText style={styles.brandName}>Toothy</ThemedText>
             <ThemedText style={styles.brandSub}>DENTAL CARE</ThemedText>
           </View>
         </View>

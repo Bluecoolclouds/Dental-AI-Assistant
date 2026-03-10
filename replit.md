@@ -32,7 +32,7 @@ This is a React Native mobile application for dental health monitoring built wit
 - **2026-03-10**: MAJOR — Migrated to local-first architecture. All user data (calendar, files, profile, teeth, test results, alerts) now stored in local SQLite on device. Server only handles AI calls. Added `calendar_events` table + `calendarRepository.ts`. Refactored CalendarScreen, MaterialsScreen, AIChatScreen to use local storage. Modified server `/api/chat` to accept `userContext` from client (instead of fetching from server DB). Files uploaded in chat are now saved locally via expo-file-system. Added expo-sharing for file opening.
 - **2026-03-09**: Added Calendar feature — `calendar_events` DB table, full CRUD API, CalendarScreen redesign with gradient header, timeline events, animated bottom sheet modal, FDI tooth numbering.
 - **2026-03-09**: Upgraded to Expo SDK 55. Auth bottom sheet fixed for Android. MaterialsScreen top padding fix.
-- **2026-02-24**: Design overhaul - migrated from teal (#0097A7) to blue (#4A90D9) "Dentcor" theme
+- **2026-02-24**: Design overhaul - migrated from teal (#0097A7) to blue (#4A90D9) "Toothy" theme
   - Updated color palette in constants/theme.ts
   - Redesigned WelcomeScreen with blue gradient splash, tooth illustrations, branding
   - Redesigned HomeScreen with rounded header card, gradient promo banner, colored quick actions

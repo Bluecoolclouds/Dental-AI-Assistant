@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Здоровье Зубов",
-    "slug": "dental-health",
+    "name": "Toothy",
+    "slug": "toothy",
     "version": "1.0.0",
     "updates": {
       "enabled": false,
@@ -9,12 +9,12 @@
     },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dentalhealth",
+    "scheme": "toothy",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dentalhealth.app"
+      "bundleIdentifier": "com.toothy.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.dentalhealth.app"
+      "package": "com.toothy.app"
     },
     "web": {
       "output": "single",
