@@ -60,7 +60,7 @@ export async function sendVerificationEmail(to: string, code: string): Promise<v
 `;
 
   const result = await resend.emails.send({
-    from: "Dentcor <onboarding@resend.dev>",
+    from: "Dentcor <noreply@artificecheat.ru>",
     to,
     subject: `${code} — ваш код подтверждения Dentcor`,
     html,
