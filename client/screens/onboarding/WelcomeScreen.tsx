@@ -101,12 +101,21 @@ export default function WelcomeScreen() {
   };
 
   const sheetY = useSharedValue(SCREEN_HEIGHT);
+  const sheetHeight = useSharedValue(SCREEN_HEIGHT * 0.75);
+  const sheetRadius = useSharedValue(28);
 
   const hideSheet = () => setSheetVisible(false);
 
   const animateOpen = () => {
     sheetY.value = SCREEN_HEIGHT;
+    sheetHeight.value = SCREEN_HEIGHT * 0.75;
+    sheetRadius.value = 28;
     sheetY.value = withSpring(0, { damping: 22, stiffness: 280, mass: 0.9 });
+  };
+
+  const animateToFullScreen = () => {
+    sheetHeight.value = withSpring(SCREEN_HEIGHT, { damping: 24, stiffness: 240, mass: 1 });
+    sheetRadius.value = withTiming(0, { duration: 380 });
   };
 
   const animateClose = (onDone?: () => void) => {
@@ -150,6 +159,7 @@ export default function WelcomeScreen() {
       if (data.devMode) setDevMode(true);
       setRegisterStep("code");
       startCountdown(60);
+      animateToFullScreen();
     } catch (err: any) {
       const raw = err?.message || "";
       const statusMatch = raw.match(/^(\d+):\s*([\s\S]*)/);
@@ -254,6 +264,9 @@ export default function WelcomeScreen() {
 
   const animatedSheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: sheetY.value }],
+    height: sheetHeight.value,
+    borderTopLeftRadius: sheetRadius.value,
+    borderTopRightRadius: sheetRadius.value,
   }));
 
   const isLogin = authMode === "login";
@@ -638,7 +651,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: SCREEN_HEIGHT * 0.75,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
