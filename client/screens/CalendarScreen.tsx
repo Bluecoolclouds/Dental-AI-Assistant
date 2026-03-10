@@ -86,18 +86,36 @@ function todayStr() {
 type FormState = {
   title: string;
   description: string;
-  date: string;
-  time: string;
+  dateDay: string;
+  dateMonth: string;
+  dateYear: string;
+  timeHour: string;
+  timeMinute: string;
   type: string;
 };
 
 const EMPTY_FORM: FormState = {
   title: "",
   description: "",
-  date: "",
-  time: "",
+  dateDay: "",
+  dateMonth: "",
+  dateYear: "",
+  timeHour: "",
+  timeMinute: "",
   type: "personal",
 };
+
+function parseDateToForm(dateStr: string): { dateDay: string; dateMonth: string; dateYear: string } {
+  if (!dateStr) return { dateDay: "", dateMonth: "", dateYear: "" };
+  const [y, m, d] = dateStr.split("-");
+  return { dateDay: d ? String(parseInt(d)) : "", dateMonth: m ? String(parseInt(m)) : "", dateYear: y || "" };
+}
+
+function parseTimeToForm(timeStr?: string | null): { timeHour: string; timeMinute: string } {
+  if (!timeStr) return { timeHour: "", timeMinute: "" };
+  const [h, m] = timeStr.split(":");
+  return { timeHour: h ? String(parseInt(h)) : "", timeMinute: m || "" };
+}
 
 export default function CalendarScreen() {
   const { theme } = useTheme();
@@ -235,7 +253,7 @@ export default function CalendarScreen() {
 
   const openAddModal = () => {
     setEditingEvent(null);
-    setForm({ ...EMPTY_FORM, date: selectedDate });
+    setForm({ ...EMPTY_FORM, ...parseDateToForm(selectedDate) });
     setModalVisible(true);
   };
 
@@ -244,8 +262,8 @@ export default function CalendarScreen() {
     setForm({
       title: event.title,
       description: event.description || "",
-      date: event.date,
-      time: event.time || "",
+      ...parseDateToForm(event.date),
+      ...parseTimeToForm(event.time),
       type: event.type,
     });
     setModalVisible(true);
@@ -256,15 +274,19 @@ export default function CalendarScreen() {
       Alert.alert("Ошибка", "Введите название события");
       return;
     }
-    if (!form.date) {
+    if (!form.dateDay || !form.dateMonth || !form.dateYear) {
       Alert.alert("Ошибка", "Укажите дату");
       return;
     }
+    const dateStr = `${form.dateYear}-${form.dateMonth.padStart(2, "0")}-${form.dateDay.padStart(2, "0")}`;
+    const timeStr = form.timeHour
+      ? `${form.timeHour.padStart(2, "0")}:${(form.timeMinute || "00").padStart(2, "0")}`
+      : undefined;
     const payload = {
       title: form.title.trim(),
       description: form.description.trim() || undefined,
-      date: form.date,
-      time: form.time.trim() || undefined,
+      date: dateStr,
+      time: timeStr,
       type: form.type,
       source: "user" as const,
     };
@@ -397,7 +419,7 @@ export default function CalendarScreen() {
           {eventsQuery.isLoading ? (
             <ActivityIndicator color={theme.primary} style={{ marginTop: Spacing["3xl"] }} />
           ) : selectedEvents.length === 0 ? (
-            <View style={[styles.emptyCard, { backgroundColor: theme.background }]}>
+            <View style={[styles.emptyCard, { backgroundColor: theme.backgroundDefault }]}>
               <View style={[styles.emptyIconBg, { backgroundColor: theme.primary + "15" }]}>
                 <AppIcon name="calendar" size={28} color={theme.primary} />
               </View>
@@ -458,7 +480,7 @@ export default function CalendarScreen() {
             <Animated.View
               style={[
                 styles.sheet,
-                { backgroundColor: theme.background, paddingBottom: insets.bottom + Spacing.xl },
+                { backgroundColor: theme.backgroundDefault, paddingBottom: insets.bottom + Spacing.xl },
                 animatedSheetStyle,
               ]}
             >
@@ -488,28 +510,69 @@ export default function CalendarScreen() {
                   />
                 </View>
 
-                {/* Date + Time row */}
-                <View style={styles.formRow}>
-                  <View style={[styles.formField, { flex: 1, marginRight: Spacing.sm }]}>
-                    <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Дата *</ThemedText>
+                {/* Date row */}
+                <View style={styles.formField}>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Дата *</ThemedText>
+                  <View style={styles.dateRow}>
                     <TextInput
-                      style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                      placeholder="ГГГГ-ММ-ДД"
+                      style={[styles.datePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                      placeholder="ДД"
                       placeholderTextColor={theme.textSecondary}
-                      value={form.date}
-                      onChangeText={(v) => setForm((f) => ({ ...f, date: v }))}
+                      value={form.dateDay}
+                      onChangeText={(v) => setForm((f) => ({ ...f, dateDay: v.replace(/\D/g, "").slice(0, 2) }))}
                       keyboardType="numeric"
+                      maxLength={2}
+                      textAlign="center"
+                    />
+                    <ThemedText style={[styles.dateSep, { color: theme.textSecondary }]}>/</ThemedText>
+                    <TextInput
+                      style={[styles.datePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                      placeholder="ММ"
+                      placeholderTextColor={theme.textSecondary}
+                      value={form.dateMonth}
+                      onChangeText={(v) => setForm((f) => ({ ...f, dateMonth: v.replace(/\D/g, "").slice(0, 2) }))}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      textAlign="center"
+                    />
+                    <ThemedText style={[styles.dateSep, { color: theme.textSecondary }]}>/</ThemedText>
+                    <TextInput
+                      style={[styles.yearInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                      placeholder="ГГГГ"
+                      placeholderTextColor={theme.textSecondary}
+                      value={form.dateYear}
+                      onChangeText={(v) => setForm((f) => ({ ...f, dateYear: v.replace(/\D/g, "").slice(0, 4) }))}
+                      keyboardType="numeric"
+                      maxLength={4}
+                      textAlign="center"
                     />
                   </View>
-                  <View style={[styles.formField, { flex: 1 }]}>
-                    <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Время</ThemedText>
+                </View>
+
+                {/* Time row */}
+                <View style={styles.formField}>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Время (необязательно)</ThemedText>
+                  <View style={styles.timeRow}>
                     <TextInput
-                      style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                      placeholder="ЧЧ:ММ"
+                      style={[styles.timePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                      placeholder="ЧЧ"
                       placeholderTextColor={theme.textSecondary}
-                      value={form.time}
-                      onChangeText={(v) => setForm((f) => ({ ...f, time: v }))}
+                      value={form.timeHour}
+                      onChangeText={(v) => setForm((f) => ({ ...f, timeHour: v.replace(/\D/g, "").slice(0, 2) }))}
                       keyboardType="numeric"
+                      maxLength={2}
+                      textAlign="center"
+                    />
+                    <ThemedText style={[styles.dateSep, { color: theme.textSecondary }]}>:</ThemedText>
+                    <TextInput
+                      style={[styles.timePartInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                      placeholder="ММ"
+                      placeholderTextColor={theme.textSecondary}
+                      value={form.timeMinute}
+                      onChangeText={(v) => setForm((f) => ({ ...f, timeMinute: v.replace(/\D/g, "").slice(0, 2) }))}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      textAlign="center"
                     />
                   </View>
                 </View>
@@ -962,6 +1025,44 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   typeChipText: { fontSize: 13, fontWeight: "500" },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  datePartInput: {
+    width: 52,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  yearInput: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  dateSep: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  timePartInput: {
+    width: 64,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: "600",
+  },
   saveBtn: {
     borderRadius: BorderRadius.xl,
     height: 52,
