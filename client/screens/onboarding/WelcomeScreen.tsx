@@ -18,7 +18,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle } from "react-native-svg";
-import { GestureDetector, Gesture } from "react-native-gesture-handler";
+import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -204,6 +204,7 @@ export default function WelcomeScreen() {
         statusBarTranslucent
         onShow={animateOpen}
       >
+        <GestureHandlerRootView style={styles.modalRoot}>
         <TouchableWithoutFeedback onPress={closeSheet}>
           <View style={styles.overlay} />
         </TouchableWithoutFeedback>
@@ -328,6 +329,7 @@ export default function WelcomeScreen() {
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
+        </GestureHandlerRootView>
       </Modal>
     </LinearGradient>
   );
@@ -444,6 +446,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#4A90D9",
     letterSpacing: 0.3,
+  },
+  modalRoot: {
+    flex: 1,
   },
   overlay: {
     flex: 1,
