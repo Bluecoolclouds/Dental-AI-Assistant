@@ -65,7 +65,7 @@ export function useAuth() {
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string) => {
+  const register = useCallback(async (email: string, password: string, _verificationCode?: string) => {
     try {
       const existingUser = await getUserByEmail(email);
       if (existingUser) {

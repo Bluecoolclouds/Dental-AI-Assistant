@@ -12,8 +12,9 @@ import {
   insertToothFileSchema,
   insertCalendarEventSchema,
 } from "@shared/schema";
-import { createHash } from "crypto";
+import { createHash, randomInt } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
+import { sendVerificationEmail } from "./email";
 
 function getClaude(): Anthropic | null {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -47,6 +48,65 @@ function hashPassword(password: string): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Send email verification code
+  app.post("/api/auth/send-code", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ error: "Укажите email" });
+      }
+      const emailLower = email.trim().toLowerCase();
+
+      const code = String(randomInt(100000, 999999));
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await pool.query(
+        `DELETE FROM email_verifications WHERE email = $1`,
+        [emailLower]
+      );
+      await pool.query(
+        `INSERT INTO email_verifications (email, code, expires_at, used) VALUES ($1, $2, $3, false)`,
+        [emailLower, code, expiresAt]
+      );
+
+      await sendVerificationEmail(emailLower, code);
+      return res.status(200).json({ sent: true });
+    } catch (err: any) {
+      console.error("send-code error:", err);
+      return res.status(500).json({ error: err.message || "Ошибка отправки кода" });
+    }
+  });
+
+  // Verify email code (check only, don't consume)
+  app.post("/api/auth/verify-code", async (req: Request, res: Response) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({ error: "Укажите email и код" });
+      }
+      const emailLower = email.trim().toLowerCase();
+
+      const result = await pool.query(
+        `SELECT * FROM email_verifications WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1`,
+        [emailLower, String(code).trim()]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(400).json({ error: "Неверный код" });
+      }
+      const row = result.rows[0];
+      if (new Date(row.expires_at) < new Date()) {
+        return res.status(400).json({ error: "Код истёк. Запросите новый" });
+      }
+
+      return res.status(200).json({ verified: true });
+    } catch (err: any) {
+      console.error("verify-code error:", err);
+      return res.status(500).json({ error: "Ошибка проверки кода" });
+    }
+  });
+
   // Auth Routes
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
@@ -55,17 +115,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Неверные данные" });
       }
 
-      const { email, password } = parsed.data;
+      const { email, password, verificationCode } = { ...parsed.data, verificationCode: req.body.verificationCode };
 
-      const existingUser = await storage.getUserByEmail(email);
+      const emailLower = email.trim().toLowerCase();
+
+      // Verify the email code
+      if (!verificationCode) {
+        return res.status(400).json({ error: "Требуется код подтверждения email" });
+      }
+      const verifyResult = await pool.query(
+        `SELECT * FROM email_verifications WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1`,
+        [emailLower, String(verificationCode).trim()]
+      );
+      if (verifyResult.rows.length === 0) {
+        return res.status(400).json({ error: "Неверный или истёкший код" });
+      }
+      if (new Date(verifyResult.rows[0].expires_at) < new Date()) {
+        return res.status(400).json({ error: "Код истёк" });
+      }
+
+      const existingUser = await storage.getUserByEmail(emailLower);
       if (existingUser) {
         return res.status(409).json({ error: "Пользователь уже существует" });
       }
 
       const hashedPassword = hashPassword(password);
-      const user = await storage.createUser({ email, password: hashedPassword });
-
+      const user = await storage.createUser({ email: emailLower, password: hashedPassword });
       await storage.createProfile({ userId: user.id });
+
+      // Mark code as used
+      await pool.query(
+        `UPDATE email_verifications SET used = true WHERE email = $1 AND code = $2`,
+        [emailLower, String(verificationCode).trim()]
+      );
 
       return res.status(201).json({ 
         id: user.id, 

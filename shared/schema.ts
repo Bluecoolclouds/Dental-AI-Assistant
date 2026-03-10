@@ -3,6 +3,18 @@ import { pgTable, text, varchar, integer, boolean, timestamp, jsonb } from "driz
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Email verification codes
+export const emailVerifications = pgTable("email_verifications", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  code: varchar("code", { length: 6 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Users table for authentication
 export const users = pgTable("users", {
   id: varchar("id")
