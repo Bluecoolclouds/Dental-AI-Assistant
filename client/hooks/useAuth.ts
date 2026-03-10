@@ -1,17 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  createUser,
-  getUserByEmail,
-  verifyPassword,
-  getUserById,
-} from "@/storage/repositories/userRepository";
-import {
   saveCurrentUser,
-  getCurrentUserId,
   getCurrentUserCredentials,
   clearCurrentUser,
 } from "@/storage/secureStorage";
-import { createProfile } from "@/storage/repositories/profileRepository";
+import { apiRequest } from "@/lib/query-client";
 
 export interface AuthUser {
   id: string;
@@ -26,15 +19,9 @@ export function useAuth() {
   const loadAuth = useCallback(async () => {
     try {
       const credentials = await getCurrentUserCredentials();
-      
       if (credentials) {
-        const dbUser = await getUserById(credentials.userId);
-        if (dbUser) {
-          setUser({ id: dbUser.id, email: dbUser.email });
-          setIsAuthenticated(true);
-        } else {
-          await clearCurrentUser();
-        }
+        setUser({ id: credentials.userId, email: credentials.email });
+        setIsAuthenticated(true);
       }
     } catch (error) {
       console.error("Error loading auth:", error);
@@ -49,39 +36,45 @@ export function useAuth() {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const dbUser = await verifyPassword(email, password);
-      
-      if (!dbUser) {
-        return { success: false, error: "Неверный email или пароль" };
-      }
-      
-      await saveCurrentUser(dbUser.id, dbUser.email);
-      
-      setUser({ id: dbUser.id, email: dbUser.email });
+      const resp = await apiRequest("POST", "/api/auth/login", { email, password });
+      const data = await resp.json();
+
+      await saveCurrentUser(data.id, data.email);
+      setUser({ id: data.id, email: data.email });
       setIsAuthenticated(true);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || "Ошибка входа" };
+    } catch (err: any) {
+      const msg = err?.message || "";
+      const jsonMatch = msg.match(/\{.*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return { success: false, error: parsed.error || "Ошибка входа" };
+        } catch {}
+      }
+      return { success: false, error: "Неверный email или пароль" };
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string, _verificationCode?: string) => {
+  const register = useCallback(async (email: string, password: string) => {
     try {
-      const existingUser = await getUserByEmail(email);
-      if (existingUser) {
-        return { success: false, error: "Пользователь с таким email уже существует" };
-      }
-      
-      const newUser = await createUser({ email, password });
-      
-      await createProfile({ userId: newUser.id });
-      
-      await saveCurrentUser(newUser.id, newUser.email);
-      
-      setUser({ id: newUser.id, email: newUser.email });
+      const resp = await apiRequest("POST", "/api/auth/register", { email, password });
+      const data = await resp.json();
+
+      await saveCurrentUser(data.id, data.email);
+      setUser({ id: data.id, email: data.email });
+      setIsAuthenticated(true);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message || "Ошибка регистрации" };
+    } catch (err: any) {
+      const msg = err?.message || "";
+      const jsonMatch = msg.match(/\{.*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return { success: false, error: parsed.error || "Ошибка регистрации" };
+        } catch {}
+      }
+      return { success: false, error: "Ошибка регистрации" };
     }
   }, []);
 
@@ -96,7 +89,8 @@ export function useAuth() {
   }, []);
 
   const getToken = useCallback(async () => {
-    return getCurrentUserId();
+    const credentials = await getCurrentUserCredentials();
+    return credentials?.userId ?? null;
   }, []);
 
   return {
