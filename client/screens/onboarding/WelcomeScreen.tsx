@@ -210,7 +210,6 @@ export default function WelcomeScreen() {
           </Pressable>
           <Pressable onPress={() => openSheet("register")} style={styles.primaryButton}>
             <ThemedText style={styles.primaryButtonText}>Начать</ThemedText>
-            <AppIcon name="chevron-right" size={20} color="#4A90D9" />
           </Pressable>
         </View>
       </View>
@@ -453,18 +452,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryButton: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    justifyContent: "center",
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: Spacing["3xl"],
-    height: 52,
-    borderRadius: 26,
+    paddingHorizontal: 48,
+    height: 60,
+    borderRadius: 30,
   },
   primaryButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#4A90D9",
+    letterSpacing: 0.3,
   },
   overlay: {
     flex: 1,
