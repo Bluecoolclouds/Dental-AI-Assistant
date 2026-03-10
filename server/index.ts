@@ -3,6 +3,8 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
+import * as http from "http";
+import * as net from "net";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app = express();
@@ -157,17 +159,73 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
+function isMetroReady(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const done = (result: boolean) => { socket.destroy(); resolve(result); };
+    socket.setTimeout(600);
+    socket.connect(8081, "::1", () => done(true));
+    socket.on("timeout", () => done(true));
+    socket.on("error", () => done(false));
+  });
+}
+
+function waitForMetro(retries = 40, delayMs = 500): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const attempt = (n: number) => {
+      isMetroReady().then((ready) => {
+        if (ready) return resolve();
+        if (n <= 0) return reject(new Error("Metro not ready"));
+        setTimeout(() => attempt(n - 1), delayMs);
+      });
+    };
+    attempt(retries);
+  });
+}
+
+function proxyToMetro(req: Request, res: Response) {
+  const headers = { ...req.headers };
+  delete headers["content-length"];
+  const options: http.RequestOptions = {
+    hostname: "::1",
+    port: 8081,
+    path: req.url,
+    method: req.method,
+    headers: { ...headers, host: "localhost:8081" },
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("[MetroProxy ERROR]", err.message);
+    if (!res.headersSent) {
+      res.status(502).json({ error: "Metro bundler unavailable" });
+    }
+  });
+
+  const method = req.method?.toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "DELETE") {
+    proxyReq.end();
+  } else {
+    const rawBody = (req as any).rawBody;
+    if (rawBody) {
+      proxyReq.end(rawBody);
+    } else {
+      req.pipe(proxyReq, { end: true });
+    }
+  }
+}
+
 function setupMetroProxy(app: express.Application) {
-  const metroProxy = createProxyMiddleware({
-    target: "http://localhost:8081",
+  const wsProxy = createProxyMiddleware({
+    target: "http://[::1]:8081",
     changeOrigin: true,
     ws: true,
     on: {
-      error: (_err, _req, res) => {
-        if (res && "writeHead" in res) {
-          (res as Response).status(502).json({ error: "Metro bundler unavailable" });
-        }
-      },
+      error: (err) => console.error("[MetroWS ERROR]", (err as Error).message),
     },
   });
 
@@ -180,17 +238,15 @@ function setupMetroProxy(app: express.Application) {
       platform &&
       (platform === "ios" || platform === "android");
 
-    if (isExpoManifestRequest && process.env.NODE_ENV !== "production") {
-      return metroProxy(req, res, next);
-    }
-
     if ((req.path === "/" || req.path === "/manifest") && !isExpoManifestRequest) return next();
-    if (req.path.startsWith("/assets") && !req.path.match(/\.(bundle|map|js|ts)$/)) return next();
-    return metroProxy(req, res, next);
+
+    waitForMetro(40, 500)
+      .then(() => proxyToMetro(req, res))
+      .catch(() => res.status(503).json({ error: "Metro bundler not ready" }));
   });
 
   log("Metro proxy: forwarding bundle requests to localhost:8081");
-  return metroProxy;
+  return wsProxy;
 }
 
 function configureExpoAndLanding(app: express.Application) {
