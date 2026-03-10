@@ -180,7 +180,7 @@ export default function HomeScreen() {
             {teethAtRiskAlerts.map((alert) => (
               <Pressable 
                 key={alert.id}
-                onPress={() => navigation.getParent()?.navigate("ToothMapTab")}
+                onPress={() => navigation.navigate("ToothMapTab" as any)}
                 style={[styles.teethRiskCard, { backgroundColor: "#FFF3E0" }]}
               >
                 <View style={styles.alertHeader}>
@@ -256,11 +256,7 @@ export default function HomeScreen() {
               <Pressable
                 key={action.id}
                 onPress={() => {
-                  if (action.route === "ToothMapTab" || action.route === "ProfileTab") {
-                    navigation.getParent()?.navigate(action.route);
-                  } else {
-                    navigation.navigate(action.route as any);
-                  }
+                  navigation.navigate(action.route as any);
                 }}
                 style={({ pressed }) => [
                   styles.actionCard,
