@@ -204,14 +204,12 @@ export default function WelcomeScreen() {
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.xl }]}>
-        <View style={styles.buttonsRow}>
-          <Pressable onPress={() => openSheet("login")} style={styles.secondaryButton}>
-            <AppIcon name="chevron-left" size={24} color="#FFFFFF" />
-          </Pressable>
-          <Pressable onPress={() => openSheet("register")} style={styles.primaryButton}>
-            <ThemedText style={styles.primaryButtonText}>Начать</ThemedText>
-          </Pressable>
-        </View>
+        <Pressable onPress={() => openSheet("register")} style={styles.primaryButton}>
+          <ThemedText style={styles.primaryButtonText}>Начать</ThemedText>
+        </Pressable>
+        <Pressable onPress={() => openSheet("login")} style={styles.secondaryButton}>
+          <ThemedText style={styles.secondaryButtonText}>Уже есть аккаунт? Войти</ThemedText>
+        </Pressable>
       </View>
 
       <Modal
