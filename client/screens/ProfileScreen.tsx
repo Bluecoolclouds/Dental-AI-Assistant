@@ -23,6 +23,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useProfile } from "@/hooks/useLocalData";
 import { pickAvatarFromGallery, pickAvatarFromCamera, deleteAvatarFile } from "@/utils/avatar";
+import { getDefaultAvatar } from "@/utils/defaultAvatar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -85,6 +86,7 @@ export default function ProfileScreen() {
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
   const { profile, updateProfile } = useProfile();
+  const defaultAvatar = getDefaultAvatar(profile?.gender ?? null, user?.id ?? "default");
 
   const handlePickAvatar = () => {
     Alert.alert("Изменить фото", undefined, [
@@ -269,10 +271,10 @@ export default function ProfileScreen() {
                 />
               ) : (
                 <LinearGradient
-                  colors={["#5B9FE3", "#4A90D9"]}
+                  colors={defaultAvatar.colors}
                   style={styles.profileAvatar}
                 >
-                  <AppIcon name="user" size={32} color="#FFFFFF" />
+                  <AppIcon name={defaultAvatar.icon as any} size={32} color="#FFFFFF" />
                 </LinearGradient>
               )}
               <View style={styles.cameraButton}>

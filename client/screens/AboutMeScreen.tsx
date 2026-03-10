@@ -16,6 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useProfile } from "@/hooks/useLocalData";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { pickAvatarFromGallery, pickAvatarFromCamera, deleteAvatarFile } from "@/utils/avatar";
+import { getDefaultAvatar } from "@/utils/defaultAvatar";
 
 const GENDER_OPTIONS = [
   { value: "male",   label: "Мужской" },
@@ -95,6 +96,8 @@ export default function AboutMeScreen() {
       setIllnesses(profile.seriousIllnesses ?? "");
     }
   }, [profile]);
+
+  const defaultAvatar = getDefaultAvatar(gender || null, user?.id ?? "default");
 
   const handleDateChange = (text: string) => {
     setDateError("");
@@ -194,8 +197,8 @@ export default function AboutMeScreen() {
             {profile?.avatarUrl ? (
               <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
             ) : (
-              <LinearGradient colors={["#5B9FE3", "#4A90D9"]} style={styles.avatar}>
-                <AppIcon name="user" size={40} color="#FFFFFF" />
+              <LinearGradient colors={defaultAvatar.colors} style={styles.avatar}>
+                <AppIcon name={defaultAvatar.icon as any} size={40} color="#FFFFFF" />
               </LinearGradient>
             )}
             <View style={styles.avatarEditBadge}>
