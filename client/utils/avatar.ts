@@ -37,7 +37,7 @@ export async function pickAvatarFromGallery(userId: string): Promise<string | nu
   if (status !== "granted") return null;
 
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ["images"] as any,
     allowsEditing: true,
     aspect: [1, 1],
     quality: 0.8,

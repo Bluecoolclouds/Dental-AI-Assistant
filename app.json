@@ -47,7 +47,14 @@
       "expo-image",
       "expo-secure-store",
       "expo-sqlite",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Приложение хочет получить доступ к вашей галерее для выбора фото профиля.",
+          "cameraPermission": "Приложение хочет получить доступ к камере для съёмки фото профиля."
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true
