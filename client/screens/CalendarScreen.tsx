@@ -9,11 +9,22 @@ import {
   Modal,
   Alert,
   Platform,
+  Dimensions,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
+import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 
 import AppIcon from "@/components/Icons";
 import { ThemedText } from "@/components/ThemedText";
@@ -22,6 +33,10 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import type { CalendarEvent } from "@shared/schema";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const DISMISS_THRESHOLD = 120;
+const DISMISS_VELOCITY = 800;
 
 const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = [
@@ -100,6 +115,46 @@ export default function CalendarScreen() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
+  const sheetY = useSharedValue(SCREEN_HEIGHT);
+
+  const hideSheet = () => setModalVisible(false);
+
+  const animateOpen = () => {
+    sheetY.value = SCREEN_HEIGHT;
+    sheetY.value = withSpring(0, { damping: 22, stiffness: 280, mass: 0.9 });
+  };
+
+  const animateClose = (onDone?: () => void) => {
+    sheetY.value = withTiming(SCREEN_HEIGHT, { duration: 260 }, (finished) => {
+      if (finished) {
+        if (onDone) runOnJS(onDone)();
+        else runOnJS(hideSheet)();
+      }
+    });
+  };
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        sheetY.value = e.translationY;
+      } else {
+        sheetY.value = e.translationY * 0.05;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > DISMISS_THRESHOLD || e.velocityY > DISMISS_VELOCITY) {
+        sheetY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, (finished) => {
+          if (finished) runOnJS(hideSheet)();
+        });
+      } else {
+        sheetY.value = withSpring(0, { damping: 22, stiffness: 300 });
+      }
+    });
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetY.value }],
+  }));
+
   const eventsQuery = useQuery<CalendarEvent[]>({
     queryKey: [`/api/calendar/${user?.id}`, year, month],
     queryFn: async () => {
@@ -124,6 +179,14 @@ export default function CalendarScreen() {
     () => (eventsByDate[selectedDate] || []).sort((a, b) => (a.time || "").localeCompare(b.time || "")),
     [eventsByDate, selectedDate]
   );
+
+  const closeModal = useCallback(() => {
+    animateClose(() => {
+      setModalVisible(false);
+      setEditingEvent(null);
+      setForm(EMPTY_FORM);
+    });
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<CalendarEvent>) => {
@@ -188,12 +251,6 @@ export default function CalendarScreen() {
     setModalVisible(true);
   };
 
-  const closeModal = () => {
-    setModalVisible(false);
-    setEditingEvent(null);
-    setForm(EMPTY_FORM);
-  };
-
   const handleSave = () => {
     if (!form.title.trim()) {
       Alert.alert("Ошибка", "Введите название события");
@@ -239,95 +296,94 @@ export default function CalendarScreen() {
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
   const currentTodayStr = todayStr();
-
-  const selectedDateLabel = selectedDate === currentTodayStr
-    ? "Сегодня"
-    : formatDateLabel(selectedDate);
+  const selectedDateLabel = selectedDate === currentTodayStr ? "Сегодня" : formatDateLabel(selectedDate);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <LinearGradient
-        colors={["#4A90D9", "#357ABD"]}
-        style={[styles.header, { paddingTop: insets.top + Spacing.md }]}
-      >
-        <View style={styles.monthNav}>
-          <Pressable onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
-            <AppIcon name="chevron-left" size={22} color="rgba(255,255,255,0.9)" />
-          </Pressable>
-          <ThemedText style={styles.monthTitle}>
-            {MONTHS[month]} {year}
-          </ThemedText>
-          <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
-            <AppIcon name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
-          </Pressable>
-        </View>
-
-        <View style={styles.weekRow}>
-          {DAYS.map((d, i) => (
-            <ThemedText key={d} style={[styles.weekDay, (i === 5 || i === 6) && styles.weekendDay]}>
-              {d}
-            </ThemedText>
-          ))}
-        </View>
-
-        <View style={styles.grid}>
-          {cells.map((day, idx) => {
-            if (!day) return <View key={`empty-${idx}`} style={styles.cell} />;
-            const dateStr = toDateStr(year, month, day);
-            const isToday = dateStr === currentTodayStr;
-            const isSelected = dateStr === selectedDate;
-            const dayEvents = eventsByDate[dateStr] || [];
-            const isWeekend = (idx % 7 === 5) || (idx % 7 === 6);
-
-            return (
-              <Pressable
-                key={dateStr}
-                style={[styles.cell]}
-                onPress={() => setSelectedDate(dateStr)}
-              >
-                <View style={[
-                  styles.dayCircle,
-                  isSelected && styles.dayCircleSelected,
-                  isToday && !isSelected && styles.dayCircleToday,
-                ]}>
-                  <ThemedText style={[
-                    styles.dayNum,
-                    isWeekend && !isSelected && styles.weekendNum,
-                    isSelected && styles.dayNumSelected,
-                    isToday && !isSelected && styles.dayNumToday,
-                  ]}>
-                    {day}
-                  </ThemedText>
-                </View>
-                {dayEvents.length > 0 && (
-                  <View style={styles.dotsRow}>
-                    {dayEvents.slice(0, 3).map((e, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.dot,
-                          { backgroundColor: isSelected ? "rgba(255,255,255,0.7)" : (EVENT_COLORS[e.type] || "#4A90D9") },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.headerBottom} />
-      </LinearGradient>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarHeight + 80 }}
       >
+        {/* Gradient calendar header — scrolls with content */}
+        <LinearGradient
+          colors={["#4A90D9", "#357ABD"]}
+          style={[styles.header, { paddingTop: insets.top + Spacing.md }]}
+        >
+          <View style={styles.monthNav}>
+            <Pressable onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
+              <AppIcon name="chevron-left" size={22} color="rgba(255,255,255,0.9)" />
+            </Pressable>
+            <ThemedText style={styles.monthTitle}>
+              {MONTHS[month]} {year}
+            </ThemedText>
+            <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
+              <AppIcon name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
+            </Pressable>
+          </View>
+
+          <View style={styles.weekRow}>
+            {DAYS.map((d, i) => (
+              <ThemedText key={d} style={[styles.weekDay, (i === 5 || i === 6) && styles.weekendDay]}>
+                {d}
+              </ThemedText>
+            ))}
+          </View>
+
+          <View style={styles.grid}>
+            {cells.map((day, idx) => {
+              if (!day) return <View key={`empty-${idx}`} style={styles.cell} />;
+              const dateStr = toDateStr(year, month, day);
+              const isToday = dateStr === currentTodayStr;
+              const isSelected = dateStr === selectedDate;
+              const dayEvents = eventsByDate[dateStr] || [];
+              const isWeekend = (idx % 7 === 5) || (idx % 7 === 6);
+
+              return (
+                <Pressable
+                  key={dateStr}
+                  style={styles.cell}
+                  onPress={() => setSelectedDate(dateStr)}
+                >
+                  <View style={[
+                    styles.dayCircle,
+                    isSelected && styles.dayCircleSelected,
+                    isToday && !isSelected && styles.dayCircleToday,
+                  ]}>
+                    <ThemedText style={[
+                      styles.dayNum,
+                      isWeekend && !isSelected && styles.weekendNum,
+                      isSelected && styles.dayNumSelected,
+                      isToday && !isSelected && styles.dayNumToday,
+                    ]}>
+                      {day}
+                    </ThemedText>
+                  </View>
+                  {dayEvents.length > 0 && (
+                    <View style={styles.dotsRow}>
+                      {dayEvents.slice(0, 3).map((e, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.dot,
+                            { backgroundColor: isSelected ? "rgba(255,255,255,0.7)" : (EVENT_COLORS[e.type] || "#4A90D9") },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.headerBottom} />
+        </LinearGradient>
+
+        {/* Events section */}
         <View style={styles.eventsSection}>
           <View style={styles.eventsSectionHeader}>
             <View>
-              <ThemedText style={[styles.selectedDateLabel, { color: theme.textSecondary }]}>
+              <ThemedText style={[styles.selectedDateLabel, { color: theme.text }]}>
                 {selectedDateLabel}
               </ThemedText>
               {selectedEvents.length > 0 && (
@@ -372,6 +428,7 @@ export default function CalendarScreen() {
         </View>
       </ScrollView>
 
+      {/* Floating add button */}
       <Pressable
         onPress={openAddModal}
         style={[styles.fab, { backgroundColor: theme.primary, bottom: tabBarHeight + Spacing.lg }]}
@@ -379,102 +436,143 @@ export default function CalendarScreen() {
         <AppIcon name="plus" size={24} color="#FFFFFF" />
       </Pressable>
 
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal}>
-        <Pressable style={styles.modalOverlay} onPress={closeModal} />
-        <View style={[styles.modalSheet, { backgroundColor: theme.background, paddingBottom: insets.bottom + Spacing.xl }]}>
-          <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
-          <ThemedText style={[styles.modalTitle, { color: theme.text }]}>
-            {editingEvent ? "Редактировать событие" : "Новое событие"}
-          </ThemedText>
+      {/* Animated bottom sheet modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeModal}
+        statusBarTranslucent
+        onShow={animateOpen}
+      >
+        <GestureHandlerRootView style={styles.modalRoot}>
+          <TouchableWithoutFeedback onPress={closeModal}>
+            <View style={styles.modalOverlay} />
+          </TouchableWithoutFeedback>
 
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            <View style={styles.formField}>
-              <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Название *</ThemedText>
-              <TextInput
-                style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                placeholder="Название события"
-                placeholderTextColor={theme.textSecondary}
-                value={form.title}
-                onChangeText={(v) => setForm((f) => ({ ...f, title: v }))}
-              />
-            </View>
-
-            <View style={styles.formField}>
-              <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Описание</ThemedText>
-              <TextInput
-                style={[styles.textInput, styles.textArea, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                placeholder="Дополнительная информация"
-                placeholderTextColor={theme.textSecondary}
-                value={form.description}
-                onChangeText={(v) => setForm((f) => ({ ...f, description: v }))}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            <View style={styles.formRow}>
-              <View style={[styles.formField, { flex: 1, marginRight: Spacing.sm }]}>
-                <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Дата *</ThemedText>
-                <TextInput
-                  style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                  placeholder="ГГГГ-ММ-ДД"
-                  placeholderTextColor={theme.textSecondary}
-                  value={form.date}
-                  onChangeText={(v) => setForm((f) => ({ ...f, date: v }))}
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={[styles.formField, { flex: 1 }]}>
-                <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Время</ThemedText>
-                <TextInput
-                  style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
-                  placeholder="ЧЧ:ММ"
-                  placeholderTextColor={theme.textSecondary}
-                  value={form.time}
-                  onChangeText={(v) => setForm((f) => ({ ...f, time: v }))}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-
-            <View style={styles.formField}>
-              <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Тип</ThemedText>
-              <View style={styles.typeRow}>
-                {Object.entries(EVENT_LABELS).filter(([k]) => k !== "ai_suggestion").map(([key, label]) => {
-                  const active = form.type === key;
-                  const color = EVENT_COLORS[key];
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => setForm((f) => ({ ...f, type: key }))}
-                      style={[
-                        styles.typeChip,
-                        { borderColor: active ? color : theme.border, backgroundColor: active ? color + "18" : "transparent" },
-                      ]}
-                    >
-                      <AppIcon name={EVENT_ICONS[key] as any} size={13} color={active ? color : theme.textSecondary} />
-                      <ThemedText style={[styles.typeChipText, { color: active ? color : theme.textSecondary }]}>
-                        {label}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <Pressable
-              onPress={handleSave}
-              disabled={isMutating}
-              style={[styles.saveBtn, { backgroundColor: theme.primary, opacity: isMutating ? 0.7 : 1 }]}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.sheetWrapper}
+            pointerEvents="box-none"
+          >
+            <Animated.View
+              style={[
+                styles.sheet,
+                { backgroundColor: theme.background, paddingBottom: insets.bottom + Spacing.xl },
+                animatedSheetStyle,
+              ]}
             >
-              {isMutating ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <ThemedText style={styles.saveBtnText}>{editingEvent ? "Сохранить" : "Добавить"}</ThemedText>
-              )}
-            </Pressable>
-          </ScrollView>
-        </View>
+              <GestureDetector gesture={panGesture}>
+                <View style={styles.dragArea}>
+                  <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
+                  <ThemedText style={[styles.sheetTitle, { color: theme.text }]}>
+                    {editingEvent ? "Редактировать событие" : "Новое событие"}
+                  </ThemedText>
+                </View>
+              </GestureDetector>
+
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.formContent}
+              >
+                {/* Title */}
+                <View style={styles.formField}>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Название *</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                    placeholder="Например: Приём у стоматолога"
+                    placeholderTextColor={theme.textSecondary}
+                    value={form.title}
+                    onChangeText={(v) => setForm((f) => ({ ...f, title: v }))}
+                  />
+                </View>
+
+                {/* Date + Time row */}
+                <View style={styles.formRow}>
+                  <View style={[styles.formField, { flex: 1, marginRight: Spacing.sm }]}>
+                    <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Дата *</ThemedText>
+                    <TextInput
+                      style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                      placeholder="ГГГГ-ММ-ДД"
+                      placeholderTextColor={theme.textSecondary}
+                      value={form.date}
+                      onChangeText={(v) => setForm((f) => ({ ...f, date: v }))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={[styles.formField, { flex: 1 }]}>
+                    <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Время</ThemedText>
+                    <TextInput
+                      style={[styles.textInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                      placeholder="ЧЧ:ММ"
+                      placeholderTextColor={theme.textSecondary}
+                      value={form.time}
+                      onChangeText={(v) => setForm((f) => ({ ...f, time: v }))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+
+                {/* Description */}
+                <View style={styles.formField}>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Описание</ThemedText>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                    placeholder="Дополнительная информация"
+                    placeholderTextColor={theme.textSecondary}
+                    value={form.description}
+                    onChangeText={(v) => setForm((f) => ({ ...f, description: v }))}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                {/* Event type */}
+                <View style={styles.formField}>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>Тип события</ThemedText>
+                  <View style={styles.typeRow}>
+                    {Object.entries(EVENT_LABELS).filter(([k]) => k !== "ai_suggestion").map(([key, label]) => {
+                      const active = form.type === key;
+                      const color = EVENT_COLORS[key];
+                      return (
+                        <Pressable
+                          key={key}
+                          onPress={() => setForm((f) => ({ ...f, type: key }))}
+                          style={[
+                            styles.typeChip,
+                            { borderColor: active ? color : theme.border },
+                            active && { backgroundColor: color + "18" },
+                          ]}
+                        >
+                          <AppIcon name={EVENT_ICONS[key] as any} size={13} color={active ? color : theme.textSecondary} />
+                          <ThemedText style={[styles.typeChipText, { color: active ? color : theme.textSecondary }]}>
+                            {label}
+                          </ThemedText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Save button */}
+                <Pressable
+                  onPress={handleSave}
+                  disabled={isMutating}
+                  style={[styles.saveBtn, { backgroundColor: theme.primary, opacity: isMutating ? 0.7 : 1 }]}
+                >
+                  {isMutating ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <ThemedText style={styles.saveBtnText}>
+                      {editingEvent ? "Сохранить изменения" : "Добавить событие"}
+                    </ThemedText>
+                  )}
+                </Pressable>
+              </ScrollView>
+            </Animated.View>
+          </KeyboardAvoidingView>
+        </GestureHandlerRootView>
       </Modal>
     </View>
   );
@@ -514,15 +612,14 @@ function EventCard({
       </View>
 
       <View style={[styles.eventCard, { backgroundColor: theme.background }]}>
+        <View style={[styles.eventCardAccent, { backgroundColor: color }]} />
         <View style={styles.eventCardInner}>
           <View style={styles.eventCardTop}>
-            <View style={styles.eventCardMeta}>
-              <View style={[styles.eventTypePill, { backgroundColor: color + "18" }]}>
-                {isAI && <AppIcon name="cpu" size={9} color={color} />}
-                <ThemedText style={[styles.eventTypePillText, { color }]}>
-                  {EVENT_LABELS[event.type] || event.type}
-                </ThemedText>
-              </View>
+            <View style={[styles.eventTypePill, { backgroundColor: color + "18" }]}>
+              {isAI && <AppIcon name="cpu" size={9} color={color} />}
+              <ThemedText style={[styles.eventTypePillText, { color }]}>
+                {EVENT_LABELS[event.type] || event.type}
+              </ThemedText>
             </View>
             <View style={styles.eventActions}>
               <Pressable onPress={onEdit} hitSlop={8} style={styles.actionBtn}>
@@ -560,7 +657,6 @@ function EventCard({
             </ThemedText>
           ) : null}
         </View>
-        <View style={[styles.eventCardAccent, { backgroundColor: color }]} />
       </View>
     </View>
   );
@@ -586,14 +682,12 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.lg,
   },
-  navBtn: {
-    padding: Spacing.xs,
-  },
+  navBtn: { padding: Spacing.xs },
   monthTitle: {
     fontSize: 20,
     fontWeight: "700",
     color: "#FFFFFF",
-    minWidth: 140,
+    minWidth: 160,
     textAlign: "center",
   },
   weekRow: {
@@ -627,9 +721,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  dayCircleSelected: {
-    backgroundColor: "#FFFFFF",
-  },
+  dayCircleSelected: { backgroundColor: "#FFFFFF" },
   dayCircleToday: {
     backgroundColor: "rgba(255,255,255,0.2)",
     borderWidth: 1.5,
@@ -640,48 +732,29 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "rgba(255,255,255,0.9)",
   },
-  weekendNum: {
-    color: "rgba(255,200,200,0.9)",
-  },
-  dayNumSelected: {
-    color: "#4A90D9",
-    fontWeight: "700",
-  },
-  dayNumToday: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
+  weekendNum: { color: "rgba(255,200,200,0.9)" },
+  dayNumSelected: { color: "#4A90D9", fontWeight: "700" },
+  dayNumToday: { color: "#FFFFFF", fontWeight: "700" },
   dotsRow: {
     flexDirection: "row",
     gap: 2,
     marginTop: 2,
     height: 4,
   },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  headerBottom: {
-    height: Spacing.lg,
-  },
+  dot: { width: 4, height: 4, borderRadius: 2 },
+  headerBottom: { height: Spacing.lg },
 
   eventsSection: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.xl,
   },
-  eventsSectionHeader: {
-    marginBottom: Spacing.lg,
-  },
+  eventsSectionHeader: { marginBottom: Spacing.lg },
   selectedDateLabel: {
     fontSize: 18,
     fontWeight: "700",
     textTransform: "capitalize",
   },
-  eventsCount: {
-    fontSize: 13,
-    marginTop: 2,
-  },
+  eventsCount: { fontSize: 13, marginTop: 2 },
 
   emptyCard: {
     alignItems: "center",
@@ -713,9 +786,7 @@ const styles = StyleSheet.create({
   },
   emptyAddText: { fontSize: 14, fontWeight: "600" },
 
-  timeline: {
-    gap: 0,
-  },
+  timeline: { gap: 0 },
   timelineRow: {
     flexDirection: "row",
     gap: Spacing.md,
@@ -756,9 +827,7 @@ const styles = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
-  eventCardAccent: {
-    width: 4,
-  },
+  eventCardAccent: { width: 4 },
   eventCardInner: {
     flex: 1,
     padding: Spacing.md,
@@ -769,11 +838,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  eventCardMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
   eventTypePill: {
     flexDirection: "row",
     alignItems: "center",
@@ -782,17 +846,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
   },
-  eventTypePillText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  eventActions: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  actionBtn: {
-    padding: 4,
-  },
+  eventTypePillText: { fontSize: 11, fontWeight: "600" },
+  eventActions: { flexDirection: "row", gap: 4 },
+  actionBtn: { padding: 4 },
   eventTitleRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -814,15 +870,8 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
-  strikethrough: {
-    textDecorationLine: "line-through",
-    opacity: 0.5,
-  },
-  eventDesc: {
-    fontSize: 12,
-    lineHeight: 16,
-    paddingLeft: 26,
-  },
+  strikethrough: { textDecorationLine: "line-through", opacity: 0.5 },
+  eventDesc: { fontSize: 12, lineHeight: 16, paddingLeft: 26 },
 
   fab: {
     position: "absolute",
@@ -838,39 +887,49 @@ const styles = StyleSheet.create({
     }),
   },
 
+  modalRoot: { flex: 1 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
-  modalSheet: {
+  sheetWrapper: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    pointerEvents: "box-none",
+  } as any,
+  sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: Spacing.xl,
-    maxHeight: "85%",
+    maxHeight: SCREEN_HEIGHT * 0.88,
     ...Platform.select({
       ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.1, shadowRadius: 12 },
       android: { elevation: 8 },
     }),
   },
-  modalHandle: {
+  dragArea: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  sheetHandle: {
     width: 40,
     height: 4,
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: Spacing.lg,
   },
-  modalTitle: {
+  sheetTitle: {
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: Spacing.xl,
   },
-  formField: {
-    marginBottom: Spacing.lg,
+  formContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.lg,
   },
-  formRow: {
-    flexDirection: "row",
-    marginBottom: Spacing.lg,
-  },
+  formField: { marginBottom: Spacing.lg },
+  formRow: { flexDirection: "row", marginBottom: Spacing.lg },
   fieldLabel: {
     fontSize: 13,
     fontWeight: "600",
@@ -880,13 +939,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 11,
+    paddingVertical: 12,
     fontSize: 15,
   },
   textArea: {
     height: 80,
     textAlignVertical: "top",
-    paddingTop: 11,
+    paddingTop: 12,
   },
   typeRow: {
     flexDirection: "row",
@@ -898,18 +957,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: BorderRadius.xl,
     borderWidth: 1.5,
   },
-  typeChipText: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
+  typeChipText: { fontSize: 13, fontWeight: "500" },
   saveBtn: {
     borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
+    height: 52,
     alignItems: "center",
+    justifyContent: "center",
     marginTop: Spacing.md,
   },
   saveBtnText: {
