@@ -126,6 +126,19 @@ async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> 
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  const migrations = [
+    `ALTER TABLE user_profiles ADD COLUMN display_name TEXT`,
+    `ALTER TABLE user_profiles ADD COLUMN birth_date TEXT`,
+    `ALTER TABLE user_profiles ADD COLUMN gender TEXT`,
+    `ALTER TABLE user_profiles ADD COLUMN goals TEXT`,
+  ];
+  for (const sql of migrations) {
+    try {
+      await database.runAsync(sql);
+    } catch {
+    }
+  }
 }
 
 export async function closeDatabase(): Promise<void> {

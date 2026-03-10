@@ -24,9 +24,9 @@ export default function ToothMapIntroScreen() {
       <View style={styles.content}>
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
-            <View style={[styles.progressFill, { backgroundColor: theme.primary, width: "80%" }]} />
+            <View style={[styles.progressFill, { backgroundColor: theme.primary, width: "86%" }]} />
           </View>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>4/5</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>6/7</ThemedText>
         </View>
 
         <View style={styles.illustration}>

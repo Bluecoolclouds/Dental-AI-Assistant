@@ -44,7 +44,7 @@ export default function DisclaimerScreen() {
           <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
             <View style={[styles.progressFill, { backgroundColor: theme.primary, width: "100%" }]} />
           </View>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>5/5</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>7/7</ThemedText>
         </View>
 
         <View style={[styles.warningIcon, { backgroundColor: theme.warning + "20" }]}>

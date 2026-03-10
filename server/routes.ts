@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
+import { pool } from "./db";
 import { 
   insertUserSchema, 
   insertUserProfileSchema, 
@@ -1051,6 +1052,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI calendar suggest error:", error);
       return res.status(500).json({ error: "Ошибка ИИ" });
+    }
+  });
+
+  app.post("/api/audience", async (req: Request, res: Response) => {
+    try {
+      const { birthYear, gender, goal } = req.body;
+      if (!goal) {
+        return res.status(400).json({ error: "goal is required" });
+      }
+      await pool.query(
+        `INSERT INTO audience_analytics (birth_year, gender, goal) VALUES ($1, $2, $3)`,
+        [birthYear ? Number(birthYear) : null, gender ?? null, String(goal)]
+      );
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error("Audience analytics error:", error);
+      return res.status(500).json({ error: "Ошибка записи аналитики" });
     }
   });
 

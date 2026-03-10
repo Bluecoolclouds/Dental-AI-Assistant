@@ -158,7 +158,7 @@ export default function AuthScreen() {
       if (!result.success) {
         setError(result.error || "Произошла ошибка");
       } else if (!isLogin) {
-        navigation.navigate("Questionnaire");
+        navigation.navigate("ProfileSetup");
       }
     } finally {
       setIsLoading(false);

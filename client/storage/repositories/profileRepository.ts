@@ -3,6 +3,10 @@ import { getDatabase } from "../database";
 export interface UserProfile {
   id: string;
   userId: string;
+  displayName: string | null;
+  birthDate: string | null;
+  gender: string | null;
+  goals: string | null;
   age: number | null;
   brushingFrequency: string | null;
   usesFloss: boolean;
@@ -20,6 +24,10 @@ export interface UserProfile {
 
 export interface CreateProfileInput {
   userId: string;
+  displayName?: string;
+  birthDate?: string;
+  gender?: string;
+  goals?: string;
   age?: number;
   brushingFrequency?: string;
   usesFloss?: boolean;
@@ -38,6 +46,10 @@ function rowToProfile(row: any): UserProfile {
   return {
     id: row.id,
     userId: row.user_id,
+    displayName: row.display_name ?? null,
+    birthDate: row.birth_date ?? null,
+    gender: row.gender ?? null,
+    goals: row.goals ?? null,
     age: row.age,
     brushingFrequency: row.brushing_frequency,
     usesFloss: !!row.uses_floss,
@@ -69,13 +81,18 @@ export async function createProfile(input: CreateProfileInput): Promise<UserProf
   const id = generateId();
   
   await db.runAsync(
-    `INSERT INTO user_profiles (id, user_id, age, brushing_frequency, uses_floss, uses_irrigator, 
+    `INSERT INTO user_profiles (id, user_id, display_name, birth_date, gender, goals,
+      age, brushing_frequency, uses_floss, uses_irrigator, 
       has_braces, has_sensitivity, has_gum_bleeding, has_crowns_veneers, has_removable_dentures, 
       has_implants, onboarding_completed, disclaimer_accepted)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.userId,
+      input.displayName ?? null,
+      input.birthDate ?? null,
+      input.gender ?? null,
+      input.goals ?? null,
       input.age ?? null,
       input.brushingFrequency ?? null,
       input.usesFloss ? 1 : 0,
@@ -112,7 +129,23 @@ export async function updateProfile(userId: string, updates: Partial<CreateProfi
   
   const setClauses: string[] = [];
   const values: any[] = [];
-  
+
+  if (updates.displayName !== undefined) {
+    setClauses.push("display_name = ?");
+    values.push(updates.displayName);
+  }
+  if (updates.birthDate !== undefined) {
+    setClauses.push("birth_date = ?");
+    values.push(updates.birthDate);
+  }
+  if (updates.gender !== undefined) {
+    setClauses.push("gender = ?");
+    values.push(updates.gender);
+  }
+  if (updates.goals !== undefined) {
+    setClauses.push("goals = ?");
+    values.push(updates.goals);
+  }
   if (updates.age !== undefined) {
     setClauses.push("age = ?");
     values.push(updates.age);

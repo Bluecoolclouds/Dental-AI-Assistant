@@ -71,9 +71,9 @@ export default function QuestionnaireScreen() {
       >
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
-            <View style={[styles.progressFill, { backgroundColor: theme.primary, width: "60%" }]} />
+            <View style={[styles.progressFill, { backgroundColor: theme.primary, width: "71%" }]} />
           </View>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>3/5</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>5/7</ThemedText>
         </View>
 
         <ThemedText type="h3" style={styles.title}>
