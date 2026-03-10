@@ -63,7 +63,6 @@ export function useAuth() {
 
       await saveCurrentUser(data.id, data.email);
       setUser({ id: data.id, email: data.email });
-      setIsAuthenticated(true);
       return { success: true };
     } catch (err: any) {
       const msg = err?.message || "";
