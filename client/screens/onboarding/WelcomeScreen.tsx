@@ -101,19 +101,21 @@ export default function WelcomeScreen() {
   };
 
   const sheetY = useSharedValue(SCREEN_HEIGHT);
-  const sheetHeight = useSharedValue(SCREEN_HEIGHT * 0.75);
+  const sheetHeight = useSharedValue(0);
   const sheetRadius = useSharedValue(28);
+  const sheetMeasuredHeight = useRef(0);
 
   const hideSheet = () => setSheetVisible(false);
 
   const animateOpen = () => {
     sheetY.value = SCREEN_HEIGHT;
-    sheetHeight.value = SCREEN_HEIGHT * 0.75;
+    sheetHeight.value = 0;
     sheetRadius.value = 28;
     sheetY.value = withSpring(0, { damping: 22, stiffness: 280, mass: 0.9 });
   };
 
   const animateToFullScreen = () => {
+    sheetHeight.value = sheetMeasuredHeight.current;
     sheetHeight.value = withSpring(SCREEN_HEIGHT, { damping: 24, stiffness: 240, mass: 1 });
     sheetRadius.value = withTiming(0, { duration: 380 });
   };
@@ -262,12 +264,17 @@ export default function WelcomeScreen() {
       }
     });
 
-  const animatedSheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sheetY.value }],
-    height: sheetHeight.value,
-    borderTopLeftRadius: sheetRadius.value,
-    borderTopRightRadius: sheetRadius.value,
-  }));
+  const animatedSheetStyle = useAnimatedStyle(() => {
+    const base = {
+      transform: [{ translateY: sheetY.value }] as const,
+      borderTopLeftRadius: sheetRadius.value,
+      borderTopRightRadius: sheetRadius.value,
+    };
+    if (sheetHeight.value > 0) {
+      return { ...base, height: sheetHeight.value };
+    }
+    return base;
+  });
 
   const isLogin = authMode === "login";
 
@@ -325,6 +332,10 @@ export default function WelcomeScreen() {
           pointerEvents="box-none"
         >
           <Animated.View
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h < SCREEN_HEIGHT * 0.9) sheetMeasuredHeight.current = h;
+            }}
             style={[
               styles.sheet,
               { paddingBottom: insets.bottom + Spacing.xl },
@@ -343,7 +354,11 @@ export default function WelcomeScreen() {
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.sheetScroll}
+              style={!isLogin && registerStep === "code" ? { flex: 1 } : undefined}
+              contentContainerStyle={[
+                styles.sheetScroll,
+                !isLogin && registerStep === "code" && styles.codeScrollContent,
+              ]}
             >
               {error ? (
                 <View style={[styles.errorContainer, { backgroundColor: theme.danger + "15" }]}>
@@ -355,7 +370,7 @@ export default function WelcomeScreen() {
               ) : null}
 
               {!isLogin && registerStep === "code" ? (
-                <>
+                <View style={styles.codeContentWrapper}>
                   <ThemedText style={[styles.codeHint, { color: theme.textSecondary }]}>
                     {t("auth.codeSentTo", { email })}
                   </ThemedText>
@@ -415,7 +430,7 @@ export default function WelcomeScreen() {
                       </Pressable>
                     )}
                   </View>
-                </>
+                </View>
               ) : (
                 <>
                   <View style={styles.inputGroup}>
@@ -651,6 +666,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    maxHeight: SCREEN_HEIGHT * 0.78,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -685,6 +701,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
+  },
+  codeScrollContent: {
+    flexGrow: 1,
+  },
+  codeContentWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    paddingBottom: SCREEN_HEIGHT * 0.22,
+    gap: Spacing.md,
   },
   errorContainer: {
     flexDirection: "row",
