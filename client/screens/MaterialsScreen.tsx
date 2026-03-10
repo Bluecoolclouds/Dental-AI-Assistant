@@ -9,6 +9,7 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
@@ -45,6 +46,7 @@ export default function MaterialsScreen() {
   const { theme } = useTheme();
   const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
 
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [files, setFiles] = useState<ToothFile[]>([]);
@@ -126,7 +128,7 @@ export default function MaterialsScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing["3xl"] }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + Spacing.md, paddingBottom: insets.bottom + Spacing["3xl"] }]}
       >
         <View style={[styles.infoBanner, { backgroundColor: theme.primary + "12", borderColor: theme.primary + "30" }]}>
           <AppIcon name="info" size={16} color={theme.primary} />
