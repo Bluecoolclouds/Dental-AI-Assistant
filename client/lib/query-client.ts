@@ -8,7 +8,7 @@ export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+    throw new Error("Нет подключения к серверу. Перезагрузите приложение (потряси телефон → Reload).");
   }
 
   let url = new URL(`https://${host}`);
