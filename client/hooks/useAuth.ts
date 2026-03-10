@@ -56,9 +56,9 @@ export function useAuth() {
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string) => {
+  const register = useCallback(async (email: string, password: string, verificationCode?: string) => {
     try {
-      const resp = await apiRequest("POST", "/api/auth/register", { email, password });
+      const resp = await apiRequest("POST", "/api/auth/register", { email, password, verificationCode });
       const data = await resp.json();
 
       await saveCurrentUser(data.id, data.email);

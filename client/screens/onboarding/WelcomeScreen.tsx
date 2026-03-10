@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -33,6 +33,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { OnboardingStackParamList } from "@/navigation/OnboardingNavigator";
+import { apiRequest } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Welcome">;
 
@@ -73,6 +74,32 @@ export default function WelcomeScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  const [registerStep, setRegisterStep] = useState<"form" | "code">("form");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [devMode, setDevMode] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
+  const startCountdown = (seconds: number) => {
+    setResendCountdown(seconds);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setResendCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const sheetY = useSharedValue(SCREEN_HEIGHT);
 
   const hideSheet = () => setSheetVisible(false);
@@ -93,6 +120,9 @@ export default function WelcomeScreen() {
 
   const switchMode = () => {
     setError("");
+    setRegisterStep("form");
+    setVerificationCode("");
+    setDevMode(false);
     setAuthMode((prev) => (prev === "login" ? "register" : "login"));
   };
 
@@ -103,41 +133,94 @@ export default function WelcomeScreen() {
     setPassword("");
     setConfirmPassword("");
     setShowPassword(false);
+    setRegisterStep("form");
+    setVerificationCode("");
+    setDevMode(false);
     setSheetVisible(true);
   };
 
   const closeSheet = () => animateClose();
 
+  const sendCode = async () => {
+    setError("");
+    setIsLoading(true);
+    try {
+      const resp = await apiRequest("POST", "/api/auth/send-code", { email: email.trim() });
+      const data = await resp.json();
+      if (data.devMode) setDevMode(true);
+      setRegisterStep("code");
+      startCountdown(60);
+    } catch (err: any) {
+      const msg = err?.message || "";
+      const jsonMatch = msg.match(/\{.*\}/);
+      if (jsonMatch) {
+        try { setError(JSON.parse(jsonMatch[0]).error || t("auth.errors.sendError")); return; } catch {}
+      }
+      setError(t("auth.errors.sendError"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setError("");
-    if (!email.trim() || !password.trim()) {
-      setError(t("auth.errors.fillAll"));
+
+    if (authMode === "login") {
+      if (!email.trim() || !password.trim()) {
+        setError(t("auth.errors.fillAll"));
+        return;
+      }
+      if (password.length < 6) {
+        setError(t("auth.errors.shortPassword"));
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const result = await login(email.trim(), password);
+        if (!result.success) {
+          setError(result.error || t("common.error"));
+        } else {
+          animateClose(() => setSheetVisible(false));
+        }
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
-    if (authMode === "register" && password !== confirmPassword) {
-      setError(t("auth.errors.passwordMismatch"));
+
+    // Register — step 1: validate form and send code
+    if (registerStep === "form") {
+      if (!email.trim() || !password.trim()) {
+        setError(t("auth.errors.fillAll"));
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError(t("auth.errors.passwordMismatch"));
+        return;
+      }
+      if (password.length < 6) {
+        setError(t("auth.errors.shortPassword"));
+        return;
+      }
+      await sendCode();
       return;
     }
-    if (password.length < 6) {
-      setError(t("auth.errors.shortPassword"));
+
+    // Register — step 2: verify code and register
+    if (verificationCode.trim().length !== 6) {
+      setError(t("auth.errors.invalidCode"));
       return;
     }
     setIsLoading(true);
     try {
-      const result =
-        authMode === "login"
-          ? await login(email.trim(), password)
-          : await register(email.trim(), password);
-
+      const result = await register(email.trim(), password, verificationCode.trim());
       if (!result.success) {
         setError(result.error || t("common.error"));
-      } else if (authMode === "register") {
+      } else {
         animateClose(() => {
           setSheetVisible(false);
           navigation.navigate("ProfileSetup");
         });
-      } else {
-        animateClose(() => setSheetVisible(false));
       }
     } finally {
       setIsLoading(false);
@@ -251,99 +334,165 @@ export default function WelcomeScreen() {
                 </View>
               ) : null}
 
-              <View style={styles.inputGroup}>
-                <View
-                  style={[
-                    styles.inputWrapper,
-                    { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
-                  ]}
-                >
-                  <AppIcon name="mail" size={18} color={theme.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={[styles.input, { color: theme.text }]}
-                    placeholder={t("auth.email")}
-                    placeholderTextColor={theme.textSecondary}
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                  />
-                </View>
+              {!isLogin && registerStep === "code" ? (
+                <>
+                  <ThemedText style={[styles.codeHint, { color: theme.textSecondary }]}>
+                    {t("auth.codeSentTo", { email })}
+                  </ThemedText>
+                  {devMode ? (
+                    <ThemedText style={[styles.devHint, { color: theme.textSecondary }]}>
+                      {t("auth.devMode")}
+                    </ThemedText>
+                  ) : null}
+                  <View style={styles.inputGroup}>
+                    <View
+                      style={[
+                        styles.inputWrapper,
+                        { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                      ]}
+                    >
+                      <AppIcon name="shield" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: theme.text, letterSpacing: 6, textAlign: "center" }]}
+                        placeholder="_ _ _ _ _ _"
+                        placeholderTextColor={theme.textSecondary}
+                        value={verificationCode}
+                        onChangeText={(v) => setVerificationCode(v.replace(/\D/g, "").slice(0, 6))}
+                        keyboardType="number-pad"
+                        autoFocus
+                        maxLength={6}
+                      />
+                    </View>
+                  </View>
 
-                <View
-                  style={[
-                    styles.inputWrapper,
-                    { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
-                  ]}
-                >
-                  <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={[styles.input, { color: theme.text }]}
-                    placeholder={t("auth.password")}
-                    placeholderTextColor={theme.textSecondary}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoComplete={isLogin ? "current-password" : "new-password"}
-                  />
-                  <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                    <AppIcon
-                      name={showPassword ? "eye-off" : "eye"}
-                      size={18}
-                      color={theme.textSecondary}
-                    />
-                  </Pressable>
-                </View>
-
-                {!isLogin ? (
-                  <View
-                    style={[
-                      styles.inputWrapper,
-                      { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                  <Pressable
+                    onPress={handleSubmit}
+                    disabled={isLoading}
+                    style={({ pressed }) => [
+                      styles.submitButton,
+                      { backgroundColor: theme.primary, opacity: pressed || isLoading ? 0.8 : 1 },
                     ]}
                   >
-                    <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: theme.text }]}
-                      placeholder={t("auth.confirmPassword")}
-                      placeholderTextColor={theme.textSecondary}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      secureTextEntry={!showPassword}
-                      autoComplete="new-password"
-                    />
+                    {isLoading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <ThemedText style={styles.submitButtonText}>
+                        {t("auth.enterCode")}
+                      </ThemedText>
+                    )}
+                  </Pressable>
+
+                  <View style={styles.switchContainer}>
+                    {resendCountdown > 0 ? (
+                      <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
+                        {t("auth.resendIn", { seconds: resendCountdown })}
+                      </ThemedText>
+                    ) : (
+                      <Pressable onPress={sendCode} disabled={isLoading}>
+                        <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
+                          {t("auth.resend")}
+                        </ThemedText>
+                      </Pressable>
+                    )}
                   </View>
-                ) : null}
-              </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.inputGroup}>
+                    <View
+                      style={[
+                        styles.inputWrapper,
+                        { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                      ]}
+                    >
+                      <AppIcon name="mail" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: theme.text }]}
+                        placeholder={t("auth.email")}
+                        placeholderTextColor={theme.textSecondary}
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                      />
+                    </View>
 
-              <Pressable
-                onPress={handleSubmit}
-                disabled={isLoading}
-                style={({ pressed }) => [
-                  styles.submitButton,
-                  { backgroundColor: theme.primary, opacity: pressed || isLoading ? 0.8 : 1 },
-                ]}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <ThemedText style={styles.submitButtonText}>
-                    {isLogin ? t("auth.loginBtn") : t("welcome.register")}
-                  </ThemedText>
-                )}
-              </Pressable>
+                    <View
+                      style={[
+                        styles.inputWrapper,
+                        { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                      ]}
+                    >
+                      <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: theme.text }]}
+                        placeholder={t("auth.password")}
+                        placeholderTextColor={theme.textSecondary}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        autoComplete={isLogin ? "current-password" : "new-password"}
+                      />
+                      <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                        <AppIcon
+                          name={showPassword ? "eye-off" : "eye"}
+                          size={18}
+                          color={theme.textSecondary}
+                        />
+                      </Pressable>
+                    </View>
 
-              <View style={styles.switchContainer}>
-                <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
-                  {isLogin ? t("welcome.noAccount") : t("welcome.haveAccount")}
-                </ThemedText>
-                <Pressable onPress={switchMode}>
-                  <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
-                    {isLogin ? t("auth.registerTitle") : t("auth.loginBtn")}
-                  </ThemedText>
-                </Pressable>
-              </View>
+                    {!isLogin ? (
+                      <View
+                        style={[
+                          styles.inputWrapper,
+                          { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                        ]}
+                      >
+                        <AppIcon name="lock" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                        <TextInput
+                          style={[styles.input, { color: theme.text }]}
+                          placeholder={t("auth.confirmPassword")}
+                          placeholderTextColor={theme.textSecondary}
+                          value={confirmPassword}
+                          onChangeText={setConfirmPassword}
+                          secureTextEntry={!showPassword}
+                          autoComplete="new-password"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <Pressable
+                    onPress={handleSubmit}
+                    disabled={isLoading}
+                    style={({ pressed }) => [
+                      styles.submitButton,
+                      { backgroundColor: theme.primary, opacity: pressed || isLoading ? 0.8 : 1 },
+                    ]}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <ThemedText style={styles.submitButtonText}>
+                        {isLogin ? t("auth.loginBtn") : t("welcome.register")}
+                      </ThemedText>
+                    )}
+                  </Pressable>
+
+                  <View style={styles.switchContainer}>
+                    <ThemedText style={[styles.switchText, { color: theme.textSecondary }]}>
+                      {isLogin ? t("welcome.noAccount") : t("welcome.haveAccount")}
+                    </ThemedText>
+                    <Pressable onPress={switchMode}>
+                      <ThemedText style={[styles.switchLink, { color: theme.primary }]}>
+                        {isLogin ? t("auth.registerTitle") : t("auth.loginBtn")}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              )}
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
@@ -577,5 +726,18 @@ const styles = StyleSheet.create({
   switchLink: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  codeHint: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  devHint: {
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    opacity: 0.7,
   },
 });
