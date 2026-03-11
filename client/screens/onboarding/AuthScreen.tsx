@@ -7,7 +7,6 @@ import {
   Pressable,
   Dimensions,
   Platform,
-  Keyboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -107,24 +106,10 @@ export default function AuthScreen() {
   const codeRefs = useRef<(TextInput | null)[]>([]);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const HEADER_HEIGHT = SCREEN_HEIGHT * 0.42;
   const translateY = useSharedValue(0);
-  const headerHeight = useSharedValue(HEADER_HEIGHT);
-
-  const collapseHeader = () => {
-    headerHeight.value = withTiming(0, { duration: 220 });
-  };
 
   useEffect(() => {
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const duration = Platform.OS === "ios" ? 280 : 200;
-
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      headerHeight.value = withTiming(HEADER_HEIGHT, { duration });
-    });
-
     return () => {
-      hideSub.remove();
       if (cooldownRef.current) clearInterval(cooldownRef.current);
     };
   }, []);
@@ -158,11 +143,6 @@ export default function AuthScreen() {
 
   const animatedCardStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
-  }));
-
-  const headerAnimStyle = useAnimatedStyle(() => ({
-    height: headerHeight.value,
-    overflow: "hidden" as const,
   }));
 
   const sendCode = async (): Promise<boolean> => {
@@ -293,35 +273,33 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={headerAnimStyle}>
-        <LinearGradient
-          colors={["#0097A7", "#00ACC1", "#4DD0E1"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientBackground}
-        >
-          <View style={[styles.headerSection, { paddingTop: insets.top + Spacing.xl }]}>
-            <ToothyLogo />
-            <View style={styles.heroContent}>
-              <ThemedText style={styles.heroTitle}>
-                {step === "verify" ? t("auth.checkEmail") : isLogin ? t("auth.welcomeBack") : t("auth.feelConfident")}
-              </ThemedText>
-              <ThemedText style={styles.heroSubtitle}>
-                {step === "verify"
-                  ? t("auth.codeSentTo", { email })
-                  : isLogin
-                  ? t("auth.loginSubtitle")
-                  : t("auth.registerSubtitle")}
-              </ThemedText>
-            </View>
-            <View style={styles.teethDecoration}>
-              <ToothIllustration style={[styles.tooth, styles.tooth1]} />
-              <ToothIllustration style={[styles.tooth, styles.tooth2]} />
-              <ToothIllustration style={[styles.tooth, styles.tooth3]} />
-            </View>
+      <LinearGradient
+        colors={["#0097A7", "#00ACC1", "#4DD0E1"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientBackground}
+      >
+        <View style={[styles.headerSection, { paddingTop: insets.top + Spacing.xl }]}>
+          <ToothyLogo />
+          <View style={styles.heroContent}>
+            <ThemedText style={styles.heroTitle}>
+              {step === "verify" ? t("auth.checkEmail") : isLogin ? t("auth.welcomeBack") : t("auth.feelConfident")}
+            </ThemedText>
+            <ThemedText style={styles.heroSubtitle}>
+              {step === "verify"
+                ? t("auth.codeSentTo", { email })
+                : isLogin
+                ? t("auth.loginSubtitle")
+                : t("auth.registerSubtitle")}
+            </ThemedText>
           </View>
-        </LinearGradient>
-      </Animated.View>
+          <View style={styles.teethDecoration}>
+            <ToothIllustration style={[styles.tooth, styles.tooth1]} />
+            <ToothIllustration style={[styles.tooth, styles.tooth2]} />
+            <ToothIllustration style={[styles.tooth, styles.tooth3]} />
+          </View>
+        </View>
+      </LinearGradient>
 
       <Animated.View style={[styles.formCard, animatedCardStyle]}>
         <GestureDetector gesture={panGesture}>
@@ -375,7 +353,6 @@ export default function AuthScreen() {
                     value={codeDigits[i]}
                     onChangeText={(t) => handleCodeInput(t, i)}
                     onKeyPress={(e) => handleCodeKeyPress(e, i)}
-                    onFocus={collapseHeader}
                     keyboardType="number-pad"
                     maxLength={2}
                     textAlign="center"
@@ -449,7 +426,6 @@ export default function AuthScreen() {
                     placeholderTextColor={theme.textSecondary}
                     value={email}
                     onChangeText={setEmail}
-                    onFocus={collapseHeader}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -464,7 +440,6 @@ export default function AuthScreen() {
                     placeholderTextColor={theme.textSecondary}
                     value={password}
                     onChangeText={setPassword}
-                    onFocus={collapseHeader}
                     secureTextEntry={!showPassword}
                     autoComplete={isLogin ? "current-password" : "new-password"}
                   />
@@ -482,7 +457,6 @@ export default function AuthScreen() {
                       placeholderTextColor={theme.textSecondary}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
-                      onFocus={collapseHeader}
                       secureTextEntry={!showPassword}
                       autoComplete="new-password"
                     />
@@ -542,7 +516,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0097A7" },
-  gradientBackground: { flex: 1, paddingHorizontal: Spacing.xl, overflow: "hidden" },
+  gradientBackground: { height: "42%", paddingHorizontal: Spacing.xl, overflow: "hidden" },
   headerSection: { flex: 1, overflow: "hidden" },
   logoContainer: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   logoText: { color: "#FFFFFF", fontSize: 22, fontWeight: "700", letterSpacing: 0.5 },
