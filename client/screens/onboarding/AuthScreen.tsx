@@ -111,20 +111,19 @@ export default function AuthScreen() {
   const translateY = useSharedValue(0);
   const headerHeight = useSharedValue(HEADER_HEIGHT);
 
+  const collapseHeader = () => {
+    headerHeight.value = withTiming(0, { duration: 220 });
+  };
+
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const duration = Platform.OS === "ios" ? 280 : 200;
 
-    const showSub = Keyboard.addListener(showEvent, () => {
-      headerHeight.value = withTiming(0, { duration });
-    });
     const hideSub = Keyboard.addListener(hideEvent, () => {
       headerHeight.value = withTiming(HEADER_HEIGHT, { duration });
     });
 
     return () => {
-      showSub.remove();
       hideSub.remove();
       if (cooldownRef.current) clearInterval(cooldownRef.current);
     };
@@ -376,6 +375,7 @@ export default function AuthScreen() {
                     value={codeDigits[i]}
                     onChangeText={(t) => handleCodeInput(t, i)}
                     onKeyPress={(e) => handleCodeKeyPress(e, i)}
+                    onFocus={collapseHeader}
                     keyboardType="number-pad"
                     maxLength={2}
                     textAlign="center"
@@ -449,6 +449,7 @@ export default function AuthScreen() {
                     placeholderTextColor={theme.textSecondary}
                     value={email}
                     onChangeText={setEmail}
+                    onFocus={collapseHeader}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -463,6 +464,7 @@ export default function AuthScreen() {
                     placeholderTextColor={theme.textSecondary}
                     value={password}
                     onChangeText={setPassword}
+                    onFocus={collapseHeader}
                     secureTextEntry={!showPassword}
                     autoComplete={isLogin ? "current-password" : "new-password"}
                   />
@@ -480,6 +482,7 @@ export default function AuthScreen() {
                       placeholderTextColor={theme.textSecondary}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
+                      onFocus={collapseHeader}
                       secureTextEntry={!showPassword}
                       autoComplete="new-password"
                     />
