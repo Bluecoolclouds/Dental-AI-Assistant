@@ -2,6 +2,7 @@
   "expo": {
     "name": "Toothy",
     "slug": "toothy",
+    "owner": "snbejeidjd",
     "version": "1.0.0",
     "updates": {
       "enabled": false,
@@ -24,7 +25,10 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.toothy.app",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "single",
@@ -59,6 +63,11 @@
     ],
     "experiments": {
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c5742441-92bc-4e74-a6dc-452eb7822d22"
+      }
     }
   }
 }
