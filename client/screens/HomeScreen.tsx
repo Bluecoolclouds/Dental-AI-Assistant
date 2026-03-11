@@ -1,5 +1,5 @@
-import React from "react";
-import { StyleSheet, View, ScrollView, Pressable, Platform, Image } from "react-native";
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import { StyleSheet, View, ScrollView, Pressable, Platform, Image, Modal, Animated, TouchableWithoutFeedback, FlatList, ActivityIndicator, Alert as RNAlert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,6 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { useProfile, useTestResults, useAlerts } from "@/hooks/useLocalData";
+import { markAlertAsRead, deleteAlert, Alert as AlertType } from "@/storage/repositories/alertsRepository";
 import { getDefaultAvatar } from "@/utils/defaultAvatar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -61,7 +62,7 @@ export default function HomeScreen() {
   const { profile } = useProfile();
 
   const { latestResult: testResult } = useTestResults();
-  const { alerts, dismissAlert } = useAlerts();
+  const { alerts, dismissAlert, refetch } = useAlerts();
 
   const QUICK_ACTIONS = [
     { id: "toothmap", name: t("home.toothMap"), icon: "map-pin" as const, bgColor: "#EBF5FF", iconColor: "#4A90D9", route: "ToothMapTab" },
@@ -76,6 +77,35 @@ export default function HomeScreen() {
   const urgentAlerts = alerts.filter((a) => a.type === "urgent" || a.priority === "urgent");
   const teethAtRiskAlerts = alerts.filter((a) => a.type === "teeth_at_risk");
   const reminderAlerts = alerts.filter((a) => a.type === "reminder");
+
+  const [showNotifSheet, setShowNotifSheet] = useState(false);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const unreadCount = alerts.filter((a) => !a.isRead && !a.isDismissed).length;
+
+  const openSheet = useCallback(() => {
+    setShowNotifSheet(true);
+    Animated.spring(slideAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  }, [slideAnim]);
+
+  const closeSheet = useCallback(() => {
+    Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => setShowNotifSheet(false));
+  }, [slideAnim]);
+
+  const handleMarkRead = useCallback(async (id: string) => {
+    await markAlertAsRead(id);
+    refetch();
+  }, []);
+
+  const handleDismissNotif = useCallback(async (id: string) => {
+    await dismissAlert(id);
+  }, [dismissAlert]);
+
+  const handleDeleteNotif = useCallback((id: string) => {
+    RNAlert.alert(t("notifications.deleteTitle"), t("notifications.deleteConfirm"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("common.delete"), style: "destructive", onPress: async () => { await deleteAlert(id); refetch(); } },
+    ]);
+  }, [t]);
 
   return (
     <ThemedView style={styles.container}>
@@ -114,10 +144,16 @@ export default function HomeScreen() {
             </View>
             <Pressable 
               style={styles.notificationButton}
-              onPress={() => navigation.navigate("Notifications")}
+              onPress={openSheet}
             >
               <AppIcon name="bell" size={20} color={theme.textSecondary} />
-              <View style={styles.notificationDot} />
+              {unreadCount > 0 && (
+                <View style={styles.notificationDot}>
+                  {unreadCount > 1 && (
+                    <ThemedText style={styles.notificationDotText}>{unreadCount > 9 ? "9+" : unreadCount}</ThemedText>
+                  )}
+                </View>
+              )}
             </Pressable>
           </View>
 
@@ -332,6 +368,81 @@ export default function HomeScreen() {
           <AppIcon name="chevron-right" size={20} color={theme.textSecondary} />
         </Pressable>
       </ScrollView>
+
+      <Modal visible={showNotifSheet} transparent animationType="none" onRequestClose={closeSheet} statusBarTranslucent>
+        <TouchableWithoutFeedback onPress={closeSheet}>
+          <View style={styles.sheetOverlay} />
+        </TouchableWithoutFeedback>
+        <Animated.View
+          style={[
+            styles.sheet,
+            { backgroundColor: theme.backgroundDefault, paddingBottom: insets.bottom + Spacing.lg },
+            {
+              transform: [{
+                translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [700, 0] }),
+              }],
+            },
+          ]}
+        >
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetHeader}>
+            <ThemedText type="h3">{t("notifications.title", "Уведомления")}</ThemedText>
+            <Pressable onPress={closeSheet} hitSlop={12}>
+              <AppIcon name="x" size={22} color={theme.textSecondary} />
+            </Pressable>
+          </View>
+
+          {alerts.filter((a) => !a.isDismissed).length === 0 ? (
+            <View style={styles.sheetEmpty}>
+              <AppIcon name="bell-off" size={40} color={theme.textSecondary} />
+              <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
+                {t("notifications.noActive")}
+              </ThemedText>
+            </View>
+          ) : (
+            <FlatList
+              data={alerts.filter((a) => !a.isDismissed)}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ gap: Spacing.sm, paddingBottom: Spacing.md }}
+              renderItem={({ item }) => {
+                const priorityColor = item.priority === "urgent" ? theme.danger : item.priority === "important" ? theme.warning : theme.primary;
+                return (
+                  <Pressable
+                    onPress={() => !item.isRead && handleMarkRead(item.id)}
+                    style={[
+                      styles.notifItem,
+                      { backgroundColor: theme.backgroundRoot, borderLeftWidth: item.isRead ? 0 : 3, borderLeftColor: priorityColor },
+                    ]}
+                  >
+                    <View style={[styles.notifIcon, { backgroundColor: priorityColor + "18" }]}>
+                      <AppIcon
+                        name={item.type === "reminder" ? "bell" : item.type === "warning" ? "alert-triangle" : item.type === "recommendation" ? "star" : item.type === "checkup" ? "calendar" : "info"}
+                        size={18}
+                        color={priorityColor}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText type={item.isRead ? "body" : "h4"} numberOfLines={1}>{item.title}</ThemedText>
+                      {item.description ? (
+                        <ThemedText type="small" style={{ color: theme.textSecondary }} numberOfLines={2}>{item.description}</ThemedText>
+                      ) : null}
+                    </View>
+                    <View style={{ flexDirection: "row", gap: Spacing.xs }}>
+                      <Pressable hitSlop={8} onPress={() => handleDismissNotif(item.id)}>
+                        <AppIcon name="x" size={16} color={theme.textSecondary} />
+                      </Pressable>
+                      <Pressable hitSlop={8} onPress={() => handleDeleteNotif(item.id)}>
+                        <AppIcon name="trash-2" size={16} color={theme.danger} />
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                );
+              }}
+            />
+          )}
+        </Animated.View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -401,12 +512,21 @@ const styles = StyleSheet.create({
   },
   notificationDot: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 8,
+    top: 6,
+    right: 6,
+    minWidth: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#4A90D9",
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 2,
+  },
+  notificationDotText: {
+    color: "#FFFFFF",
+    fontSize: 8,
+    fontWeight: "700",
+    lineHeight: 10,
   },
   promoBanner: {
     borderRadius: BorderRadius.xl,
@@ -630,5 +750,56 @@ const styles = StyleSheet.create({
   },
   dismissButton: {
     padding: Spacing.xs,
+  },
+  sheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    maxHeight: "78%",
+    ...Platform.select({
+      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16 },
+      android: { elevation: 16 },
+    }),
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CBD5E1",
+    alignSelf: "center",
+    marginBottom: Spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  sheetEmpty: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl * 2,
+  },
+  notifItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+  },
+  notifIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
