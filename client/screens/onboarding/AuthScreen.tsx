@@ -7,6 +7,7 @@ import {
   Pressable,
   Dimensions,
   Platform,
+  Keyboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -24,7 +25,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -108,9 +108,26 @@ export default function AuthScreen() {
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const translateY = useSharedValue(0);
+  const keyboardOffset = useSharedValue(0);
 
   useEffect(() => {
-    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+
+    const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
+      keyboardOffset.value = withTiming(-e.endCoordinates.height, { duration: 250 });
+    });
+    const hideSub = Keyboard.addListener("keyboardWillHide", () => {
+      keyboardOffset.value = withTiming(0, { duration: 250 });
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
 
   const startCooldown = () => {
@@ -140,9 +157,8 @@ export default function AuthScreen() {
       }
     });
 
-  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
   const animatedCardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value + keyboardHeight.value }],
+    transform: [{ translateY: translateY.value + keyboardOffset.value }],
   }));
 
   const sendCode = async (): Promise<boolean> => {
