@@ -7,7 +7,6 @@ import {
   Pressable,
   Dimensions,
   Platform,
-  KeyboardAvoidingView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -269,10 +268,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <View style={styles.container}>
       <LinearGradient
         colors={["#0097A7", "#00ACC1", "#4DD0E1"]}
         start={{ x: 0, y: 0 }}
@@ -311,6 +307,8 @@ export default function AuthScreen() {
         <KeyboardAwareScrollViewCompat
           contentContainerStyle={[styles.formContent, { paddingBottom: insets.bottom + Spacing.xl }]}
           showsVerticalScrollIndicator={false}
+          bottomOffset={24}
+          scrollEnabled
         >
           {step === "verify" ? (
             <>
@@ -508,7 +506,7 @@ export default function AuthScreen() {
           )}
         </KeyboardAwareScrollViewCompat>
       </Animated.View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

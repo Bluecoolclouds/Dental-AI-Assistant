@@ -23,7 +23,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.toothy.app"
+      "package": "com.toothy.app",
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "output": "single",
