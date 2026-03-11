@@ -74,6 +74,7 @@ const MENU_ITEM_DEFS = [
   { icon: "folder" as const, key: "materials", color: "#F59E0B", route: "Materials" },
   { icon: "heart" as const, key: "favoriteDoctors", color: "#EF4444", route: null },
   { icon: "bell" as const, key: "notifications", color: "#4A90D9", route: "Notifications" },
+  { icon: "message-circle" as const, key: "feedback", color: "#10B981", route: "Feedback" },
   { icon: "settings" as const, key: "settings", color: "#6B7280", route: null },
 ];
 

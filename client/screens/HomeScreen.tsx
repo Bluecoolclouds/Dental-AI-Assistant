@@ -114,7 +114,7 @@ export default function HomeScreen() {
             </View>
             <Pressable 
               style={styles.notificationButton}
-              onPress={() => navigation.navigate("Feedback")}
+              onPress={() => navigation.navigate("Notifications")}
             >
               <AppIcon name="bell" size={20} color={theme.textSecondary} />
               <View style={styles.notificationDot} />

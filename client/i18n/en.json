@@ -185,7 +185,8 @@
     "notificationsFailed": "Failed to change notification settings",
     "language": "Language",
     "languageRu": "Русский",
-    "languageEn": "English"
+    "languageEn": "English",
+    "feedback": "Feedback"
   },
   "toothMap": {
     "pain": "Pain",

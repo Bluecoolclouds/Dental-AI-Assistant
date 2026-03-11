@@ -185,7 +185,8 @@
     "notificationsFailed": "Не удалось изменить настройки уведомлений",
     "language": "Язык",
     "languageRu": "Русский",
-    "languageEn": "English"
+    "languageEn": "English",
+    "feedback": "Обратная связь"
   },
   "toothMap": {
     "pain": "Боль",
