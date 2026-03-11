@@ -7,8 +7,10 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -99,14 +101,26 @@ export default function WelcomeScreen() {
   };
 
   const sheetY = useSharedValue(SCREEN_HEIGHT);
+  const sheetHeight = useSharedValue(0);
   const sheetRadius = useSharedValue(28);
+  const isFullScreen = useRef(false);
 
-  const hideSheet = () => setSheetVisible(false);
+  const hideSheet = () => {
+    isFullScreen.current = false;
+    setSheetVisible(false);
+  };
 
   const animateOpen = () => {
     sheetY.value = SCREEN_HEIGHT;
+    sheetHeight.value = 0;
     sheetRadius.value = 28;
     sheetY.value = withSpring(0, { damping: 22, stiffness: 280, mass: 0.9 });
+  };
+
+  const animateToFullScreen = () => {
+    if (isFullScreen.current) return;
+    isFullScreen.current = true;
+    sheetHeight.value = withSpring(SCREEN_HEIGHT, { damping: 24, stiffness: 240, mass: 1 });
     sheetRadius.value = withTiming(0, { duration: 320 });
   };
 
@@ -128,6 +142,7 @@ export default function WelcomeScreen() {
   };
 
   const openSheet = (mode: AuthMode) => {
+    isFullScreen.current = false;
     setAuthMode(mode);
     setError("");
     setEmail("");
@@ -253,11 +268,17 @@ export default function WelcomeScreen() {
       }
     });
 
-  const animatedSheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: sheetY.value }] as const,
-    borderTopLeftRadius: sheetRadius.value,
-    borderTopRightRadius: sheetRadius.value,
-  }));
+  const animatedSheetStyle = useAnimatedStyle(() => {
+    const base = {
+      transform: [{ translateY: sheetY.value }] as const,
+      borderTopLeftRadius: sheetRadius.value,
+      borderTopRightRadius: sheetRadius.value,
+    };
+    if (sheetHeight.value > 0) {
+      return { ...base, height: sheetHeight.value };
+    }
+    return base;
+  });
 
   const isLogin = authMode === "login";
 
@@ -305,13 +326,22 @@ export default function WelcomeScreen() {
         onShow={animateOpen}
       >
         <GestureHandlerRootView style={styles.modalRoot}>
-        <Animated.View
-          style={[
-            styles.sheet,
-            { paddingBottom: insets.bottom + Spacing.xl },
-            animatedSheetStyle,
-          ]}
+        <TouchableWithoutFeedback onPress={closeSheet}>
+          <View style={styles.overlay} />
+        </TouchableWithoutFeedback>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.sheetWrapper}
+          pointerEvents="box-none"
         >
+          <Animated.View
+            style={[
+              styles.sheet,
+              { paddingBottom: insets.bottom + Spacing.xl },
+              animatedSheetStyle,
+            ]}
+          >
             <GestureDetector gesture={panGesture}>
               <View style={styles.dragArea}>
                 <View style={styles.sheetHandle} />
@@ -366,6 +396,7 @@ export default function WelcomeScreen() {
                         keyboardType="number-pad"
                         autoFocus
                         maxLength={6}
+                        onFocus={animateToFullScreen}
                       />
                     </View>
                   </View>
@@ -420,6 +451,7 @@ export default function WelcomeScreen() {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoComplete="email"
+                        onFocus={animateToFullScreen}
                       />
                     </View>
 
@@ -438,6 +470,7 @@ export default function WelcomeScreen() {
                         onChangeText={setPassword}
                         secureTextEntry={!showPassword}
                         autoComplete={isLogin ? "current-password" : "new-password"}
+                        onFocus={animateToFullScreen}
                       />
                       <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
                         <AppIcon
@@ -464,6 +497,7 @@ export default function WelcomeScreen() {
                           onChangeText={setConfirmPassword}
                           secureTextEntry={!showPassword}
                           autoComplete="new-password"
+                          onFocus={animateToFullScreen}
                         />
                       </View>
                     ) : null}
@@ -500,6 +534,7 @@ export default function WelcomeScreen() {
               )}
             </ScrollView>
           </Animated.View>
+        </KeyboardAvoidingView>
         </GestureHandlerRootView>
       </Modal>
     </LinearGradient>
@@ -621,15 +656,21 @@ const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
   },
-  sheet: {
+  overlay: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+  sheetWrapper: {
     position: "absolute",
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+  },
+  sheet: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    maxHeight: SCREEN_HEIGHT * 0.78,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
