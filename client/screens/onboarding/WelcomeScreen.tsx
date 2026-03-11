@@ -330,6 +330,8 @@ export default function WelcomeScreen() {
           <View style={styles.overlay} />
         </TouchableWithoutFeedback>
 
+        <View pointerEvents="none" style={styles.sheetBottomFill} />
+
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.sheetWrapper}
@@ -338,7 +340,7 @@ export default function WelcomeScreen() {
           <Animated.View
             style={[
               styles.sheet,
-              { paddingBottom: insets.bottom + Spacing.xl + 60 },
+              { paddingBottom: insets.bottom + Spacing.xl },
               animatedSheetStyle,
             ]}
           >
@@ -662,9 +664,17 @@ const styles = StyleSheet.create({
   },
   sheetWrapper: {
     position: "absolute",
-    bottom: -60,
+    bottom: 0,
     left: 0,
     right: 0,
+  },
+  sheetBottomFill: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    backgroundColor: "#FFFFFF",
   },
   sheet: {
     backgroundColor: "#FFFFFF",
