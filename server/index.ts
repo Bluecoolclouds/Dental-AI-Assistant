@@ -30,6 +30,12 @@ function setupCors(app: express.Application) {
       });
     }
 
+    if (process.env.ALLOWED_ORIGINS) {
+      process.env.ALLOWED_ORIGINS.split(",").forEach((o) => {
+        origins.add(o.trim());
+      });
+    }
+
     const origin = req.header("origin");
 
     if (origin && origins.has(origin)) {

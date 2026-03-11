@@ -27,6 +27,37 @@ This is a React Native mobile application for dental health monitoring built wit
 - Profile syncs from server on every load; local SQLite is the cache/fallback
 - Files (X-rays, photos, PDFs) stored in device's document directory via expo-file-system
 
+## Docker Deployment
+
+### Files
+- `Dockerfile` — multi-stage build (builder: Node 22 Alpine + all deps + esbuild + drizzle-kit generate → runtime: prod deps only)
+- `docker-compose.yml` — server + PostgreSQL 16
+- `docker-entrypoint.sh` — waits for DB, runs migrations, starts server
+- `.env.example` — required environment variables template
+- `server/migrate.ts` — drizzle migrate() runner (built to `server_dist/migrate.js`)
+
+### Environment Variables (for Docker)
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Set automatically by compose from `POSTGRES_PASSWORD` |
+| `ADMIN_SECRET` | Admin panel key (`/admin?key=<value>`) |
+| `ANTHROPIC_API_KEY` | Claude API key |
+| `RESEND_API_KEY` | Email OTP key |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins (e.g. `https://app.example.com`) |
+| `PORT` | Server port (default: `5000`) |
+
+### Deploy Commands
+```sh
+cp .env.example .env      # Fill in secrets
+docker compose up -d       # Build + start
+docker compose logs -f     # Follow logs
+```
+
+### Scripts
+- `npm run db:generate` — generate SQL migrations from schema (no DB required)
+- `npm run server:build` — esbuild bundles server/index.ts + server/migrate.ts → server_dist/
+- `npm run server:migrate:prod` — apply migrations in production (requires DATABASE_URL)
+
 ## Recent Changes
 - **2026-03-10**: i18n AUDIT COMPLETE — All 7 target screens (AboutMe, Analysis, Home, ToothDetail, ToothMap, Calendar, Profile) fully wired to i18n. Removed module-level dead code arrays with hardcoded Russian strings from AboutMeScreen, HomeScreen, CalendarScreen. PROBLEM_CONFIG in ToothDetailScreen cleaned up (labels were dead code). PROBLEM_CONFIG and FILE_TYPES in ToothMapScreen converted to use `labelKey` pattern. AnalysisScreen: added useTranslation, fixed getRiskLabel + empty state strings. CalendarScreen: removed static DAYS/MONTHS (was already using t() for days/months), fixed `timePlaceholderMinutes`. ProfileScreen: scheduleDentalReminders now accepts translated strings as params. Added missing translation keys to both ru.json and en.json: `common.{noResults,all,daysAgo,description}`, `home.betaDescription`, `toothDetail.{upperJaw,lowerJaw,markedProblems,noProblems,noProblemsDesc}`, `toothMap.{markProblems,markAsHealed,treatedBanner,describeOwnWords,aiUseNote,howToUse,position,teethMarked,totalProblems,problemTypes,noFiles,filesEmptyDesc,history,files,addRecord}`, `materials.{mb,infoBanner,noFiles,noFilesDesc}`, `notifications.active`, `aboutMe.{clickToChange,personalData,usageGoal,medicalInfo,detailsInAiChat}`, `analysis.{visitRecommendation,retakeTest,noResults,noResultsDesc}`, `calendar.timePlaceholderMinutes`.
 - **2026-03-10**: HYBRID MIGRATION — Auth moved to server PostgreSQL (with email code verification). User profiles, test results, feedback synced to server via write-through. Added admin analytics dashboard at `/admin?key=<ADMIN_SECRET>` with Chart.js (registrations chart, risk distribution, tooth problems, feedback list). Extended `userProfiles` schema with displayName/avatarUrl/birthDate/gender/goals/location/allergyToAnesthetics/seriousIllnesses. `ADMIN_SECRET` env var controls access.
