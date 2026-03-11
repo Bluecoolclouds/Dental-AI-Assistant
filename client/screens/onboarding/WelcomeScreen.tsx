@@ -7,10 +7,8 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -101,23 +99,15 @@ export default function WelcomeScreen() {
   };
 
   const sheetY = useSharedValue(SCREEN_HEIGHT);
-  const sheetHeight = useSharedValue(0);
   const sheetRadius = useSharedValue(28);
-  const sheetMeasuredHeight = useRef(0);
 
   const hideSheet = () => setSheetVisible(false);
 
   const animateOpen = () => {
     sheetY.value = SCREEN_HEIGHT;
-    sheetHeight.value = 0;
     sheetRadius.value = 28;
     sheetY.value = withSpring(0, { damping: 22, stiffness: 280, mass: 0.9 });
-  };
-
-  const animateToFullScreen = () => {
-    sheetHeight.value = sheetMeasuredHeight.current;
-    sheetHeight.value = withSpring(SCREEN_HEIGHT, { damping: 24, stiffness: 240, mass: 1 });
-    sheetRadius.value = withTiming(0, { duration: 380 });
+    sheetRadius.value = withTiming(0, { duration: 320 });
   };
 
   const animateClose = (onDone?: () => void) => {
@@ -161,7 +151,6 @@ export default function WelcomeScreen() {
       if (data.devMode) setDevMode(true);
       setRegisterStep("code");
       startCountdown(60);
-      animateToFullScreen();
     } catch (err: any) {
       const raw = err?.message || "";
       const statusMatch = raw.match(/^(\d+):\s*([\s\S]*)/);
@@ -264,17 +253,11 @@ export default function WelcomeScreen() {
       }
     });
 
-  const animatedSheetStyle = useAnimatedStyle(() => {
-    const base = {
-      transform: [{ translateY: sheetY.value }] as const,
-      borderTopLeftRadius: sheetRadius.value,
-      borderTopRightRadius: sheetRadius.value,
-    };
-    if (sheetHeight.value > 0) {
-      return { ...base, height: sheetHeight.value };
-    }
-    return base;
-  });
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetY.value }] as const,
+    borderTopLeftRadius: sheetRadius.value,
+    borderTopRightRadius: sheetRadius.value,
+  }));
 
   const isLogin = authMode === "login";
 
@@ -322,26 +305,13 @@ export default function WelcomeScreen() {
         onShow={animateOpen}
       >
         <GestureHandlerRootView style={styles.modalRoot}>
-        <TouchableWithoutFeedback onPress={closeSheet}>
-          <View style={styles.overlay} />
-        </TouchableWithoutFeedback>
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.sheetWrapper}
-          pointerEvents="box-none"
+        <Animated.View
+          style={[
+            styles.sheet,
+            { paddingBottom: insets.bottom + Spacing.xl },
+            animatedSheetStyle,
+          ]}
         >
-          <Animated.View
-            onLayout={(e) => {
-              const h = e.nativeEvent.layout.height;
-              if (h < SCREEN_HEIGHT * 0.9) sheetMeasuredHeight.current = h;
-            }}
-            style={[
-              styles.sheet,
-              { paddingBottom: insets.bottom + Spacing.xl },
-              animatedSheetStyle,
-            ]}
-          >
             <GestureDetector gesture={panGesture}>
               <View style={styles.dragArea}>
                 <View style={styles.sheetHandle} />
@@ -530,7 +500,6 @@ export default function WelcomeScreen() {
               )}
             </ScrollView>
           </Animated.View>
-        </KeyboardAvoidingView>
         </GestureHandlerRootView>
       </Modal>
     </LinearGradient>
@@ -652,21 +621,15 @@ const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
-  sheetWrapper: {
+  sheet: {
     position: "absolute",
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-  },
-  sheet: {
+    bottom: 0,
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: SCREEN_HEIGHT * 0.78,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
