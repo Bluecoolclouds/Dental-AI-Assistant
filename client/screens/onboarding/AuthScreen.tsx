@@ -24,6 +24,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
+import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -139,7 +140,10 @@ export default function AuthScreen() {
       }
     });
 
-  const animatedCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value + keyboardHeight.value }],
+  }));
 
   const sendCode = async (): Promise<boolean> => {
     try {
