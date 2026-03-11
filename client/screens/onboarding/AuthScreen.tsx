@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import AppIcon from "@/components/Icons";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, {
@@ -41,45 +40,6 @@ const DISMISS_THRESHOLD = 160;
 const DISMISS_VELOCITY = 900;
 const CODE_LENGTH = 6;
 
-function ToothIllustration({ style }: { style?: any }) {
-  return (
-    <Svg width={80} height={100} viewBox="0 0 80 100" style={style}>
-      <Defs>
-        <RadialGradient id="toothGrad" cx="50%" cy="30%" r="70%">
-          <Stop offset="0%" stopColor="#FFFFFF" />
-          <Stop offset="100%" stopColor="#E8E8E8" />
-        </RadialGradient>
-      </Defs>
-      <Path
-        d="M20,35 C20,15 30,5 40,5 C50,5 60,15 60,35 L58,70 C58,80 55,95 50,95 C48,95 46,90 45,85 L40,85 L35,85 C34,90 32,95 30,95 C25,95 22,80 22,70 Z"
-        fill="url(#toothGrad)"
-        stroke="#D0D0D0"
-        strokeWidth={1}
-      />
-      <Circle cx="35" cy="30" r="3" fill="#F0F0F0" opacity={0.8} />
-    </Svg>
-  );
-}
-
-function ToothyLogo() {
-  return (
-    <View style={styles.logoContainer}>
-      <Svg width={40} height={40} viewBox="0 0 40 40">
-        <Circle cx="20" cy="20" r="18" fill="#FFFFFF" opacity={0.2} />
-        <Path
-          d="M12,18 C12,10 15,6 20,6 C25,6 28,10 28,18 L27,28 C27,32 25,36 23,36 C22,36 21,34 20.5,32 L20,32 L19.5,32 C19,34 18,36 17,36 C15,36 13,32 13,28 Z"
-          fill="#FFFFFF"
-          stroke="#E0F7FA"
-          strokeWidth={0.5}
-        />
-      </Svg>
-      <View>
-        <ThemedText style={styles.logoText}>Toothy</ThemedText>
-        <ThemedText style={styles.logoSubtext}>DENTAL CARE</ThemedText>
-      </View>
-    </View>
-  );
-}
 
 export default function AuthScreen() {
   const { t } = useTranslation();
@@ -278,30 +238,9 @@ export default function AuthScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBackground}
-      >
-        <View style={[styles.headerSection, { paddingTop: insets.top + Spacing.xl }]}>
-          <ToothyLogo />
-          <View style={styles.heroContent}>
-            <ThemedText style={styles.heroTitle}>
-              {step === "verify" ? t("auth.checkEmail") : isLogin ? t("auth.welcomeBack") : t("auth.feelConfident")}
-            </ThemedText>
-            <ThemedText style={styles.heroSubtitle}>
-              {step === "verify"
-                ? t("auth.codeSentTo", { email })
-                : isLogin
-                ? t("auth.loginSubtitle")
-                : t("auth.registerSubtitle")}
-            </ThemedText>
-          </View>
-          <View style={styles.teethDecoration}>
-            <ToothIllustration style={[styles.tooth, styles.tooth1]} />
-            <ToothIllustration style={[styles.tooth, styles.tooth2]} />
-            <ToothIllustration style={[styles.tooth, styles.tooth3]} />
-          </View>
-        </View>
-      </LinearGradient>
+      />
 
-      <Animated.View style={[styles.formCard, animatedCardStyle]}>
+      <Animated.View style={[styles.formCard, animatedCardStyle, { marginTop: insets.top }]}>
         <GestureDetector gesture={panGesture}>
           <View style={styles.dragHandleArea}>
             <View style={styles.dragHandle} />
@@ -516,25 +455,12 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0097A7" },
-  gradientBackground: { height: "42%", paddingHorizontal: Spacing.xl, overflow: "hidden" },
-  headerSection: { flex: 1, overflow: "hidden" },
-  logoContainer: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
-  logoText: { color: "#FFFFFF", fontSize: 22, fontWeight: "700", letterSpacing: 0.5 },
-  logoSubtext: { color: "rgba(255,255,255,0.7)", fontSize: 10, letterSpacing: 2, fontWeight: "500" },
-  heroContent: { marginTop: Spacing.lg, maxWidth: "70%" },
-  heroTitle: { color: "#FFFFFF", fontSize: 24, fontWeight: "700", lineHeight: 30, marginBottom: Spacing.sm },
-  heroSubtitle: { color: "rgba(255,255,255,0.85)", fontSize: 13, lineHeight: 20 },
-  teethDecoration: { position: "absolute", right: -20, bottom: 40, flexDirection: "row", alignItems: "flex-end" },
-  tooth: { opacity: 0.9 },
-  tooth1: { transform: [{ rotate: "-10deg" }] },
-  tooth2: { marginLeft: -30, marginBottom: -10 },
-  tooth3: { marginLeft: -30, transform: [{ rotate: "10deg" }] },
+  gradientBackground: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   formCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    marginTop: -20,
     ...Platform.select({
       ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12 },
       android: { elevation: 8 },
