@@ -338,7 +338,7 @@ export default function WelcomeScreen() {
           <Animated.View
             style={[
               styles.sheet,
-              { paddingBottom: insets.bottom + Spacing.xl },
+              { paddingBottom: insets.bottom + Spacing.xl + 60 },
               animatedSheetStyle,
             ]}
           >
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   },
   sheetWrapper: {
     position: "absolute",
-    bottom: 0,
+    bottom: -60,
     left: 0,
     right: 0,
   },

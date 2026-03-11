@@ -94,7 +94,8 @@
       "genderMale": "Мужской",
       "genderFemale": "Женский",
       "genderNone": "Не указывать",
-      "dateError": "Проверьте формат даты: дд.мм.гггг"
+      "dateError": "Проверьте формат даты: дд.мм.гггг",
+      "dob": "Дата рождения"
     },
     "goals": {
       "general": "Общий мониторинг",
@@ -115,7 +116,10 @@
       "irrigator": "Использую ирригатор",
       "gumBleeding": "Кровоточивость дёсен",
       "braces": "Ношу брекеты/элайнеры",
-      "sensitive": "Чувствительные зубы"
+      "sensitive": "Чувствительные зубы",
+      "brushingTitle": "Как часто чистите зубы?",
+      "additionalCare": "Дополнительный уход",
+      "specifics": "Особенности"
     },
     "toothMapIntro": {
       "tapToSelect": "Нажмите на зуб для выбора",
@@ -186,7 +190,8 @@
     "language": "Язык",
     "languageRu": "Русский",
     "languageEn": "English",
-    "feedback": "Обратная связь"
+    "feedback": "Обратная связь",
+    "notifications": "Уведомления"
   },
   "toothMap": {
     "pain": "Боль",
@@ -238,7 +243,10 @@
     "filesEmptyDesc": "Отправьте снимок в ИИ-чате — он появится здесь",
     "history": "История",
     "files": "Файлы",
-    "addRecord": "Добавить запись"
+    "addRecord": "Добавить запись",
+    "historyEmpty": "История пуста",
+    "historyEmptyDesc": "События будут появляться здесь по мере использования приложения",
+    "openAllMaterials": "Открыть все материалы"
   },
   "aiChat": {
     "title": "ИИ-консультант",

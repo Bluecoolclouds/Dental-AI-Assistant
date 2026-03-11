@@ -94,7 +94,8 @@
       "genderMale": "Male",
       "genderFemale": "Female",
       "genderNone": "Prefer not to say",
-      "dateError": "Check date format: dd.mm.yyyy"
+      "dateError": "Check date format: dd.mm.yyyy",
+      "dob": "Date of birth"
     },
     "goals": {
       "general": "General monitoring",
@@ -115,7 +116,10 @@
       "irrigator": "I use an irrigator",
       "gumBleeding": "Gum bleeding",
       "braces": "I wear braces/aligners",
-      "sensitive": "Sensitive teeth"
+      "sensitive": "Sensitive teeth",
+      "brushingTitle": "How often do you brush your teeth?",
+      "additionalCare": "Additional care",
+      "specifics": "Specifics"
     },
     "toothMapIntro": {
       "tapToSelect": "Tap a tooth to select",
@@ -186,7 +190,8 @@
     "language": "Language",
     "languageRu": "Русский",
     "languageEn": "English",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "notifications": "Notifications"
   },
   "toothMap": {
     "pain": "Pain",
@@ -238,7 +243,10 @@
     "filesEmptyDesc": "Send a photo in AI chat — it will appear here",
     "history": "History",
     "files": "Files",
-    "addRecord": "Add record"
+    "addRecord": "Add record",
+    "historyEmpty": "History is empty",
+    "historyEmptyDesc": "Events will appear here as you use the app",
+    "openAllMaterials": "Open all materials"
   },
   "aiChat": {
     "title": "AI Consultant",

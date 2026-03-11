@@ -134,7 +134,7 @@ export default function ProfileSetupScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>{t("calendar.months.12")}</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("onboarding.profileSetup.dob")}</ThemedText>
           <View style={[
             styles.inputWrapper,
             { backgroundColor: theme.backgroundSecondary, borderColor: dateError ? theme.danger : theme.border }
@@ -180,7 +180,8 @@ export default function ProfileSetupScreen() {
               >
                 <ThemedText
                   type="small"
-                  style={{ color: gender === opt.value ? "#FFF" : theme.text, fontWeight: "500" }}
+                  numberOfLines={2}
+                  style={{ color: gender === opt.value ? "#FFF" : theme.text, fontWeight: "500", textAlign: "center" }}
                 >
                   {opt.label}
                 </ThemedText>
@@ -246,7 +247,9 @@ const styles = StyleSheet.create({
   },
   genderOption: {
     flex: 1,
-    height: 44,
+    minHeight: 44,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     justifyContent: "center",

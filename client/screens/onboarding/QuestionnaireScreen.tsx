@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -31,7 +31,6 @@ export default function QuestionnaireScreen() {
   const { theme } = useTheme();
   const { updateProfile } = useProfile();
 
-  const [age, setAge] = useState("");
   const [brushingFrequency, setBrushingFrequency] = useState("");
   const [usesFloss, setUsesFloss] = useState(false);
   const [usesIrrigator, setUsesIrrigator] = useState(false);
@@ -44,7 +43,6 @@ export default function QuestionnaireScreen() {
     setIsLoading(true);
     try {
       await updateProfile({
-        age: age ? parseInt(age) : undefined,
         brushingFrequency,
         usesFloss,
         usesIrrigator,
@@ -88,26 +86,7 @@ export default function QuestionnaireScreen() {
         </ThemedText>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>{t("onboarding.questionnaire.age")}</ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.backgroundDefault,
-                color: theme.text,
-                borderColor: theme.border,
-              }
-            ]}
-            placeholder={t("onboarding.questionnaire.age")}
-            placeholderTextColor={theme.textSecondary}
-            value={age}
-            onChangeText={setAge}
-            keyboardType="number-pad"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>{t("onboarding.questionnaire.age") === "Введите возраст" ? "Как часто чистите зубы?" : "How often do you brush your teeth?"}</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("onboarding.questionnaire.brushingTitle")}</ThemedText>
           <View style={styles.options}>
             {BRUSHING_OPTIONS(t).map((option) => (
               <Pressable
@@ -139,7 +118,7 @@ export default function QuestionnaireScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>{t("profile.healthSurvey") === "Анкета здоровья" ? "Дополнительный уход" : "Additional care"}</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("onboarding.questionnaire.additionalCare")}</ThemedText>
           <View style={styles.checkboxes}>
             <CheckboxItem
               checked={usesFloss}
@@ -155,7 +134,7 @@ export default function QuestionnaireScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="small" style={styles.label}>{t("profile.settings") === "Настройки" ? "Особенности" : "Specifics"}</ThemedText>
+          <ThemedText type="small" style={styles.label}>{t("onboarding.questionnaire.specifics")}</ThemedText>
           <View style={styles.checkboxes}>
             <CheckboxItem
               checked={hasBraces}
@@ -244,13 +223,6 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: "500",
     marginBottom: Spacing.sm,
-  },
-  input: {
-    height: Spacing.inputHeight,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.lg,
-    fontSize: 16,
-    borderWidth: 1,
   },
   options: {
     gap: Spacing.sm,
