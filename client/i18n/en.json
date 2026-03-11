@@ -254,7 +254,10 @@
     "errorGeneral": "Sorry, an error occurred. Please try again.",
     "urgentAdvice": "AI recommends urgent medical attention",
     "urgentTag": "Urgent consultation needed",
-    "checkTag": "check recommended"
+    "checkTag": "check recommended",
+    "usageCounter": "Today: {{msgUsed}}/{{msgLimit}} messages · {{fileUsed}}/{{fileLimit}} files",
+    "messageLimitReached": "Daily message limit reached ({{limit}} per day). Available again tomorrow. 🦷",
+    "fileLimitReached": "Daily file limit reached ({{limit}} per day). Available again tomorrow."
   },
   "calendar": {
     "today": "Today",

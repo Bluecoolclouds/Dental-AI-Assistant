@@ -189,6 +189,11 @@ export default function AIChatScreen() {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isPickingFile, setIsPickingFile] = useState(false);
 
+  const [usage, setUsage] = useState<{
+    messages: { used: number; limit: number };
+    files: { used: number; limit: number };
+  } | null>(null);
+
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
@@ -244,6 +249,20 @@ export default function AIChatScreen() {
     }, 120);
     return () => clearTimeout(timer);
   }, [jumpToMessageId, isSearching, messages, highlightAnim]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchUsage = async () => {
+      try {
+        const res = await apiRequest("GET", `${getApiUrl()}/api/usage?userId=${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUsage(data);
+        }
+      } catch {}
+    };
+    fetchUsage();
+  }, [user?.id]);
 
   useEffect(() => {
     const load = async () => {
@@ -331,6 +350,7 @@ export default function AIChatScreen() {
         message: text,
         history: chatHistory,
         userContext,
+        userId: user?.id,
       };
 
       if (files.length > 0) {
@@ -342,7 +362,24 @@ export default function AIChatScreen() {
         }));
       }
 
-      const response = await apiRequest("POST", new URL("/api/chat", getApiUrl()).toString(), payload);
+      let response: Response;
+      try {
+        response = await apiRequest("POST", new URL("/api/chat", getApiUrl()).toString(), payload);
+      } catch (err: any) {
+        const msg: string = err?.message || "";
+        if (msg.startsWith("429:")) {
+          const jsonMatch = msg.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              const errData = JSON.parse(jsonMatch[0]);
+              throw Object.assign(new Error("daily_limit_reached"), { limitData: errData });
+            } catch (parseErr: any) {
+              if (parseErr?.limitData) throw parseErr;
+            }
+          }
+        }
+        throw err;
+      }
       return response.json();
     },
     onSuccess: async (data, variables) => {
@@ -353,6 +390,11 @@ export default function AIChatScreen() {
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      setUsage((prev) => prev ? { ...prev, messages: { ...prev.messages, used: prev.messages.used + 1 } } : prev);
+      if (variables.files.length > 0) {
+        setUsage((prev) => prev ? { ...prev, files: { ...prev.files, used: prev.files.used + 1 } } : prev);
+      }
 
       if (user?.id) {
         const savedDescriptions: Record<string, string | null> = {};
@@ -372,7 +414,24 @@ export default function AIChatScreen() {
         }
       }
     },
-    onError: () => {
+    onError: (error: any) => {
+      if (error?.limitData?.error === "daily_limit_reached") {
+        const ld = error.limitData;
+        const isFiles = ld.reason === "files";
+        const limitMsg = isFiles
+          ? t("aiChat.fileLimitReached", { limit: ld.limit })
+          : t("aiChat.messageLimitReached", { limit: ld.limit });
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: limitMsg,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        return;
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -673,6 +732,19 @@ export default function AIChatScreen() {
           },
         ]}
       >
+        {usage && (
+          <View style={styles.usageRow}>
+            <ThemedText style={[styles.usageText, { color: theme.textSecondary }]}>
+              {t("aiChat.usageCounter", {
+                msgUsed: usage.messages.used,
+                msgLimit: usage.messages.limit,
+                fileUsed: usage.files.used,
+                fileLimit: usage.files.limit,
+              })}
+            </ThemedText>
+          </View>
+        )}
+
         {pendingFiles.length > 0 && (
           <ScrollView
             horizontal
@@ -804,6 +876,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderTopWidth: 1,
   },
+  usageRow: { paddingBottom: 4 },
+  usageText: { fontSize: 11 },
   pendingFilesScroll: { marginBottom: Spacing.sm },
   pendingFilesRow: {
     flexDirection: "row",

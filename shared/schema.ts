@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, serial, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -158,6 +158,24 @@ export const toothFiles = pgTable("tooth_files", {
   relatedTeeth: jsonb("related_teeth").default([]), // Array of tooth IDs
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// App settings - configurable key-value store (managed from admin panel)
+export const appSettings = pgTable("app_settings", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AI usage tracking - per user per day
+export const aiUsage = pgTable("ai_usage", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: varchar("date", { length: 10 }).notNull(), // "YYYY-MM-DD"
+  messagesCount: integer("messages_count").default(0).notNull(),
+  filesCount: integer("files_count").default(0).notNull(),
+}, (table) => ({
+  userDateIdx: uniqueIndex("ai_usage_user_date_idx").on(table.userId, table.date),
+}));
 
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({

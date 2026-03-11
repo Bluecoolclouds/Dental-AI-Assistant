@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
-import { storage } from "./storage";
+import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage, incrementUsage } from "./storage";
 import { pool } from "./db";
 import { getAdminStats, renderAdminPage } from "./admin";
 import { 
@@ -48,7 +48,35 @@ function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
 }
 
+function getTodayUTC(): string {
+  return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+}
+
+async function checkDailyLimits(
+  userId: string,
+  hasFiles: boolean
+): Promise<{ limited: true; reason: "messages" | "files"; used: number; limit: number } | { limited: false }> {
+  const date = getTodayUTC();
+  const [messageLimitStr, fileLimitStr, usage] = await Promise.all([
+    getSetting("daily_message_limit"),
+    getSetting("daily_file_limit"),
+    getOrCreateUsage(userId, date),
+  ]);
+  const messageLimit = parseInt(messageLimitStr ?? "20", 10);
+  const fileLimit = parseInt(fileLimitStr ?? "2", 10);
+
+  if (usage.messagesCount >= messageLimit) {
+    return { limited: true, reason: "messages", used: usage.messagesCount, limit: messageLimit };
+  }
+  if (hasFiles && usage.filesCount >= fileLimit) {
+    return { limited: true, reason: "files", used: usage.filesCount, limit: fileLimit };
+  }
+  return { limited: false };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Seed default settings (no-op if already seeded)
+  seedDefaultSettings().catch((e) => console.error("Settings seed error:", e));
 
   // Send email verification code
   app.post("/api/auth/send-code", async (req: Request, res: Response) => {
@@ -407,6 +435,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!message || typeof message !== "string") {
         return res.status(400).json({ error: "Требуется сообщение" });
+      }
+
+      // Daily limit check
+      if (userId) {
+        const hasFiles = Array.isArray(incomingFiles) && incomingFiles.length > 0;
+        const limitResult = await checkDailyLimits(userId, hasFiles);
+        if (limitResult.limited) {
+          return res.status(429).json({
+            error: "daily_limit_reached",
+            reason: limitResult.reason,
+            used: limitResult.used,
+            limit: limitResult.limit,
+          });
+        }
       }
 
       const localMode = !!userContext;
@@ -853,6 +895,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
+        if (userId) {
+          const date = getTodayUTC();
+          const hasFiles = Array.isArray(incomingFiles) && incomingFiles.length > 0;
+          await incrementUsage(userId, date, "messages");
+          if (hasFiles) await incrementUsage(userId, date, "files");
+        }
         return res.json({ 
           response: parsed.assistant_message || content,
           state_updates: parsed.state_updates,
@@ -863,6 +911,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fallbackMessage = msgMatch
           ? msgMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"')
           : rawContent.replace(/```json\s*/gi, "").replace(/```/g, "").replace(/[{}[\]"]/g, "").trim();
+        if (userId) {
+          const date = getTodayUTC();
+          const hasFiles = Array.isArray(incomingFiles) && incomingFiles.length > 0;
+          await incrementUsage(userId, date, "messages");
+          if (hasFiles) await incrementUsage(userId, date, "files");
+        }
         return res.json({ response: fallbackMessage || "Извините, не удалось обработать ответ. Попробуйте перефразировать вопрос." });
       }
     } catch (error) {
@@ -1164,6 +1218,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Usage stats for current user
+  app.get("/api/usage", async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const date = getTodayUTC();
+      const [messageLimitStr, fileLimitStr, usage] = await Promise.all([
+        getSetting("daily_message_limit"),
+        getSetting("daily_file_limit"),
+        getOrCreateUsage(userId, date),
+      ]);
+      return res.json({
+        date,
+        messages: {
+          used: usage.messagesCount,
+          limit: parseInt(messageLimitStr ?? "20", 10),
+        },
+        files: {
+          used: usage.filesCount,
+          limit: parseInt(fileLimitStr ?? "2", 10),
+        },
+      });
+    } catch (error) {
+      console.error("Usage error:", error);
+      return res.status(500).json({ error: "Ошибка сервера" });
+    }
+  });
+
+  // Admin: save AI limit settings
+  app.post("/admin/settings", async (req: Request, res: Response) => {
+    const secret = process.env.ADMIN_SECRET;
+    const { key, daily_message_limit, daily_file_limit } = req.body;
+    if (!secret || key !== secret) {
+      return res.status(401).send("Unauthorized");
+    }
+    try {
+      if (daily_message_limit !== undefined) {
+        const val = parseInt(daily_message_limit, 10);
+        if (!isNaN(val) && val >= 0) await setSetting("daily_message_limit", String(val));
+      }
+      if (daily_file_limit !== undefined) {
+        const val = parseInt(daily_file_limit, 10);
+        if (!isNaN(val) && val >= 0) await setSetting("daily_file_limit", String(val));
+      }
+      return res.redirect(`/admin?key=${key}&saved=1`);
+    } catch (error) {
+      console.error("Settings save error:", error);
+      return res.status(500).send("Ошибка сохранения");
+    }
+  });
+
   // Admin Analytics Dashboard
   app.get("/admin", async (req: Request, res: Response) => {
     const secret = process.env.ADMIN_SECRET;
@@ -1182,7 +1287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const stats = await getAdminStats();
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.send(renderAdminPage(stats));
+      return res.send(renderAdminPage(stats, req.query.key as string, req.query.saved === "1"));
     } catch (error) {
       console.error("Admin dashboard error:", error);
       return res.status(500).send("Ошибка загрузки данных");

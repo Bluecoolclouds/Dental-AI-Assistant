@@ -1,4 +1,5 @@
 import { pool } from "./db";
+import { getSetting } from "./storage";
 
 export async function getAdminStats() {
   const [
@@ -10,6 +11,13 @@ export async function getAdminStats() {
     feedbackList,
     activeUsers,
     feedbackCategories,
+    aiToday,
+    aiWeek,
+    aiMonth,
+    aiByDay,
+    aiTopUsers,
+    msgLimitSetting,
+    fileLimitSetting,
   ] = await Promise.all([
     pool.query(`SELECT COUNT(*)::int AS count FROM users`),
 
@@ -78,6 +86,51 @@ export async function getAdminStats() {
       GROUP BY category
       ORDER BY count DESC
     `),
+
+    // AI usage today
+    pool.query(`
+      SELECT COALESCE(SUM(messages_count),0)::int AS messages, COALESCE(SUM(files_count),0)::int AS files
+      FROM ai_usage
+      WHERE date = TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+    `).catch(() => ({ rows: [{ messages: 0, files: 0 }] })),
+
+    // AI usage last 7 days
+    pool.query(`
+      SELECT COALESCE(SUM(messages_count),0)::int AS messages, COALESCE(SUM(files_count),0)::int AS files
+      FROM ai_usage
+      WHERE date >= TO_CHAR(NOW() AT TIME ZONE 'UTC' - INTERVAL '6 days', 'YYYY-MM-DD')
+    `).catch(() => ({ rows: [{ messages: 0, files: 0 }] })),
+
+    // AI usage last 30 days
+    pool.query(`
+      SELECT COALESCE(SUM(messages_count),0)::int AS messages, COALESCE(SUM(files_count),0)::int AS files
+      FROM ai_usage
+      WHERE date >= TO_CHAR(NOW() AT TIME ZONE 'UTC' - INTERVAL '29 days', 'YYYY-MM-DD')
+    `).catch(() => ({ rows: [{ messages: 0, files: 0 }] })),
+
+    // AI messages by day (last 30 days)
+    pool.query(`
+      SELECT date, COALESCE(SUM(messages_count),0)::int AS messages
+      FROM ai_usage
+      WHERE date >= TO_CHAR(NOW() AT TIME ZONE 'UTC' - INTERVAL '29 days', 'YYYY-MM-DD')
+      GROUP BY date
+      ORDER BY date
+    `).catch(() => ({ rows: [] })),
+
+    // Top 10 users by AI messages
+    pool.query(`
+      SELECT u.email,
+             COALESCE(SUM(a.messages_count),0)::int AS total_messages,
+             COALESCE(SUM(a.files_count),0)::int    AS total_files
+      FROM ai_usage a
+      JOIN users u ON u.id = a.user_id
+      GROUP BY u.email
+      ORDER BY total_messages DESC
+      LIMIT 10
+    `).catch(() => ({ rows: [] })),
+
+    getSetting("daily_message_limit"),
+    getSetting("daily_file_limit"),
   ]);
 
   // Also query tooth_data for most common tooth problems
@@ -102,12 +155,23 @@ export async function getAdminStats() {
     feedbackList: feedbackList.rows,
     activeUsers: activeUsers.rows[0].count,
     feedbackCategories: feedbackCategories.rows,
+    aiToday: aiToday.rows[0] ?? { messages: 0, files: 0 },
+    aiWeek: aiWeek.rows[0] ?? { messages: 0, files: 0 },
+    aiMonth: aiMonth.rows[0] ?? { messages: 0, files: 0 },
+    aiByDay: aiByDay.rows,
+    aiTopUsers: aiTopUsers.rows,
+    settings: {
+      daily_message_limit: msgLimitSetting ?? "20",
+      daily_file_limit: fileLimitSetting ?? "2",
+    },
   };
 }
 
-export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>): string {
+export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>, adminKey?: string, saved?: boolean): string {
   const regLabels = JSON.stringify(stats.registrationsByDay.map((r) => r.day));
   const regData = JSON.stringify(stats.registrationsByDay.map((r) => r.count));
+  const aiDayLabels = JSON.stringify(stats.aiByDay.map((r) => r.date));
+  const aiDayData = JSON.stringify(stats.aiByDay.map((r) => r.messages));
 
   const riskLabels = JSON.stringify(stats.riskDistribution.map((r) => r.overall_risk_level));
   const riskData = JSON.stringify(stats.riskDistribution.map((r) => r.count));
@@ -175,6 +239,21 @@ export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>
   .badge-other{background:#f1f5f9;color:#475569}
   .ts{color:#94a3b8;font-size:12px}
   footer{text-align:center;padding:16px;color:#94a3b8;font-size:12px}
+  .section-title{font-size:13px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;padding:20px 32px 0}
+  .ai-stat-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid #4A90D9}
+  .ai-stat-card .label{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .ai-stat-card .value{font-size:28px;font-weight:700;color:#4A90D9}
+  .ai-stat-card .sub{font-size:12px;color:#94a3b8;margin-top:2px}
+  .settings-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:0 32px 16px}
+  .settings-card h2{font-size:14px;font-weight:600;color:#475569;margin-bottom:16px}
+  .settings-form{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+  .settings-field{display:flex;flex-direction:column;gap:4px}
+  .settings-field label{font-size:12px;color:#64748b;font-weight:500}
+  .settings-field input{padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;width:120px;color:#1e293b}
+  .settings-field input:focus{outline:none;border-color:#4A90D9}
+  .settings-btn{padding:9px 20px;background:#4A90D9;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500}
+  .settings-btn:hover{background:#3b7ec8}
+  .saved-banner{background:#dcfce7;color:#166534;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;display:inline-block;margin-left:12px}
 </style>
 </head>
 <body>
@@ -210,6 +289,64 @@ export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>
     <div class="value">${stats.feedbackList.length}</div>
     <div class="sub">последние 30</div>
   </div>
+</div>
+
+<p class="section-title">Использование ИИ</p>
+<div class="grid" style="padding-top:12px">
+  <div class="ai-stat-card">
+    <div class="label">Сообщений сегодня</div>
+    <div class="value">${stats.aiToday.messages}</div>
+    <div class="sub">файлов: ${stats.aiToday.files} · лимит: ${stats.settings.daily_message_limit}/день</div>
+  </div>
+  <div class="ai-stat-card">
+    <div class="label">Сообщений за 7 дней</div>
+    <div class="value">${stats.aiWeek.messages}</div>
+    <div class="sub">файлов: ${stats.aiWeek.files}</div>
+  </div>
+  <div class="ai-stat-card">
+    <div class="label">Сообщений за 30 дней</div>
+    <div class="value">${stats.aiMonth.messages}</div>
+    <div class="sub">файлов: ${stats.aiMonth.files}</div>
+  </div>
+</div>
+
+<div class="charts" style="padding-top:16px">
+  <div class="chart-card" style="grid-column:1/-1">
+    <h2>Сообщений в день (последние 30 дней)</h2>
+    <div class="chart-wrap"><canvas id="aiChart"></canvas></div>
+  </div>
+</div>
+
+<div class="settings-card">
+  <h2>⚙️ Настройки лимитов ИИ (в день на пользователя)</h2>
+  <form class="settings-form" method="POST" action="/admin/settings">
+    <input type="hidden" name="key" value="${adminKey ?? ""}" />
+    <div class="settings-field">
+      <label>Сообщений (бесплатно)</label>
+      <input type="number" name="daily_message_limit" value="${stats.settings.daily_message_limit}" min="0" max="9999" />
+    </div>
+    <div class="settings-field">
+      <label>Файлов (бесплатно)</label>
+      <input type="number" name="daily_file_limit" value="${stats.settings.daily_file_limit}" min="0" max="99" />
+    </div>
+    <button type="submit" class="settings-btn">Сохранить</button>
+    ${saved ? `<span class="saved-banner">✓ Сохранено</span>` : ""}
+  </form>
+</div>
+
+<div class="table-card">
+  <h2>Топ пользователей по ИИ</h2>
+  <table>
+    <thead><tr><th>Email</th><th>Сообщений (всего)</th><th>Файлов (всего)</th></tr></thead>
+    <tbody>
+      ${stats.aiTopUsers.map((u: any) => `
+      <tr>
+        <td>${u.email}</td>
+        <td><strong>${u.total_messages}</strong></td>
+        <td>${u.total_files}</td>
+      </tr>`).join("") || `<tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:24px">Данных пока нет</td></tr>`}
+    </tbody>
+  </table>
 </div>
 
 <div class="charts">
@@ -252,6 +389,15 @@ export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>
 <script>
 const PROB_RU = ${JSON.stringify(PROBLEM_RU)};
 const RISK_RU = ${JSON.stringify(RISK_RU)};
+
+new Chart(document.getElementById('aiChart'), {
+  type: 'line',
+  data: {
+    labels: ${aiDayLabels},
+    datasets: [{ label: 'Сообщений', data: ${aiDayData}, borderColor: '#4A90D9', backgroundColor: 'rgba(74,144,217,0.1)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3 }]
+  },
+  options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, maintainAspectRatio: false }
+});
 
 new Chart(document.getElementById('regChart'), {
   type: 'bar',

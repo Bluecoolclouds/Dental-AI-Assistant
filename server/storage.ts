@@ -28,8 +28,74 @@ import {
   type CalendarEvent,
   type InsertCalendarEvent,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, desc } from "drizzle-orm";
+
+// ─── App Settings helpers ────────────────────────────────────────────────────
+
+export async function getSetting(key: string): Promise<string | null> {
+  const res = await pool.query(
+    "SELECT value FROM app_settings WHERE key = $1",
+    [key]
+  );
+  return res.rows[0]?.value ?? null;
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+    [key, value]
+  );
+}
+
+export async function seedDefaultSettings(): Promise<void> {
+  await pool.query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES
+       ('daily_message_limit', '20', NOW()),
+       ('daily_file_limit', '2', NOW())
+     ON CONFLICT (key) DO NOTHING`
+  );
+}
+
+// ─── AI Usage helpers ────────────────────────────────────────────────────────
+
+export interface DayUsage {
+  messagesCount: number;
+  filesCount: number;
+}
+
+export async function getOrCreateUsage(userId: string, date: string): Promise<DayUsage> {
+  await pool.query(
+    `INSERT INTO ai_usage (user_id, date, messages_count, files_count)
+     VALUES ($1, $2, 0, 0)
+     ON CONFLICT (user_id, date) DO NOTHING`,
+    [userId, date]
+  );
+  const res = await pool.query(
+    "SELECT messages_count, files_count FROM ai_usage WHERE user_id = $1 AND date = $2",
+    [userId, date]
+  );
+  return {
+    messagesCount: res.rows[0]?.messages_count ?? 0,
+    filesCount: res.rows[0]?.files_count ?? 0,
+  };
+}
+
+export async function incrementUsage(
+  userId: string,
+  date: string,
+  field: "messages" | "files"
+): Promise<void> {
+  const col = field === "messages" ? "messages_count" : "files_count";
+  await pool.query(
+    `INSERT INTO ai_usage (user_id, date, messages_count, files_count)
+     VALUES ($1, $2, ${field === "messages" ? 1 : 0}, ${field === "files" ? 1 : 0})
+     ON CONFLICT (user_id, date) DO UPDATE SET ${col} = ai_usage.${col} + 1`,
+    [userId, date]
+  );
+}
 
 export interface IStorage {
   // Users
