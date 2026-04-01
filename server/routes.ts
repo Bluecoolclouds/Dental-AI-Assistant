@@ -14,18 +14,18 @@ import {
   insertCalendarEventSchema,
 } from "@shared/schema";
 import { createHash, randomInt } from "crypto";
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { sendVerificationEmail } from "./email";
 
-function getOpenAI(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) {
+function getClaude(): Anthropic | null {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return null;
   }
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 }
 
-const GPT_MAIN = "gpt-4o";
-const GPT_FAST = "gpt-4o-mini";
+const CLAUDE_MAIN = "claude-opus-4-5";
+const CLAUDE_FAST = "claude-haiku-4-5";
 
 interface UploadedFile {
   name: string;
@@ -374,8 +374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(latestTest.aiRecommendations);
       }
 
-      const openai = getOpenAI();
-      if (!openai) {
+      const claude = getClaude();
+      if (!claude) {
         return res.status(503).json({ 
           error: "AI недоступен", 
           recommendations: [],
@@ -389,32 +389,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getToothData(userId),
       ]);
 
-      const response = await openai.chat.completions.create({
-        model: GPT_MAIN,
+      const response = await claude.messages.create({
+        model: CLAUDE_MAIN,
         max_tokens: 2048,
-        messages: [
-          {
-            role: "system",
-            content: `Ты виртуальный стоматологический консультант. Анализируй данные о здоровье зубов и давай персонализированные рекомендации на русском языке.
+        system: `Ты виртуальный стоматологический консультант. Анализируй данные о здоровье зубов и давай персонализированные рекомендации на русском языке.
 ВАЖНО: В полях title, description, summary и urgentAction — простой текст БЕЗ Markdown-форматирования, без *, жирного, заголовков, нумерации. Только обычные предложения. Эмодзи можно.
 Ответь ТОЛЬКО валидным JSON без пояснений:
 {"recommendations":[{"title":"string","description":"string","priority":"high"|"medium"|"low","category":"hygiene"|"diet"|"visit"|"treatment"|"prevention"}],"summary":"string","urgentAction":"string|null"}`,
-          },
-          {
-            role: "user",
-            content: `Данные пользователя:
+        messages: [{
+          role: "user",
+          content: `Данные пользователя:
 - Возраст: ${profile?.age || "не указан"}
 - Частота чистки: ${profile?.brushingFrequency || "не указано"}
 - Нить: ${profile?.usesFloss ? "да" : "нет"}, ирригатор: ${profile?.usesIrrigator ? "да" : "нет"}
 - Брекеты: ${profile?.hasBraces ? "да" : "нет"}, чувствительность: ${profile?.hasSensitivity ? "да" : "нет"}, кровоточивость: ${profile?.hasGumBleeding ? "да" : "нет"}
 Проблемные зубы: ${JSON.stringify((toothData || []).filter((t: any) => (t.problems as string[]).length > 0))}
 Тест: риск зубов ${latestTest.teethRiskScore}%, дёсен ${latestTest.gumsRiskScore}%, уровень: ${latestTest.overallRiskLevel}
-Ответь ТОЛЬКО JSON.`,
-          },
-        ],
+Ответь ТОЛЬКО JSON.`
+        }],
       });
 
-      const raw = response.choices[0]?.message?.content || "";
+      const raw = (response.content[0] as any).text || "";
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(jsonMatch?.[0] || "{}");
       await storage.updateTestResultAIRecommendations(latestTest.id, parsed);
