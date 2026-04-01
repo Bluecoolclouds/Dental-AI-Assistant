@@ -3,7 +3,9 @@ const BASE_URL = process.env.EXPO_PUBLIC_DOMAIN
   : "";
 
 export interface GCalStatus {
+  configured: boolean;
   connected: boolean;
+  preferredCalendar?: string;
 }
 
 export interface GCalCalendar {
@@ -13,7 +15,7 @@ export interface GCalCalendar {
 }
 
 export interface SyncResult {
-  success: boolean;
+  success?: boolean;
   googleEventId?: string;
   alreadySynced?: boolean;
   error?: string;
@@ -26,49 +28,47 @@ export interface BulkSyncResult {
   total: number;
 }
 
-export async function getGCalStatus(): Promise<GCalStatus> {
-  const res = await fetch(`${BASE_URL}/api/gcal/status`);
+export async function getGCalStatus(userId: string): Promise<GCalStatus> {
+  const res = await fetch(`${BASE_URL}/api/gcal/status/${userId}`);
   return res.json();
 }
 
-export async function getGCalCalendars(): Promise<GCalCalendar[]> {
-  const res = await fetch(`${BASE_URL}/api/gcal/calendars`);
+export function getConnectUrl(userId: string): string {
+  return `${BASE_URL}/api/gcal/connect/${userId}`;
+}
+
+export async function disconnectGCal(userId: string): Promise<void> {
+  await fetch(`${BASE_URL}/api/gcal/connect/${userId}`, { method: "DELETE" });
+}
+
+export async function getGCalCalendars(userId: string): Promise<GCalCalendar[]> {
+  const res = await fetch(`${BASE_URL}/api/gcal/calendars/${userId}`);
   if (!res.ok) throw new Error("Не удалось получить список календарей");
   return res.json();
 }
 
-export async function syncEventToGCal(
-  eventId: string,
-  calendarId = "primary"
-): Promise<SyncResult> {
-  const res = await fetch(`${BASE_URL}/api/gcal/sync/${eventId}`, {
-    method: "POST",
+export async function setPreferredCalendar(userId: string, calendarId: string): Promise<void> {
+  await fetch(`${BASE_URL}/api/gcal/calendar/${userId}`, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ calendarId }),
   });
+}
+
+export async function syncEventToGCal(userId: string, eventId: string): Promise<SyncResult> {
+  const res = await fetch(`${BASE_URL}/api/gcal/sync/${userId}/${eventId}`, { method: "POST" });
   return res.json();
 }
 
-export async function unsyncEventFromGCal(
-  eventId: string,
-  calendarId = "primary"
-): Promise<SyncResult> {
-  const res = await fetch(`${BASE_URL}/api/gcal/sync/${eventId}`, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ calendarId }),
-  });
+export async function unsyncEventFromGCal(userId: string, eventId: string): Promise<SyncResult> {
+  const res = await fetch(`${BASE_URL}/api/gcal/sync/${userId}/${eventId}`, { method: "DELETE" });
   return res.json();
 }
 
-export async function syncAllEventsToGCal(
-  userId: string,
-  calendarId = "primary"
-): Promise<BulkSyncResult> {
+export async function syncAllEventsToGCal(userId: string): Promise<BulkSyncResult> {
   const res = await fetch(`${BASE_URL}/api/gcal/sync-all/${userId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ calendarId }),
   });
   return res.json();
 }

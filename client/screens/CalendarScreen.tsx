@@ -13,6 +13,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -129,8 +130,10 @@ export default function CalendarScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
 
-  const [gcalConnected, setGcalConnected] = useState(false);
+  const [gcalStatus, setGcalStatus] = useState<{ configured: boolean; connected: boolean; preferredCalendar?: string }>({ configured: false, connected: false });
   const [gcalSyncing, setGcalSyncing] = useState(false);
+  const [gcalCalendars, setGcalCalendars] = useState<{ id: string; name: string; primary: boolean }[]>([]);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -193,9 +196,56 @@ export default function CalendarScreen() {
     loadEvents();
   }, [loadEvents]);
 
+  const refreshGCalStatus = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const status = await gcalRepo.getGCalStatus(user.id);
+      setGcalStatus(status);
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
   useEffect(() => {
-    gcalRepo.getGCalStatus().then((s) => setGcalConnected(s.connected)).catch(() => {});
-  }, []);
+    refreshGCalStatus();
+  }, [refreshGCalStatus]);
+
+  const handleGCalConnect = () => {
+    if (!user?.id) return;
+    const url = gcalRepo.getConnectUrl(user.id);
+    Linking.openURL(url);
+    // Re-check status when user comes back to app
+    const timer = setTimeout(refreshGCalStatus, 5000);
+    return () => clearTimeout(timer);
+  };
+
+  const handleGCalDisconnect = () => {
+    if (!user?.id) return;
+    Alert.alert(
+      "Отключить Google Calendar?",
+      "Все события останутся в Toothy, но связь с Google Calendar будет разорвана.",
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Отключить",
+          style: "destructive",
+          onPress: async () => {
+            await gcalRepo.disconnectGCal(user.id);
+            setGcalStatus({ configured: gcalStatus.configured, connected: false });
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePickCalendar = async () => {
+    if (!user?.id) return;
+    try {
+      const list = await gcalRepo.getGCalCalendars(user.id);
+      setGcalCalendars(list);
+      setShowCalendarPicker(true);
+    } catch (err: any) {
+      Alert.alert("Ошибка", err.message);
+    }
+  };
 
   const handleGCalSyncAll = async () => {
     if (!user?.id) return;
@@ -204,7 +254,9 @@ export default function CalendarScreen() {
       const result = await gcalRepo.syncAllEventsToGCal(user.id);
       Alert.alert(
         "Google Calendar",
-        `Синхронизировано: ${result.synced} событий${result.failed > 0 ? `, не удалось: ${result.failed}` : ""}`
+        result.total === 0
+          ? "Все события уже синхронизированы"
+          : `Синхронизировано: ${result.synced} событий${result.failed > 0 ? `, не удалось: ${result.failed}` : ""}`
       );
       await loadEvents();
     } catch (err: any) {
@@ -402,21 +454,36 @@ export default function CalendarScreen() {
             </Pressable>
           </View>
 
-          {gcalConnected && (
-            <Pressable
-              onPress={handleGCalSyncAll}
-              disabled={gcalSyncing}
-              style={styles.gcalBtn}
-            >
-              {gcalSyncing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <AppIcon name="refresh-cw" size={13} color="#FFFFFF" />
-              )}
-              <ThemedText style={styles.gcalBtnText}>
-                {gcalSyncing ? "Синхронизация..." : "Sync Google Calendar"}
-              </ThemedText>
+          {gcalStatus.configured && !gcalStatus.connected && (
+            <Pressable onPress={handleGCalConnect} style={styles.gcalBtn}>
+              <AppIcon name="link" size={13} color="#FFFFFF" />
+              <ThemedText style={styles.gcalBtnText}>Подключить Google Calendar</ThemedText>
             </Pressable>
+          )}
+
+          {gcalStatus.connected && (
+            <View style={styles.gcalRow}>
+              <Pressable
+                onPress={handleGCalSyncAll}
+                disabled={gcalSyncing}
+                style={[styles.gcalBtn, { flex: 1 }]}
+              >
+                {gcalSyncing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <AppIcon name="refresh-cw" size={13} color="#FFFFFF" />
+                )}
+                <ThemedText style={styles.gcalBtnText}>
+                  {gcalSyncing ? "Синхронизация..." : "Sync Google"}
+                </ThemedText>
+              </Pressable>
+              <Pressable onPress={handlePickCalendar} style={styles.gcalIconBtn}>
+                <AppIcon name="settings" size={14} color="rgba(255,255,255,0.8)" />
+              </Pressable>
+              <Pressable onPress={handleGCalDisconnect} style={styles.gcalIconBtn}>
+                <AppIcon name="x" size={14} color="rgba(255,255,255,0.8)" />
+              </Pressable>
+            </View>
           )}
 
           <View style={styles.weekRow}>
@@ -520,13 +587,14 @@ export default function CalendarScreen() {
                   event={event}
                   theme={theme}
                   isLast={index === selectedEvents.length - 1}
-                  gcalConnected={gcalConnected}
+                  gcalConnected={gcalStatus.connected}
                   onEdit={() => openEditModal(event)}
                   onDelete={() => handleDelete(event)}
                   onToggle={() => handleToggleComplete(event)}
                   onSyncGCal={async () => {
+                    if (!user?.id) return;
                     try {
-                      const res = await gcalRepo.syncEventToGCal(event.id);
+                      const res = await gcalRepo.syncEventToGCal(user.id, event.id);
                       if (res.success || res.alreadySynced) {
                         Alert.alert("Google Calendar", "Событие добавлено в Google Calendar");
                         await loadEvents();
@@ -538,6 +606,7 @@ export default function CalendarScreen() {
                     }
                   }}
                   onUnsyncGCal={async () => {
+                    if (!user?.id) return;
                     Alert.alert("Удалить из Google Calendar?", event.title, [
                       { text: "Отмена", style: "cancel" },
                       {
@@ -545,7 +614,7 @@ export default function CalendarScreen() {
                         style: "destructive",
                         onPress: async () => {
                           try {
-                            await gcalRepo.unsyncEventFromGCal(event.id);
+                            await gcalRepo.unsyncEventFromGCal(user.id, event.id);
                             await loadEvents();
                           } catch (e: any) {
                             Alert.alert("Ошибка", e.message);
@@ -777,6 +846,49 @@ export default function CalendarScreen() {
           </KeyboardAvoidingView>
         </GestureHandlerRootView>
       </Modal>
+
+      {/* Google Calendar picker modal */}
+      <Modal
+        visible={showCalendarPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCalendarPicker(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowCalendarPicker(false)}>
+          <View style={styles.pickerOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.pickerSheet, { backgroundColor: theme.backgroundDefault }]}>
+                <ThemedText style={[styles.pickerTitle, { color: theme.text }]}>
+                  Выберите календарь
+                </ThemedText>
+                {gcalCalendars.map((cal) => {
+                  const isActive = (gcalStatus.preferredCalendar || "primary") === cal.id;
+                  return (
+                    <Pressable
+                      key={cal.id}
+                      style={[styles.pickerItem, isActive && { backgroundColor: "#4A90D910" }]}
+                      onPress={async () => {
+                        if (!user?.id) return;
+                        await gcalRepo.setPreferredCalendar(user.id, cal.id);
+                        setGcalStatus((s) => ({ ...s, preferredCalendar: cal.id }));
+                        setShowCalendarPicker(false);
+                      }}
+                    >
+                      <View style={styles.pickerItemLeft}>
+                        <AppIcon name={cal.primary ? "star" : "calendar"} size={16} color={isActive ? "#4A90D9" : theme.textSecondary} />
+                        <ThemedText style={[styles.pickerItemText, { color: isActive ? "#4A90D9" : theme.text }]}>
+                          {cal.name}
+                        </ThemedText>
+                      </View>
+                      {isActive && <AppIcon name="check" size={16} color="#4A90D9" />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -913,6 +1025,13 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.sm,
   },
+  gcalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
   gcalBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -925,10 +1044,53 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     alignSelf: "center",
   },
+  gcalIconBtn: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 20,
+    padding: 7,
+  },
   gcalBtnText: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  pickerSheet: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: 400,
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  pickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  pickerItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  pickerItemText: {
+    fontSize: 14,
+    fontWeight: "500",
+    flex: 1,
   },
   navBtn: { padding: Spacing.xs },
   monthTitle: {

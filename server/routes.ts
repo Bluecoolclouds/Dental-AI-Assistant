@@ -4,10 +4,16 @@ import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage,
 import { pool } from "./db";
 import { getAdminStats, renderAdminPage } from "./admin";
 import {
-  isGoogleCalendarConnected,
-  createGoogleCalendarEvent,
-  deleteGoogleCalendarEvent,
-  listGoogleCalendars,
+  isGoogleOAuthConfigured,
+  getAuthUrl,
+  handleOAuthCallback,
+  getUserTokens,
+  isUserConnected,
+  disconnectUser,
+  createEventForUser,
+  deleteEventForUser,
+  listCalendarsForUser,
+  setPreferredCalendar,
 } from "./googleCalendar";
 import { 
   insertUserSchema, 
@@ -1300,31 +1306,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Google Calendar sync routes
-  app.get("/api/gcal/status", async (_req: Request, res: Response) => {
+  // ─── Google Calendar per-user OAuth ──────────────────────────────────────
+
+  // Check if OAuth is configured + user connection status
+  app.get("/api/gcal/status/:userId", async (req: Request, res: Response) => {
     try {
-      const connected = await isGoogleCalendarConnected();
-      return res.json({ connected });
+      const { userId } = req.params;
+      const configured = isGoogleOAuthConfigured();
+      if (!configured) return res.json({ configured: false, connected: false });
+
+      const connected = await isUserConnected(userId);
+      let preferredCalendar = "primary";
+      if (connected) {
+        const tokens = await getUserTokens(userId);
+        preferredCalendar = tokens?.calendarId || "primary";
+      }
+      return res.json({ configured: true, connected, preferredCalendar });
     } catch {
-      return res.json({ connected: false });
+      return res.json({ configured: false, connected: false });
     }
   });
 
-  app.get("/api/gcal/calendars", async (_req: Request, res: Response) => {
+  // Start OAuth flow — redirect user to Google consent screen
+  app.get("/api/gcal/connect/:userId", async (req: Request, res: Response) => {
     try {
-      const calendars = await listGoogleCalendars();
+      const { userId } = req.params;
+      if (!isGoogleOAuthConfigured()) {
+        return res.status(503).json({ error: "Google OAuth не настроен" });
+      }
+      const url = getAuthUrl(userId, req);
+      return res.redirect(url);
+    } catch (error: any) {
+      console.error("GCal connect error:", error);
+      return res.status(500).json({ error: "Ошибка запуска авторизации" });
+    }
+  });
+
+  // OAuth callback — exchange code for tokens and redirect back to app
+  app.get("/api/gcal/callback", async (req: Request, res: Response) => {
+    try {
+      const { code, state: userId, error } = req.query as Record<string, string>;
+
+      if (error) {
+        return res.redirect(`/?gcal=error&reason=${encodeURIComponent(error)}`);
+      }
+
+      if (!code || !userId) {
+        return res.redirect("/?gcal=error&reason=missing_params");
+      }
+
+      await handleOAuthCallback(code, userId, req);
+
+      // Redirect to landing page with success flag (Expo picks it up via deep link)
+      return res.send(`
+        <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f0f9f0;text-align:center">
+          <div>
+            <div style="font-size:48px;margin-bottom:16px">✅</div>
+            <h2 style="color:#22c55e;margin-bottom:8px">Google Calendar подключён!</h2>
+            <p style="color:#6b7280">Вернитесь в приложение Toothy</p>
+            <script>setTimeout(() => window.close(), 3000);</script>
+          </div>
+        </body></html>
+      `);
+    } catch (error: any) {
+      console.error("GCal callback error:", error);
+      return res.send(`
+        <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#fff0f0;text-align:center">
+          <div>
+            <div style="font-size:48px;margin-bottom:16px">❌</div>
+            <h2 style="color:#ef4444;margin-bottom:8px">Ошибка подключения</h2>
+            <p style="color:#6b7280">${error.message}</p>
+            <p style="color:#6b7280">Вернитесь в приложение и попробуйте снова</p>
+          </div>
+        </body></html>
+      `);
+    }
+  });
+
+  // Disconnect Google Calendar for a user
+  app.delete("/api/gcal/connect/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      await disconnectUser(userId);
+      return res.json({ success: true });
+    } catch (error: any) {
+      console.error("GCal disconnect error:", error);
+      return res.status(500).json({ error: "Ошибка отключения" });
+    }
+  });
+
+  // List user's Google Calendars (to let them pick one)
+  app.get("/api/gcal/calendars/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const calendars = await listCalendarsForUser(userId);
       return res.json(calendars);
     } catch (error: any) {
-      console.error("List Google Calendars error:", error);
+      console.error("List calendars error:", error);
       return res.status(500).json({ error: "Не удалось получить список календарей" });
     }
   });
 
-  // Sync a single event to Google Calendar
-  app.post("/api/gcal/sync/:eventId", async (req: Request, res: Response) => {
+  // Set preferred calendar for user
+  app.patch("/api/gcal/calendar/:userId", async (req: Request, res: Response) => {
     try {
-      const { eventId } = req.params;
+      const { userId } = req.params;
       const { calendarId } = req.body;
+      if (!calendarId) return res.status(400).json({ error: "calendarId обязателен" });
+      await setPreferredCalendar(userId, calendarId);
+      return res.json({ success: true });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Sync single event to Google Calendar
+  app.post("/api/gcal/sync/:userId/:eventId", async (req: Request, res: Response) => {
+    try {
+      const { userId, eventId } = req.params;
 
       const event = await storage.getCalendarEvent(eventId);
       if (!event) return res.status(404).json({ error: "Событие не найдено" });
@@ -1333,50 +1432,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ alreadySynced: true, googleEventId: event.googleCalendarEventId });
       }
 
-      const googleEventId = await createGoogleCalendarEvent({
+      const googleEventId = await createEventForUser(userId, {
         title: event.title,
         description: event.description ?? undefined,
         date: event.date,
         time: event.time ?? undefined,
-        calendarId: calendarId || "primary",
       });
 
-      const updated = await storage.updateCalendarEvent(eventId, {
-        googleCalendarEventId: googleEventId,
-      });
-
+      const updated = await storage.updateCalendarEvent(eventId, { googleCalendarEventId: googleEventId });
       return res.json({ success: true, googleEventId, event: updated });
     } catch (error: any) {
-      console.error("Sync to Google Calendar error:", error);
+      console.error("Sync event error:", error);
       return res.status(500).json({ error: error.message || "Ошибка синхронизации" });
     }
   });
 
-  // Unsync (remove from Google Calendar)
-  app.delete("/api/gcal/sync/:eventId", async (req: Request, res: Response) => {
+  // Unsync (remove) event from Google Calendar
+  app.delete("/api/gcal/sync/:userId/:eventId", async (req: Request, res: Response) => {
     try {
-      const { eventId } = req.params;
-      const { calendarId } = req.body;
+      const { userId, eventId } = req.params;
 
       const event = await storage.getCalendarEvent(eventId);
       if (!event) return res.status(404).json({ error: "Событие не найдено" });
       if (!event.googleCalendarEventId) return res.status(400).json({ error: "Событие не синхронизировано" });
 
-      await deleteGoogleCalendarEvent(event.googleCalendarEventId, calendarId || "primary");
+      await deleteEventForUser(userId, event.googleCalendarEventId);
       const updated = await storage.updateCalendarEvent(eventId, { googleCalendarEventId: null });
-
       return res.json({ success: true, event: updated });
     } catch (error: any) {
-      console.error("Unsync from Google Calendar error:", error);
+      console.error("Unsync event error:", error);
       return res.status(500).json({ error: error.message || "Ошибка удаления из Google Calendar" });
     }
   });
 
-  // Bulk sync all events for a user
+  // Bulk sync all user events
   app.post("/api/gcal/sync-all/:userId", async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
-      const { calendarId } = req.body;
+
+      const connected = await isUserConnected(userId);
+      if (!connected) return res.status(400).json({ error: "Google Calendar не подключён" });
 
       const events = await storage.getCalendarEvents(userId);
       const unsynced = events.filter((e) => !e.googleCalendarEventId && !e.isCompleted);
@@ -1386,12 +1481,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const event of unsynced) {
         try {
-          const googleEventId = await createGoogleCalendarEvent({
+          const googleEventId = await createEventForUser(userId, {
             title: event.title,
             description: event.description ?? undefined,
             date: event.date,
             time: event.time ?? undefined,
-            calendarId: calendarId || "primary",
           });
           await storage.updateCalendarEvent(event.id, { googleCalendarEventId: googleEventId });
           synced++;

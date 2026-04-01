@@ -160,6 +160,20 @@ export const toothFiles = pgTable("tooth_files", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Per-user Google Calendar OAuth tokens
+export const googleCalendarTokens = pgTable("google_calendar_tokens", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  expiresAt: timestamp("expires_at"),
+  calendarId: text("calendar_id").default("primary"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // App settings - configurable key-value store (managed from admin panel)
 export const appSettings = pgTable("app_settings", {
   key: varchar("key", { length: 100 }).primaryKey(),
