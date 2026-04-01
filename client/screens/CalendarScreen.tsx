@@ -33,6 +33,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import * as calendarRepo from "@/storage/repositories/calendarRepository";
 import type { CalendarEvent } from "@/storage/repositories/calendarRepository";
+import * as gcalRepo from "@/storage/repositories/googleCalendarRepository";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_THRESHOLD = 120;
@@ -128,6 +129,9 @@ export default function CalendarScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
 
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [gcalSyncing, setGcalSyncing] = useState(false);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -188,6 +192,27 @@ export default function CalendarScreen() {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
+
+  useEffect(() => {
+    gcalRepo.getGCalStatus().then((s) => setGcalConnected(s.connected)).catch(() => {});
+  }, []);
+
+  const handleGCalSyncAll = async () => {
+    if (!user?.id) return;
+    setGcalSyncing(true);
+    try {
+      const result = await gcalRepo.syncAllEventsToGCal(user.id);
+      Alert.alert(
+        "Google Calendar",
+        `Синхронизировано: ${result.synced} событий${result.failed > 0 ? `, не удалось: ${result.failed}` : ""}`
+      );
+      await loadEvents();
+    } catch (err: any) {
+      Alert.alert("Ошибка", err.message || "Не удалось синхронизировать с Google Calendar");
+    } finally {
+      setGcalSyncing(false);
+    }
+  };
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {};
@@ -377,6 +402,23 @@ export default function CalendarScreen() {
             </Pressable>
           </View>
 
+          {gcalConnected && (
+            <Pressable
+              onPress={handleGCalSyncAll}
+              disabled={gcalSyncing}
+              style={styles.gcalBtn}
+            >
+              {gcalSyncing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <AppIcon name="refresh-cw" size={13} color="#FFFFFF" />
+              )}
+              <ThemedText style={styles.gcalBtnText}>
+                {gcalSyncing ? "Синхронизация..." : "Sync Google Calendar"}
+              </ThemedText>
+            </Pressable>
+          )}
+
           <View style={styles.weekRow}>
             {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d, i) => (
               <ThemedText key={d} style={[styles.weekDay, (i === 5 || i === 6) && styles.weekendDay]}>
@@ -478,9 +520,40 @@ export default function CalendarScreen() {
                   event={event}
                   theme={theme}
                   isLast={index === selectedEvents.length - 1}
+                  gcalConnected={gcalConnected}
                   onEdit={() => openEditModal(event)}
                   onDelete={() => handleDelete(event)}
                   onToggle={() => handleToggleComplete(event)}
+                  onSyncGCal={async () => {
+                    try {
+                      const res = await gcalRepo.syncEventToGCal(event.id);
+                      if (res.success || res.alreadySynced) {
+                        Alert.alert("Google Calendar", "Событие добавлено в Google Calendar");
+                        await loadEvents();
+                      } else {
+                        Alert.alert("Ошибка", res.error || "Не удалось синхронизировать");
+                      }
+                    } catch (e: any) {
+                      Alert.alert("Ошибка", e.message);
+                    }
+                  }}
+                  onUnsyncGCal={async () => {
+                    Alert.alert("Удалить из Google Calendar?", event.title, [
+                      { text: "Отмена", style: "cancel" },
+                      {
+                        text: "Удалить",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            await gcalRepo.unsyncEventFromGCal(event.id);
+                            await loadEvents();
+                          } catch (e: any) {
+                            Alert.alert("Ошибка", e.message);
+                          }
+                        },
+                      },
+                    ]);
+                  }}
                 />
               ))}
             </View>
@@ -712,20 +785,28 @@ function EventCard({
   event,
   theme,
   isLast,
+  gcalConnected,
   onEdit,
   onDelete,
   onToggle,
+  onSyncGCal,
+  onUnsyncGCal,
 }: {
-  event: CalendarEvent;
+  event: CalendarEvent & { googleCalendarEventId?: string | null };
   theme: any;
   isLast: boolean;
+  gcalConnected: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
+  onSyncGCal: () => void;
+  onUnsyncGCal: () => void;
 }) {
+  const { t } = useTranslation();
   const color = EVENT_COLORS[event.type] || "#4A90D9";
   const icon = EVENT_ICONS[event.type] || "calendar";
   const isAI = event.source === "ai";
+  const isSynced = !!event.googleCalendarEventId;
 
   return (
     <View style={styles.timelineRow}>
@@ -752,6 +833,19 @@ function EventCard({
               </ThemedText>
             </View>
             <View style={styles.eventActions}>
+              {gcalConnected && (
+                <Pressable
+                  onPress={isSynced ? onUnsyncGCal : onSyncGCal}
+                  hitSlop={8}
+                  style={styles.actionBtn}
+                >
+                  <AppIcon
+                    name={isSynced ? "check-circle" : "calendar"}
+                    size={14}
+                    color={isSynced ? "#34A853" : theme.textSecondary}
+                  />
+                </Pressable>
+              )}
               <Pressable onPress={onEdit} hitSlop={8} style={styles.actionBtn}>
                 <AppIcon name="edit-2" size={14} color={theme.textSecondary} />
               </Pressable>
@@ -786,6 +880,13 @@ function EventCard({
               {event.description}
             </ThemedText>
           ) : null}
+
+          {isSynced && (
+            <View style={styles.gcalBadge}>
+              <AppIcon name="check-circle" size={10} color="#34A853" />
+              <ThemedText style={styles.gcalBadgeText}>Google Calendar</ThemedText>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -810,7 +911,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.md,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  gcalBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginBottom: Spacing.md,
+    alignSelf: "center",
+  },
+  gcalBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
   },
   navBtn: { padding: Spacing.xs },
   monthTitle: {
@@ -1004,6 +1122,18 @@ const styles = StyleSheet.create({
   },
   strikethrough: { textDecorationLine: "line-through", opacity: 0.5 },
   eventDesc: { fontSize: 12, lineHeight: 16, paddingLeft: 26 },
+  gcalBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+    paddingLeft: 26,
+  },
+  gcalBadgeText: {
+    fontSize: 10,
+    color: "#34A853",
+    fontWeight: "500",
+  },
 
   fab: {
     position: "absolute",

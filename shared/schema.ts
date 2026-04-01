@@ -140,6 +140,7 @@ export const calendarEvents = pgTable("calendar_events", {
   source: text("source").notNull().default("user"), // "user", "ai"
   relatedTeeth: jsonb("related_teeth").default([]),
   isCompleted: boolean("is_completed").default(false),
+  googleCalendarEventId: text("google_calendar_event_id"), // ID of synced Google Calendar event
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -3,6 +3,12 @@ import { createServer, type Server } from "node:http";
 import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage, incrementUsage } from "./storage";
 import { pool } from "./db";
 import { getAdminStats, renderAdminPage } from "./admin";
+import {
+  isGoogleCalendarConnected,
+  createGoogleCalendarEvent,
+  deleteGoogleCalendarEvent,
+  listGoogleCalendars,
+} from "./googleCalendar";
 import { 
   insertUserSchema, 
   insertUserProfileSchema, 
@@ -1291,6 +1297,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Admin dashboard error:", error);
       return res.status(500).send("Ошибка загрузки данных");
+    }
+  });
+
+  // Google Calendar sync routes
+  app.get("/api/gcal/status", async (_req: Request, res: Response) => {
+    try {
+      const connected = await isGoogleCalendarConnected();
+      return res.json({ connected });
+    } catch {
+      return res.json({ connected: false });
+    }
+  });
+
+  app.get("/api/gcal/calendars", async (_req: Request, res: Response) => {
+    try {
+      const calendars = await listGoogleCalendars();
+      return res.json(calendars);
+    } catch (error: any) {
+      console.error("List Google Calendars error:", error);
+      return res.status(500).json({ error: "Не удалось получить список календарей" });
+    }
+  });
+
+  // Sync a single event to Google Calendar
+  app.post("/api/gcal/sync/:eventId", async (req: Request, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const { calendarId } = req.body;
+
+      const event = await storage.getCalendarEvent(eventId);
+      if (!event) return res.status(404).json({ error: "Событие не найдено" });
+
+      if (event.googleCalendarEventId) {
+        return res.json({ alreadySynced: true, googleEventId: event.googleCalendarEventId });
+      }
+
+      const googleEventId = await createGoogleCalendarEvent({
+        title: event.title,
+        description: event.description ?? undefined,
+        date: event.date,
+        time: event.time ?? undefined,
+        calendarId: calendarId || "primary",
+      });
+
+      const updated = await storage.updateCalendarEvent(eventId, {
+        googleCalendarEventId: googleEventId,
+      });
+
+      return res.json({ success: true, googleEventId, event: updated });
+    } catch (error: any) {
+      console.error("Sync to Google Calendar error:", error);
+      return res.status(500).json({ error: error.message || "Ошибка синхронизации" });
+    }
+  });
+
+  // Unsync (remove from Google Calendar)
+  app.delete("/api/gcal/sync/:eventId", async (req: Request, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const { calendarId } = req.body;
+
+      const event = await storage.getCalendarEvent(eventId);
+      if (!event) return res.status(404).json({ error: "Событие не найдено" });
+      if (!event.googleCalendarEventId) return res.status(400).json({ error: "Событие не синхронизировано" });
+
+      await deleteGoogleCalendarEvent(event.googleCalendarEventId, calendarId || "primary");
+      const updated = await storage.updateCalendarEvent(eventId, { googleCalendarEventId: null });
+
+      return res.json({ success: true, event: updated });
+    } catch (error: any) {
+      console.error("Unsync from Google Calendar error:", error);
+      return res.status(500).json({ error: error.message || "Ошибка удаления из Google Calendar" });
+    }
+  });
+
+  // Bulk sync all events for a user
+  app.post("/api/gcal/sync-all/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const { calendarId } = req.body;
+
+      const events = await storage.getCalendarEvents(userId);
+      const unsynced = events.filter((e) => !e.googleCalendarEventId && !e.isCompleted);
+
+      let synced = 0;
+      let failed = 0;
+
+      for (const event of unsynced) {
+        try {
+          const googleEventId = await createGoogleCalendarEvent({
+            title: event.title,
+            description: event.description ?? undefined,
+            date: event.date,
+            time: event.time ?? undefined,
+            calendarId: calendarId || "primary",
+          });
+          await storage.updateCalendarEvent(event.id, { googleCalendarEventId: googleEventId });
+          synced++;
+        } catch {
+          failed++;
+        }
+      }
+
+      return res.json({ success: true, synced, failed, total: unsynced.length });
+    } catch (error: any) {
+      console.error("Bulk sync error:", error);
+      return res.status(500).json({ error: error.message || "Ошибка массовой синхронизации" });
     }
   });
 

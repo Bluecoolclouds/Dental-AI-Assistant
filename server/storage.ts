@@ -144,8 +144,9 @@ export interface IStorage {
   // Calendar Events
   getCalendarEvents(userId: string): Promise<CalendarEvent[]>;
   getCalendarEventsByMonth(userId: string, year: number, month: number): Promise<CalendarEvent[]>;
+  getCalendarEvent(eventId: string): Promise<CalendarEvent | undefined>;
   createCalendarEvent(data: InsertCalendarEvent): Promise<CalendarEvent>;
-  updateCalendarEvent(eventId: string, data: Partial<InsertCalendarEvent>): Promise<CalendarEvent | undefined>;
+  updateCalendarEvent(eventId: string, data: Partial<InsertCalendarEvent> & { googleCalendarEventId?: string | null }): Promise<CalendarEvent | undefined>;
   deleteCalendarEvent(eventId: string): Promise<void>;
 }
 
@@ -354,6 +355,14 @@ export class DatabaseStorage implements IStorage {
       .from(calendarEvents)
       .where(eq(calendarEvents.userId, userId))
       .orderBy(desc(calendarEvents.date));
+  }
+
+  async getCalendarEvent(eventId: string): Promise<CalendarEvent | undefined> {
+    const [event] = await db
+      .select()
+      .from(calendarEvents)
+      .where(eq(calendarEvents.id, eventId));
+    return event || undefined;
   }
 
   async getCalendarEventsByMonth(userId: string, year: number, month: number): Promise<CalendarEvent[]> {
