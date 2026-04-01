@@ -59,7 +59,8 @@
           "photosPermission": "Приложение хочет получить доступ к вашей галерее для выбора фото профиля.",
           "cameraPermission": "Приложение хочет получить доступ к камере для съёмки фото профиля."
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "reactCompiler": true
