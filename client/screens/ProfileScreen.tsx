@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Pressable, Alert, ActivityIndicator, Switch, Platform, Image } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { StyleSheet, View, Pressable, Alert, ActivityIndicator, Switch, Platform, Image, TextInput, Modal, TouchableWithoutFeedback, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -26,18 +26,37 @@ import { pickAvatarFromGallery, pickAvatarFromCamera, deleteAvatarFile } from "@
 import { getDefaultAvatar } from "@/utils/defaultAvatar";
 import { useTranslation } from "react-i18next";
 import { changeLanguage, type SupportedLanguage } from "@/i18n";
+import { getUnreadAlertsCount } from "@/storage/repositories/alertsRepository";
+import { useFocusEffect } from "@react-navigation/native";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const NOTIFICATIONS_KEY = "@dental_notifications_enabled";
+const MORNING_HOUR_KEY = "@dental_morning_hour";
+const MORNING_MINUTE_KEY = "@dental_morning_minute";
+const EVENING_HOUR_KEY = "@dental_evening_hour";
+const EVENING_MINUTE_KEY = "@dental_evening_minute";
+const EXTRA_REMINDERS_KEY = "@dental_extra_reminders";
 
 const isExpoGo = Constants.executionEnvironment === "storeClient";
 
-async function scheduleDentalReminders(
+type ExtraReminder = {
+  id: string;
+  title: string;
+  hour: number;
+  minute: number;
+};
+
+async function scheduleAllReminders(
   morningTitle: string,
   morningBody: string,
   eveningTitle: string,
   eveningBody: string,
+  morningHour: number,
+  morningMinute: number,
+  eveningHour: number,
+  eveningMinute: number,
+  extras: ExtraReminder[],
 ) {
   const Notifications = getNotifications();
   if (!Notifications) return;
@@ -47,8 +66,8 @@ async function scheduleDentalReminders(
     content: { title: morningTitle, body: morningBody },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 8,
-      minute: 0,
+      hour: morningHour,
+      minute: morningMinute,
     },
   });
 
@@ -56,16 +75,31 @@ async function scheduleDentalReminders(
     content: { title: eveningTitle, body: eveningBody },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 21,
-      minute: 0,
+      hour: eveningHour,
+      minute: eveningMinute,
     },
   });
+
+  for (const extra of extras) {
+    await Notifications.scheduleNotificationAsync({
+      content: { title: extra.title, body: extra.title },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: extra.hour,
+        minute: extra.minute,
+      },
+    });
+  }
 }
 
 async function cancelDentalReminders() {
   const Notifications = getNotifications();
   if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
+function generateId(): string {
+  return Math.random().toString(36).slice(2);
 }
 
 const MENU_ITEM_DEFS = [
@@ -88,10 +122,41 @@ export default function ProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
+  const [morningHour, setMorningHour] = useState(8);
+  const [morningMinute, setMorningMinute] = useState(0);
+  const [eveningHour, setEveningHour] = useState(21);
+  const [eveningMinute, setEveningMinute] = useState(0);
+  const [extraReminders, setExtraReminders] = useState<ExtraReminder[]>([]);
+
+  const [showTimeEditor, setShowTimeEditor] = useState(false);
+  const [editingTime, setEditingTime] = useState<"morning" | "evening" | string | null>(null);
+  const [timeInputH, setTimeInputH] = useState("");
+  const [timeInputM, setTimeInputM] = useState("");
+
+  const [showAddExtra, setShowAddExtra] = useState(false);
+  const [newExtraTitle, setNewExtraTitle] = useState("");
+  const [newExtraHour, setNewExtraHour] = useState("12");
+  const [newExtraMinute, setNewExtraMinute] = useState("00");
+
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const { profile, updateProfile } = useProfile();
   const defaultAvatar = getDefaultAvatar(profile?.gender ?? null, user?.id ?? "default");
-
   const currentLang = i18nInstance.language as SupportedLanguage;
+
+  const loadUnread = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const count = await getUnreadAlertsCount(user.id);
+      setUnreadCount(count);
+    } catch {}
+  }, [user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUnread();
+    }, [loadUnread])
+  );
 
   const handleLanguageToggle = async (lang: SupportedLanguage) => {
     await changeLanguage(lang);
@@ -149,7 +214,31 @@ export default function ProfileScreen() {
       });
     }
     checkNotificationStatus();
+    loadSavedTimes();
   }, []);
+
+  const loadSavedTimes = async () => {
+    try {
+      const mh = await AsyncStorage.getItem(MORNING_HOUR_KEY);
+      const mm = await AsyncStorage.getItem(MORNING_MINUTE_KEY);
+      const eh = await AsyncStorage.getItem(EVENING_HOUR_KEY);
+      const em = await AsyncStorage.getItem(EVENING_MINUTE_KEY);
+      const extras = await AsyncStorage.getItem(EXTRA_REMINDERS_KEY);
+      if (mh !== null) setMorningHour(parseInt(mh));
+      if (mm !== null) setMorningMinute(parseInt(mm));
+      if (eh !== null) setEveningHour(parseInt(eh));
+      if (em !== null) setEveningMinute(parseInt(em));
+      if (extras) setExtraReminders(JSON.parse(extras));
+    } catch {}
+  };
+
+  const saveTimes = async (mh: number, mm: number, eh: number, em: number, extras: ExtraReminder[]) => {
+    await AsyncStorage.setItem(MORNING_HOUR_KEY, String(mh));
+    await AsyncStorage.setItem(MORNING_MINUTE_KEY, String(mm));
+    await AsyncStorage.setItem(EVENING_HOUR_KEY, String(eh));
+    await AsyncStorage.setItem(EVENING_MINUTE_KEY, String(em));
+    await AsyncStorage.setItem(EXTRA_REMINDERS_KEY, JSON.stringify(extras));
+  };
 
   const checkNotificationStatus = async () => {
     const Notifications = getNotifications();
@@ -168,6 +257,20 @@ export default function ProfileScreen() {
     } finally {
       setNotificationsLoading(false);
     }
+  };
+
+  const applyReminders = async (
+    mh: number, mm: number,
+    eh: number, em: number,
+    extras: ExtraReminder[],
+  ) => {
+    await scheduleAllReminders(
+      t("profile.morningReminder"),
+      t("profile.morningReminderText"),
+      t("profile.eveningReminder"),
+      t("profile.eveningReminderText"),
+      mh, mm, eh, em, extras,
+    );
   };
 
   const handleNotificationToggle = async (value: boolean) => {
@@ -213,12 +316,7 @@ export default function ProfileScreen() {
           return;
         }
 
-        await scheduleDentalReminders(
-          t("profile.morningReminder"),
-          t("profile.morningReminderText"),
-          t("profile.eveningReminder"),
-          t("profile.eveningReminderText"),
-        );
+        await applyReminders(morningHour, morningMinute, eveningHour, eveningMinute, extraReminders);
         setNotificationsEnabled(true);
         await AsyncStorage.setItem(NOTIFICATIONS_KEY, "true");
         Alert.alert(t("common.done"), t("profile.reminderEnabled"));
@@ -232,6 +330,80 @@ export default function ProfileScreen() {
       Alert.alert(t("common.error"), t("profile.notificationsFailed"));
     } finally {
       setNotificationsLoading(false);
+    }
+  };
+
+  const openTimeEditor = (which: "morning" | "evening" | string) => {
+    setEditingTime(which);
+    if (which === "morning") {
+      setTimeInputH(String(morningHour).padStart(2, "0"));
+      setTimeInputM(String(morningMinute).padStart(2, "0"));
+    } else if (which === "evening") {
+      setTimeInputH(String(eveningHour).padStart(2, "0"));
+      setTimeInputM(String(eveningMinute).padStart(2, "0"));
+    } else {
+      const extra = extraReminders.find((e) => e.id === which);
+      if (extra) {
+        setTimeInputH(String(extra.hour).padStart(2, "0"));
+        setTimeInputM(String(extra.minute).padStart(2, "0"));
+      }
+    }
+    setShowTimeEditor(true);
+  };
+
+  const confirmTimeEditor = async () => {
+    const h = Math.min(23, Math.max(0, parseInt(timeInputH) || 0));
+    const m = Math.min(59, Math.max(0, parseInt(timeInputM) || 0));
+    let newMH = morningHour, newMM = morningMinute;
+    let newEH = eveningHour, newEM = eveningMinute;
+    let newExtras = [...extraReminders];
+
+    if (editingTime === "morning") {
+      newMH = h; newMM = m;
+      setMorningHour(h); setMorningMinute(m);
+    } else if (editingTime === "evening") {
+      newEH = h; newEM = m;
+      setEveningHour(h); setEveningMinute(m);
+    } else if (editingTime) {
+      newExtras = extraReminders.map((e) => e.id === editingTime ? { ...e, hour: h, minute: m } : e);
+      setExtraReminders(newExtras);
+    }
+
+    await saveTimes(newMH, newMM, newEH, newEM, newExtras);
+    if (notificationsEnabled) {
+      await applyReminders(newMH, newMM, newEH, newEM, newExtras);
+    }
+    setShowTimeEditor(false);
+  };
+
+  const handleAddExtra = async () => {
+    if (!newExtraTitle.trim()) return;
+    const h = Math.min(23, Math.max(0, parseInt(newExtraHour) || 12));
+    const m = Math.min(59, Math.max(0, parseInt(newExtraMinute) || 0));
+    const newExtra: ExtraReminder = {
+      id: generateId(),
+      title: newExtraTitle.trim(),
+      hour: h,
+      minute: m,
+    };
+    const updated = [...extraReminders, newExtra];
+    setExtraReminders(updated);
+    await saveTimes(morningHour, morningMinute, eveningHour, eveningMinute, updated);
+    if (notificationsEnabled) {
+      await applyReminders(morningHour, morningMinute, eveningHour, eveningMinute, updated);
+    }
+    setNewExtraTitle("");
+    setNewExtraHour("12");
+    setNewExtraMinute("00");
+    setShowAddExtra(false);
+  };
+
+  const handleRemoveExtra = async (id: string) => {
+    const updated = extraReminders.filter((e) => e.id !== id);
+    setExtraReminders(updated);
+    await saveTimes(morningHour, morningMinute, eveningHour, eveningMinute, updated);
+    if (notificationsEnabled) {
+      await applyReminders(morningHour, morningMinute, eveningHour, eveningMinute, updated);
     }
   };
 
@@ -255,6 +427,9 @@ export default function ProfileScreen() {
 
   const userName = profile?.displayName || user?.email?.split("@")[0] || t("common.user");
 
+  const formatTime = (h: number, m: number) =>
+    `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+
   return (
     <KeyboardAwareScrollViewCompat
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
@@ -269,9 +444,14 @@ export default function ProfileScreen() {
           <ThemedText style={styles.headerTitle}>{t("profile.title")}</ThemedText>
           <Pressable 
             style={styles.headerNotifButton}
-            onPress={() => navigation.navigate("Notifications")}
+            onPress={() => { setUnreadCount(0); navigation.navigate("Notifications"); }}
           >
             <AppIcon name="bell" size={20} color="#FFFFFF" />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
 
@@ -351,66 +531,125 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.notificationToggleSection}>
-        <View style={[styles.notificationToggle, { backgroundColor: theme.backgroundDefault }]}>
-          <View style={[styles.menuIcon, { backgroundColor: "#4A90D9" + "15" }]}>
-            <AppIcon name="bell" size={20} color="#4A90D9" />
+        <View style={[styles.notificationCard, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={styles.notifHeader}>
+            <View style={[styles.menuIcon, { backgroundColor: "#4A90D9" + "15" }]}>
+              <AppIcon name="bell" size={20} color="#4A90D9" />
+            </View>
+            <View style={styles.notifContent}>
+              <ThemedText type="body">{t("profile.reminders")}</ThemedText>
+            </View>
+            {notificationsLoading ? (
+              <ActivityIndicator size="small" color="#4A90D9" />
+            ) : (
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleNotificationToggle}
+                trackColor={{ false: theme.border, true: "#4A90D9" + "80" }}
+                thumbColor={notificationsEnabled ? "#4A90D9" : theme.textSecondary}
+              />
+            )}
           </View>
-          <View style={styles.notifContent}>
-            <ThemedText type="body">{t("profile.reminders")}</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              8:00 / 21:00
-            </ThemedText>
+
+          <View style={[styles.timesRow, { borderTopColor: theme.border }]}>
+            <Pressable style={styles.timeItem} onPress={() => openTimeEditor("morning")}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {t("profile.morningTime")}
+              </ThemedText>
+              <View style={styles.timeValueRow}>
+                <ThemedText style={[styles.timeValue, { color: theme.text }]}>
+                  {formatTime(morningHour, morningMinute)}
+                </ThemedText>
+                <AppIcon name="edit-2" size={12} color={theme.textSecondary} />
+              </View>
+            </Pressable>
+            <View style={[styles.timeDivider, { backgroundColor: theme.border }]} />
+            <Pressable style={styles.timeItem} onPress={() => openTimeEditor("evening")}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {t("profile.eveningTime")}
+              </ThemedText>
+              <View style={styles.timeValueRow}>
+                <ThemedText style={[styles.timeValue, { color: theme.text }]}>
+                  {formatTime(eveningHour, eveningMinute)}
+                </ThemedText>
+                <AppIcon name="edit-2" size={12} color={theme.textSecondary} />
+              </View>
+            </Pressable>
           </View>
-          {notificationsLoading ? (
-            <ActivityIndicator size="small" color="#4A90D9" />
-          ) : (
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={handleNotificationToggle}
-              trackColor={{ false: theme.border, true: "#4A90D9" + "80" }}
-              thumbColor={notificationsEnabled ? "#4A90D9" : theme.textSecondary}
-            />
+
+          {extraReminders.length > 0 && (
+            <View style={[styles.extrasSection, { borderTopColor: theme.border }]}>
+              {extraReminders.map((extra) => (
+                <View key={extra.id} style={styles.extraRow}>
+                  <View style={styles.extraLeft}>
+                    <ThemedText style={[styles.extraTitle, { color: theme.text }]}>
+                      {extra.title}
+                    </ThemedText>
+                    <Pressable onPress={() => openTimeEditor(extra.id)}>
+                      <ThemedText style={[styles.extraTime, { color: theme.primary }]}>
+                        {formatTime(extra.hour, extra.minute)}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                  <Pressable onPress={() => handleRemoveExtra(extra.id)} hitSlop={8}>
+                    <AppIcon name="x" size={16} color={theme.danger} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
           )}
+
+          <Pressable
+            onPress={() => setShowAddExtra(true)}
+            style={[styles.addExtraBtn, { borderTopColor: theme.border }]}
+          >
+            <AppIcon name="plus" size={14} color="#4A90D9" />
+            <ThemedText style={[styles.addExtraText, { color: "#4A90D9" }]}>
+              {t("profile.addAdditionalReminder")}
+            </ThemedText>
+          </Pressable>
         </View>
       </View>
 
       <View style={styles.notificationToggleSection}>
-        <View style={[styles.notificationToggle, { backgroundColor: theme.backgroundDefault }]}>
-          <View style={[styles.menuIcon, { backgroundColor: "#6366F1" + "15" }]}>
-            <AppIcon name="globe" size={20} color="#6366F1" />
-          </View>
-          <View style={styles.notifContent}>
-            <ThemedText type="body">{t("profile.language")}</ThemedText>
-          </View>
-          <View style={styles.langToggle}>
-            <Pressable
-              onPress={() => handleLanguageToggle("ru")}
-              style={[
-                styles.langBtn,
-                currentLang === "ru" && { backgroundColor: "#6366F1" },
-              ]}
-            >
-              <ThemedText
-                type="small"
-                style={{ color: currentLang === "ru" ? "#FFFFFF" : theme.textSecondary, fontWeight: "600" }}
+        <View style={[styles.notificationCard, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={styles.notifHeader}>
+            <View style={[styles.menuIcon, { backgroundColor: "#6366F1" + "15" }]}>
+              <AppIcon name="globe" size={20} color="#6366F1" />
+            </View>
+            <View style={styles.notifContent}>
+              <ThemedText type="body">{t("profile.language")}</ThemedText>
+            </View>
+            <View style={styles.langToggle}>
+              <Pressable
+                onPress={() => handleLanguageToggle("ru")}
+                style={[
+                  styles.langBtn,
+                  currentLang === "ru" && { backgroundColor: "#6366F1" },
+                ]}
               >
-                RU
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => handleLanguageToggle("en")}
-              style={[
-                styles.langBtn,
-                currentLang === "en" && { backgroundColor: "#6366F1" },
-              ]}
-            >
-              <ThemedText
-                type="small"
-                style={{ color: currentLang === "en" ? "#FFFFFF" : theme.textSecondary, fontWeight: "600" }}
+                <ThemedText
+                  type="small"
+                  style={{ color: currentLang === "ru" ? "#FFFFFF" : theme.textSecondary, fontWeight: "600" }}
+                >
+                  RU
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => handleLanguageToggle("en")}
+                style={[
+                  styles.langBtn,
+                  currentLang === "en" && { backgroundColor: "#6366F1" },
+                ]}
               >
-                EN
-              </ThemedText>
-            </Pressable>
+                <ThemedText
+                  type="small"
+                  style={{ color: currentLang === "en" ? "#FFFFFF" : theme.textSecondary, fontWeight: "600" }}
+                >
+                  EN
+                </ThemedText>
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>
@@ -440,6 +679,103 @@ export default function ProfileScreen() {
       </View>
 
       <View style={{ height: insets.bottom + 100 }} />
+
+      <Modal visible={showTimeEditor} transparent animationType="fade" onRequestClose={() => setShowTimeEditor(false)}>
+        <TouchableWithoutFeedback onPress={() => setShowTimeEditor(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalSheet, { backgroundColor: theme.backgroundDefault }]}>
+                <ThemedText style={[styles.modalTitle, { color: theme.text }]}>
+                  {t("profile.setTime")}
+                </ThemedText>
+                <View style={styles.timeInputRow}>
+                  <TextInput
+                    style={[styles.timeInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                    value={timeInputH}
+                    onChangeText={(v) => setTimeInputH(v.replace(/\D/g, "").slice(0, 2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="ЧЧ"
+                    placeholderTextColor={theme.textSecondary}
+                    textAlign="center"
+                  />
+                  <ThemedText style={[styles.timeSep, { color: theme.text }]}>:</ThemedText>
+                  <TextInput
+                    style={[styles.timeInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                    value={timeInputM}
+                    onChangeText={(v) => setTimeInputM(v.replace(/\D/g, "").slice(0, 2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="ММ"
+                    placeholderTextColor={theme.textSecondary}
+                    textAlign="center"
+                  />
+                </View>
+                <View style={styles.modalActions}>
+                  <Pressable onPress={() => setShowTimeEditor(false)} style={[styles.modalBtn, { borderColor: theme.border, borderWidth: 1 }]}>
+                    <ThemedText style={{ color: theme.textSecondary, fontWeight: "600" }}>{t("common.cancel")}</ThemedText>
+                  </Pressable>
+                  <Pressable onPress={confirmTimeEditor} style={[styles.modalBtn, { backgroundColor: "#4A90D9" }]}>
+                    <ThemedText style={{ color: "#FFFFFF", fontWeight: "600" }}>{t("common.save")}</ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      <Modal visible={showAddExtra} transparent animationType="fade" onRequestClose={() => setShowAddExtra(false)}>
+        <TouchableWithoutFeedback onPress={() => setShowAddExtra(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalSheet, { backgroundColor: theme.backgroundDefault }]}>
+                <ThemedText style={[styles.modalTitle, { color: theme.text }]}>
+                  {t("profile.addAdditionalReminder")}
+                </ThemedText>
+                <TextInput
+                  style={[styles.extraTitleInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                  placeholder={t("profile.reminderTitle")}
+                  placeholderTextColor={theme.textSecondary}
+                  value={newExtraTitle}
+                  onChangeText={setNewExtraTitle}
+                />
+                <View style={styles.timeInputRow}>
+                  <TextInput
+                    style={[styles.timeInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                    value={newExtraHour}
+                    onChangeText={(v) => setNewExtraHour(v.replace(/\D/g, "").slice(0, 2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="ЧЧ"
+                    placeholderTextColor={theme.textSecondary}
+                    textAlign="center"
+                  />
+                  <ThemedText style={[styles.timeSep, { color: theme.text }]}>:</ThemedText>
+                  <TextInput
+                    style={[styles.timeInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                    value={newExtraMinute}
+                    onChangeText={(v) => setNewExtraMinute(v.replace(/\D/g, "").slice(0, 2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="ММ"
+                    placeholderTextColor={theme.textSecondary}
+                    textAlign="center"
+                  />
+                </View>
+                <View style={styles.modalActions}>
+                  <Pressable onPress={() => setShowAddExtra(false)} style={[styles.modalBtn, { borderColor: theme.border, borderWidth: 1 }]}>
+                    <ThemedText style={{ color: theme.textSecondary, fontWeight: "600" }}>{t("common.cancel")}</ThemedText>
+                  </Pressable>
+                  <Pressable onPress={handleAddExtra} style={[styles.modalBtn, { backgroundColor: "#4A90D9" }]}>
+                    <ThemedText style={{ color: "#FFFFFF", fontWeight: "600" }}>{t("common.save")}</ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </KeyboardAwareScrollViewCompat>
   );
 }
@@ -472,6 +808,26 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#EF4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: "#5B9FE3",
+  },
+  bellBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "700",
+    lineHeight: 12,
   },
   profileCard: {
     backgroundColor: "#FFFFFF",
@@ -617,12 +973,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginTop: Spacing.lg,
   },
-  notificationToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
+  notificationCard: {
     borderRadius: BorderRadius.xl,
-    gap: Spacing.md,
+    overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -635,9 +988,75 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  notifHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
   notifContent: {
     flex: 1,
     gap: Spacing.xs,
+  },
+  timesRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    paddingVertical: Spacing.md,
+  },
+  timeItem: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    gap: 4,
+  },
+  timeDivider: {
+    width: 1,
+  },
+  timeValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  timeValue: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  extrasSection: {
+    borderTopWidth: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  extraRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  extraLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  extraTitle: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  extraTime: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  addExtraBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+  },
+  addExtraText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   logoutSection: {
     paddingHorizontal: Spacing.lg,
@@ -673,5 +1092,59 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     minWidth: 40,
     alignItems: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalSheet: {
+    width: "100%",
+    borderRadius: 20,
+    padding: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  timeInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
+  timeInput: {
+    width: 64,
+    height: 52,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  timeSep: {
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  modalBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  extraTitleInput: {
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 12,
+    fontSize: 15,
   },
 });

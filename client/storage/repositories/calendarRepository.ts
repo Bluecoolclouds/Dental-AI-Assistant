@@ -12,6 +12,9 @@ export interface CalendarEvent {
   relatedTeeth: string[];
   isCompleted: boolean;
   createdAt: string;
+  alarmMinutes: number[] | null;
+  recurrence: string | null;
+  systemCalendarEventId: string | null;
 }
 
 export interface CreateCalendarEventInput {
@@ -24,6 +27,9 @@ export interface CreateCalendarEventInput {
   description?: string;
   relatedTeeth?: string[];
   isCompleted?: boolean;
+  alarmMinutes?: number[];
+  recurrence?: string | null;
+  systemCalendarEventId?: string | null;
 }
 
 function generateId(): string {
@@ -49,6 +55,9 @@ function rowToEvent(row: any): CalendarEvent {
     relatedTeeth: JSON.parse(row.related_teeth || "[]"),
     isCompleted: row.is_completed === 1 || row.is_completed === true,
     createdAt: row.created_at,
+    alarmMinutes: row.alarm_minutes ? JSON.parse(row.alarm_minutes) : null,
+    recurrence: row.recurrence || null,
+    systemCalendarEventId: row.system_calendar_event_id || null,
   };
 }
 
@@ -57,8 +66,8 @@ export async function createCalendarEvent(input: CreateCalendarEventInput): Prom
   const id = generateId();
 
   await db.runAsync(
-    `INSERT INTO calendar_events (id, user_id, title, date, time, type, source, description, related_teeth, is_completed)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO calendar_events (id, user_id, title, date, time, type, source, description, related_teeth, is_completed, alarm_minutes, recurrence, system_calendar_event_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.userId,
@@ -70,6 +79,9 @@ export async function createCalendarEvent(input: CreateCalendarEventInput): Prom
       input.description || null,
       JSON.stringify(input.relatedTeeth || []),
       input.isCompleted ? 1 : 0,
+      input.alarmMinutes ? JSON.stringify(input.alarmMinutes) : null,
+      input.recurrence || null,
+      input.systemCalendarEventId || null,
     ]
   );
 
@@ -136,6 +148,9 @@ export async function updateCalendarEvent(
   if (updates.description !== undefined) { setClauses.push("description = ?"); values.push(updates.description); }
   if (updates.relatedTeeth !== undefined) { setClauses.push("related_teeth = ?"); values.push(JSON.stringify(updates.relatedTeeth)); }
   if (updates.isCompleted !== undefined) { setClauses.push("is_completed = ?"); values.push(updates.isCompleted ? 1 : 0); }
+  if (updates.alarmMinutes !== undefined) { setClauses.push("alarm_minutes = ?"); values.push(updates.alarmMinutes ? JSON.stringify(updates.alarmMinutes) : null); }
+  if ("recurrence" in updates) { setClauses.push("recurrence = ?"); values.push(updates.recurrence || null); }
+  if ("systemCalendarEventId" in updates) { setClauses.push("system_calendar_event_id = ?"); values.push(updates.systemCalendarEventId || null); }
 
   if (setClauses.length === 0) return await getCalendarEventById(id);
 

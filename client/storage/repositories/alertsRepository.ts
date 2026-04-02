@@ -118,3 +118,12 @@ export async function deleteAlert(id: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(`DELETE FROM alerts WHERE id = ?`, [id]);
 }
+
+export async function getUnreadAlertsCount(userId: string): Promise<number> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM alerts WHERE user_id = ? AND is_read = 0 AND is_dismissed = 0`,
+    [userId]
+  );
+  return row?.count ?? 0;
+}

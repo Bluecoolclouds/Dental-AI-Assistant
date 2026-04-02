@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -35,6 +35,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import * as calendarRepo from "@/storage/repositories/calendarRepository";
 import type { CalendarEvent } from "@/storage/repositories/calendarRepository";
 import * as gcalRepo from "@/storage/repositories/googleCalendarRepository";
+import { addEventToCalendar, updateEventInCalendar } from "@/utils/calendar";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_THRESHOLD = 120;
@@ -48,7 +49,8 @@ const EVENT_COLORS: Record<string, string> = {
   personal:      "#10B981",
 };
 
-const EVENT_ICONS: Record<string, string> = {
+type AppIconName = ComponentProps<typeof AppIcon>["name"];
+const EVENT_ICONS: Record<string, AppIconName> = {
   appointment:   "user",
   reminder:      "bell",
   ai_suggestion: "cpu",
@@ -80,6 +82,13 @@ function todayStr() {
   return toDateStr(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+type RecurrenceFrequency = "weekly" | "monthly" | "sixMonths" | "yearly" | null;
+
+type AlarmEntry = {
+  preset: number | "custom";
+  customValue: string;
+};
+
 type FormState = {
   title: string;
   description: string;
@@ -89,18 +98,26 @@ type FormState = {
   timeHour: string;
   timeMinute: string;
   type: string;
+  alarms: AlarmEntry[];
+  recurrence: RecurrenceFrequency;
+  systemCalendarEventId: string | null;
 };
 
 const EMPTY_FORM: FormState = {
   title: "",
   description: "",
+  systemCalendarEventId: null,
   dateDay: "",
   dateMonth: "",
   dateYear: "",
   timeHour: "",
   timeMinute: "",
   type: "personal",
+  alarms: [{ preset: 30, customValue: "" }],
+  recurrence: null,
 };
+
+const ALARM_PRESETS = [10, 30, 60, 1440] as const;
 
 function parseDateToForm(dateStr: string): { dateDay: string; dateMonth: string; dateYear: string } {
   if (!dateStr) return { dateDay: "", dateMonth: "", dateYear: "" };
@@ -310,12 +327,28 @@ export default function CalendarScreen() {
 
   const openEditModal = (event: CalendarEvent) => {
     setEditingEvent(event);
+
+    let loadedAlarms: AlarmEntry[] = [{ preset: 30, customValue: "" }];
+    if (event.alarmMinutes && event.alarmMinutes.length > 0) {
+      loadedAlarms = event.alarmMinutes.map((min) => {
+        const knownPreset = ALARM_PRESETS.find((p) => p === min);
+        return knownPreset !== undefined
+          ? { preset: knownPreset as number, customValue: "" }
+          : { preset: "custom" as const, customValue: String(min) };
+      });
+    }
+
+    const loadedRecurrence = (event.recurrence as RecurrenceFrequency) ?? null;
+
     setForm({
       title: event.title,
       description: event.description || "",
       ...parseDateToForm(event.date),
       ...parseTimeToForm(event.time),
       type: event.type,
+      alarms: loadedAlarms,
+      recurrence: loadedRecurrence,
+      systemCalendarEventId: event.systemCalendarEventId,
     });
     setModalVisible(true);
   };
@@ -338,7 +371,7 @@ export default function CalendarScreen() {
     }
     const maxDay = new Date(yr, mon, 0).getDate();
     if (day < 1 || day > maxDay) {
-      Alert.alert(t("common.error"), t("calendar.invalidMonth")); // Should probably be a more specific error but following the plan
+      Alert.alert(t("common.error"), t("calendar.invalidDay"));
       return;
     }
     if (yr < 2000 || yr > 2100) {
@@ -362,6 +395,16 @@ export default function CalendarScreen() {
       ? `${String(parseInt(form.timeHour)).padStart(2, "0")}:${String(parseInt(form.timeMinute || "0")).padStart(2, "0")}`
       : undefined;
 
+    const alarmMinutes = form.alarms
+      .map((a) => {
+        if (a.preset === "custom") {
+          const v = parseInt(a.customValue);
+          return isNaN(v) || v <= 0 ? null : v;
+        }
+        return a.preset as number;
+      })
+      .filter((v): v is number => v !== null);
+
     setIsMutating(true);
     try {
       if (editingEvent) {
@@ -371,6 +414,9 @@ export default function CalendarScreen() {
           date: dateStr,
           time: timeStr,
           type: form.type,
+          alarmMinutes: alarmMinutes.length > 0 ? alarmMinutes : undefined,
+          recurrence: form.recurrence,
+          systemCalendarEventId: form.systemCalendarEventId,
         });
       } else {
         if (!user?.id) return;
@@ -382,6 +428,9 @@ export default function CalendarScreen() {
           time: timeStr,
           type: form.type,
           source: "user",
+          alarmMinutes: alarmMinutes.length > 0 ? alarmMinutes : undefined,
+          recurrence: form.recurrence,
+          systemCalendarEventId: form.systemCalendarEventId,
         });
       }
       await loadEvents();
@@ -808,9 +857,121 @@ export default function CalendarScreen() {
                             active && { backgroundColor: color + "18" },
                           ]}
                         >
-                          <AppIcon name={EVENT_ICONS[key] as any} size={13} color={active ? color : theme.textSecondary} />
+                          <AppIcon name={EVENT_ICONS[key]} size={13} color={active ? color : theme.textSecondary} />
                           <ThemedText style={[styles.typeChipText, { color: active ? color : theme.textSecondary }]}>
                             {t(label)}
+                          </ThemedText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Alarms */}
+                <View style={styles.formField}>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>{t("calendar.reminders")}</ThemedText>
+                  {form.alarms.map((alarm, idx) => (
+                    <View key={idx} style={styles.alarmRow}>
+                      <View style={styles.alarmPresets}>
+                        {ALARM_PRESETS.map((min) => {
+                          const active = alarm.preset === min;
+                          return (
+                            <Pressable
+                              key={min}
+                              onPress={() => setForm((f) => {
+                                const alarms = [...f.alarms];
+                                alarms[idx] = { ...alarms[idx], preset: min, customValue: "" };
+                                return { ...f, alarms };
+                              })}
+                              style={[
+                                styles.alarmChip,
+                                { borderColor: active ? theme.primary : theme.border },
+                                active && { backgroundColor: theme.primary + "18" },
+                              ]}
+                            >
+                              <ThemedText style={[styles.alarmChipText, { color: active ? theme.primary : theme.textSecondary }]}>
+                                {t(`calendar.alarm${min}`)}
+                              </ThemedText>
+                            </Pressable>
+                          );
+                        })}
+                        <Pressable
+                          onPress={() => setForm((f) => {
+                            const alarms = [...f.alarms];
+                            alarms[idx] = { ...alarms[idx], preset: "custom" };
+                            return { ...f, alarms };
+                          })}
+                          style={[
+                            styles.alarmChip,
+                            { borderColor: alarm.preset === "custom" ? theme.primary : theme.border },
+                            alarm.preset === "custom" && { backgroundColor: theme.primary + "18" },
+                          ]}
+                        >
+                          <ThemedText style={[styles.alarmChipText, { color: alarm.preset === "custom" ? theme.primary : theme.textSecondary }]}>
+                            {t("calendar.alarmCustom")}
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                      {alarm.preset === "custom" && (
+                        <View style={styles.alarmCustomRow}>
+                          <TextInput
+                            style={[styles.alarmCustomInput, { color: theme.text, backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}
+                            placeholder={t("calendar.alarmCustomPlaceholder")}
+                            placeholderTextColor={theme.textSecondary}
+                            value={alarm.customValue}
+                            onChangeText={(v) => setForm((f) => {
+                              const alarms = [...f.alarms];
+                              alarms[idx] = { ...alarms[idx], customValue: v.replace(/\D/g, "") };
+                              return { ...f, alarms };
+                            })}
+                            keyboardType="numeric"
+                          />
+                          <ThemedText style={[styles.alarmCustomLabel, { color: theme.textSecondary }]}>
+                            {t("calendar.alarmCustomLabel")}
+                          </ThemedText>
+                        </View>
+                      )}
+                      {form.alarms.length > 1 && (
+                        <Pressable
+                          onPress={() => setForm((f) => ({ ...f, alarms: f.alarms.filter((_, i) => i !== idx) }))}
+                          style={styles.alarmRemoveBtn}
+                        >
+                          <AppIcon name="x" size={14} color={theme.danger} />
+                          <ThemedText style={[styles.alarmRemoveText, { color: theme.danger }]}>{t("calendar.removeReminder")}</ThemedText>
+                        </Pressable>
+                      )}
+                    </View>
+                  ))}
+                  {form.alarms.length < 4 && (
+                    <Pressable
+                      onPress={() => setForm((f) => ({ ...f, alarms: [...f.alarms, { preset: 30, customValue: "" }] }))}
+                      style={[styles.addAlarmBtn, { borderColor: theme.primary + "50" }]}
+                    >
+                      <AppIcon name="plus" size={14} color={theme.primary} />
+                      <ThemedText style={[styles.addAlarmText, { color: theme.primary }]}>{t("calendar.addReminder")}</ThemedText>
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Recurrence */}
+                <View style={styles.formField}>
+                  <ThemedText style={[styles.fieldLabel, { color: theme.textSecondary }]}>{t("calendar.recurrence")}</ThemedText>
+                  <View style={styles.recurrenceRow}>
+                    {([null, "weekly", "monthly", "sixMonths", "yearly"] as RecurrenceFrequency[]).map((freq) => {
+                      const active = form.recurrence === freq;
+                      const key = freq ?? "none";
+                      return (
+                        <Pressable
+                          key={key}
+                          onPress={() => setForm((f) => ({ ...f, recurrence: freq }))}
+                          style={[
+                            styles.alarmChip,
+                            { borderColor: active ? theme.primary : theme.border },
+                            active && { backgroundColor: theme.primary + "18" },
+                          ]}
+                        >
+                          <ThemedText style={[styles.alarmChipText, { color: active ? theme.primary : theme.textSecondary }]}>
+                            {t(`calendar.recurrence${freq ? freq.charAt(0).toUpperCase() + freq.slice(1) : "None"}`)}
                           </ThemedText>
                         </Pressable>
                       );
@@ -832,6 +993,55 @@ export default function CalendarScreen() {
                     </ThemedText>
                   )}
                 </Pressable>
+
+                {Platform.OS !== "web" && (
+                  <Pressable
+                    onPress={async () => {
+                      if (!form.dateDay || !form.dateMonth || !form.dateYear) return;
+                      const day = parseInt(form.dateDay);
+                      const mon = parseInt(form.dateMonth);
+                      const yr = parseInt(form.dateYear);
+                      const h = form.timeHour ? parseInt(form.timeHour) : 9;
+                      const m = form.timeMinute ? parseInt(form.timeMinute) : 0;
+                      const startDate = new Date(yr, mon - 1, day, h, m);
+                      const alarmMinutes = form.alarms
+                        .map((a) => {
+                          if (a.preset === "custom") {
+                            const v = parseInt(a.customValue);
+                            return isNaN(v) ? null : v;
+                          }
+                          return a.preset as number;
+                        })
+                        .filter((v): v is number => v !== null);
+                      const calParams = {
+                        title: form.title.trim() || t("calendar.newEvent"),
+                        notes: form.description.trim() || undefined,
+                        startDate,
+                        alarmMinutesBefore: alarmMinutes.length > 0 ? alarmMinutes : [30],
+                        recurrence: form.recurrence ?? undefined,
+                      };
+                      if (form.systemCalendarEventId) {
+                        await updateEventInCalendar(form.systemCalendarEventId, calParams);
+                      } else {
+                        const result = await addEventToCalendar(calParams);
+                        if (typeof result === "string") {
+                          setForm((prev) => ({ ...prev, systemCalendarEventId: result }));
+                          if (editingEvent) {
+                            await calendarRepo.updateCalendarEvent(editingEvent.id, {
+                              systemCalendarEventId: result,
+                            });
+                            await loadEvents();
+                          }
+                        }
+                      }
+                    }}
+                    style={[styles.saveBtn, { backgroundColor: "#10B981" + "15", borderWidth: 1, borderColor: "#10B981", marginTop: Spacing.sm }]}
+                  >
+                    <ThemedText style={[styles.saveBtnText, { color: "#10B981" }]}>
+                      {form.systemCalendarEventId ? t("calendar.updateInCalendar") : t("calendar.addToCalendar")}
+                    </ThemedText>
+                  </Pressable>
+                )}
 
                 <Pressable
                   onPress={closeModal}
@@ -916,7 +1126,7 @@ function EventCard({
 }) {
   const { t } = useTranslation();
   const color = EVENT_COLORS[event.type] || "#4A90D9";
-  const icon = EVENT_ICONS[event.type] || "calendar";
+  const icon: AppIconName = EVENT_ICONS[event.type] ?? "calendar";
   const isAI = event.source === "ai";
   const isSynced = !!event.googleCalendarEventId;
 
@@ -929,7 +1139,7 @@ function EventCard({
           <ThemedText style={[styles.timelineTime, { color: "transparent" }]}>—</ThemedText>
         )}
         <View style={[styles.timelineDot, { backgroundColor: color }]}>
-          <AppIcon name={icon as any} size={10} color="#FFFFFF" />
+          <AppIcon name={icon} size={10} color="#FFFFFF" />
         </View>
         {!isLast && <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />}
       </View>
@@ -1321,8 +1531,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    pointerEvents: "box-none",
-  } as any,
+  },
   sheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -1434,5 +1643,65 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  alarmRow: {
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  alarmPresets: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  alarmChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1.5,
+  },
+  alarmChipText: { fontSize: 12, fontWeight: "500" },
+  alarmCustomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 4,
+  },
+  alarmCustomInput: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    fontSize: 15,
+  },
+  alarmCustomLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  alarmRemoveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-end",
+  },
+  alarmRemoveText: { fontSize: 12, fontWeight: "500" },
+  addAlarmBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  addAlarmText: { fontSize: 13, fontWeight: "500" },
+  recurrenceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
   },
 });

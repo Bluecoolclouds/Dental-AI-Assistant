@@ -136,6 +136,9 @@ async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> 
     `ALTER TABLE user_profiles ADD COLUMN location TEXT`,
     `ALTER TABLE user_profiles ADD COLUMN allergy_to_anesthetics TEXT`,
     `ALTER TABLE user_profiles ADD COLUMN serious_illnesses TEXT`,
+    `ALTER TABLE calendar_events ADD COLUMN alarm_minutes TEXT`,
+    `ALTER TABLE calendar_events ADD COLUMN recurrence TEXT`,
+    `ALTER TABLE calendar_events ADD COLUMN system_calendar_event_id TEXT`,
   ];
   for (const sql of migrations) {
     try {
