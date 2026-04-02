@@ -59,3 +59,7 @@ outputType = "webview"
 [userenv.shared]
 ADMIN_SECRET = "dentcor-admin-2026"
 
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 120000
+
