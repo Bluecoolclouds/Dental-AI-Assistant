@@ -143,6 +143,9 @@ export default function WelcomeScreen() {
 
   const openSheet = (mode: AuthMode) => {
     isFullScreen.current = false;
+    sheetY.value = SCREEN_HEIGHT;
+    sheetHeight.value = 0;
+    sheetRadius.value = 28;
     setAuthMode(mode);
     setError("");
     setEmail("");
