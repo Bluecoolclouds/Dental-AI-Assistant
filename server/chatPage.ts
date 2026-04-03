@@ -180,12 +180,11 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
 <div id="toast"></div>
 
 <script>
-  const ADMIN_KEY = ${JSON.stringify(adminKey)};
   const ALL_USERS = ${usersJson};
+  const USERS_MAP = new Map(ALL_USERS.map(u => [u.id, u]));
 
   let currentUserId = null;
   let isLoading = false;
-  let filteredUsers = [...ALL_USERS];
 
   // ── INIT ──
   renderUserList(ALL_USERS);
@@ -200,12 +199,16 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
       const name = u.name || 'Без имени';
       const email = u.email || '';
       const shortId = u.id.slice(0, 8) + '…';
-      return \`<div class="user-item" id="ui-\${u.id}" onclick="selectUser('\${u.id}', \${JSON.stringify(JSON.stringify(u))})">
+      const isActive = u.id === currentUserId ? ' active' : '';
+      return \`<div class="user-item\${isActive}" id="ui-\${escHtml(u.id)}" data-uid="\${escHtml(u.id)}">
         <div class="user-name">\${escHtml(name)}</div>
         \${email ? \`<div class="user-email">\${escHtml(email)}</div>\` : ''}
-        <div class="user-id">\${shortId}</div>
+        <div class="user-id">\${escHtml(shortId)}</div>
       </div>\`;
     }).join('');
+    el.querySelectorAll('.user-item').forEach(item => {
+      item.addEventListener('click', () => selectUser(item.dataset.uid));
+    });
   }
 
   function filterUsers(q) {
@@ -216,14 +219,11 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
       u.id.toLowerCase().includes(lower)
     );
     renderUserList(filtered);
-    if (currentUserId) {
-      const el = document.getElementById('ui-' + currentUserId);
-      if (el) el.classList.add('active');
-    }
   }
 
-  async function selectUser(id, userJson) {
-    const u = JSON.parse(userJson);
+  async function selectUser(id) {
+    const u = USERS_MAP.get(id);
+    if (!u) return;
     document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
     const activeEl = document.getElementById('ui-' + id);
     if (activeEl) activeEl.classList.add('active');
