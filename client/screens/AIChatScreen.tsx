@@ -344,7 +344,7 @@ export default function AIChatScreen() {
     const onShow = (e: any) => {
       if (!inputFocused.current) return;
       Animated.timing(keyboardBottom, {
-        toValue: e.endCoordinates.height + 4,
+        toValue: e.endCoordinates.height + insets.bottom,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
         useNativeDriver: false,
       }).start();
@@ -360,7 +360,7 @@ export default function AIChatScreen() {
     const showSub = Keyboard.addListener(showEvent, onShow);
     const hideSub = Keyboard.addListener(hideEvent, onHide);
     return () => { showSub.remove(); hideSub.remove(); };
-  }, [tabBarHeight]);
+  }, [tabBarHeight, insets.bottom]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
