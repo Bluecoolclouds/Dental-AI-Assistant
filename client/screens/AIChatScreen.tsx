@@ -12,6 +12,7 @@ import {
   Animated,
   Text,
   Keyboard,
+  AppState,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
@@ -356,6 +357,16 @@ export default function AIChatScreen() {
     const hideSub = Keyboard.addListener(hideEvent, onHide);
     return () => { showSub.remove(); hideSub.remove(); };
   }, [tabBarHeight]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        keyboardBottom.setValue(0);
+        setKeyboardVisible(false);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const chatMutation = useMutation({
     mutationFn: async ({ text, files }: { text: string; files: PendingFile[] }) => {
