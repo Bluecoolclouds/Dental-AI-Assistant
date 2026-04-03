@@ -19,7 +19,6 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useMutation } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { useTheme } from "@/hooks/useTheme";
@@ -28,8 +27,6 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { useProfile, useToothData, useTestResults } from "@/hooks/useLocalData";
-import * as calendarRepo from "@/storage/repositories/calendarRepository";
 import * as filesRepo from "@/storage/repositories/toothFilesRepository";
 import * as alertsRepo from "@/storage/repositories/alertsRepository";
 
@@ -46,6 +43,20 @@ interface AttachedFile {
   aiDescription?: string;
 }
 
+interface ChatPayload {
+  message: string;
+  userId?: string;
+  files?: Array<{ name: string; mimeType: string; base64Data: string; size?: number }>;
+}
+
+interface ChatHistoryMessage {
+  id: number;
+  role: string;
+  content: string;
+  createdAt: string;
+  metadata?: { files?: Array<{ name?: string; fileName?: string }> } | null;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -53,8 +64,6 @@ interface Message {
   timestamp: string;
   attachedFiles?: AttachedFile[];
 }
-
-const CHAT_STORAGE_KEY = "toothy_chat_history";
 
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
@@ -181,15 +190,12 @@ export default function AIChatScreen() {
   const headerHeight = useHeaderHeight();
   const flatListRef = useRef<FlatList>(null);
 
-  const { profile } = useProfile();
-  const { toothData } = useToothData();
-  const { latestResult: testResult } = useTestResults();
-
   const [messages, setMessages] = useState<Message[]>([
     { ...WELCOME_MESSAGE, content: t(WELCOME_MESSAGE.content) }
   ]);
   const [inputText, setInputText] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isStartingNewDialog, setIsStartingNewDialog] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isPickingFile, setIsPickingFile] = useState(false);
 
@@ -225,19 +231,46 @@ export default function AIChatScreen() {
     }).start(() => setIsSearching(false));
   }, [searchBarAnim]);
 
+  const handleNewDialog = useCallback(async () => {
+    if (!user?.id || isStartingNewDialog) return;
+    setIsStartingNewDialog(true);
+    try {
+      await apiRequest("POST", new URL(`/api/chat/session/${user.id}`, getApiUrl()).toString());
+      setMessages([{ ...WELCOME_MESSAGE, content: t(WELCOME_MESSAGE.content) }]);
+    } catch (e) {
+      console.error("Error starting new dialog:", e);
+    } finally {
+      setIsStartingNewDialog(false);
+    }
+  }, [user?.id, isStartingNewDialog, t]);
+
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable
-          onPress={isSearching ? () => closeSearch() : openSearch}
-          hitSlop={8}
-          style={{ marginRight: 4 }}
-        >
-          <AppIcon name={isSearching ? "x" : "search"} size={20} color={theme.primary} />
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginRight: 4 }}>
+          {!isSearching && (
+            <Pressable
+              onPress={handleNewDialog}
+              hitSlop={8}
+              disabled={isStartingNewDialog}
+            >
+              {isStartingNewDialog ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <AppIcon name="plus-square" size={20} color={theme.primary} />
+              )}
+            </Pressable>
+          )}
+          <Pressable
+            onPress={isSearching ? () => closeSearch() : openSearch}
+            hitSlop={8}
+          >
+            <AppIcon name={isSearching ? "x" : "search"} size={20} color={theme.primary} />
+          </Pressable>
+        </View>
       ),
     });
-  }, [navigation, isSearching, openSearch, closeSearch, theme.primary]);
+  }, [navigation, isSearching, openSearch, closeSearch, theme.primary, handleNewDialog, isStartingNewDialog]);
 
   const filteredMessages = useMemo(() => {
     if (!searchQuery.trim()) return messages;
@@ -283,91 +316,38 @@ export default function AIChatScreen() {
   }, [user?.id]);
 
   useEffect(() => {
+    if (!user?.id) return;
     const load = async () => {
       try {
-        const stored = await AsyncStorage.getItem(CHAT_STORAGE_KEY);
-        if (stored) {
-          const parsed: Message[] = JSON.parse(stored);
-          if (parsed.length > 0) setMessages([WELCOME_MESSAGE, ...parsed]);
+        const res = await apiRequest("GET", `${getApiUrl()}/api/chat/history/${user.id}`);
+        if (res.ok) {
+          const data: ChatHistoryMessage[] = await res.json();
+          if (data.length > 0) {
+            const loaded: Message[] = data.map((m) => ({
+              id: String(m.id),
+              role: m.role as "user" | "assistant",
+              content: m.content,
+              timestamp: m.createdAt,
+              attachedFiles: Array.isArray(m.metadata?.files)
+                ? m.metadata.files.map((f) => ({ name: f.name || f.fileName || "" }))
+                : undefined,
+            }));
+            setMessages([{ ...WELCOME_MESSAGE, content: t(WELCOME_MESSAGE.content) }, ...loaded]);
+          }
         }
       } catch (e) {
-        console.error("Error loading chat history:", e);
+        console.error("Error loading chat history from server:", e);
       } finally {
         setIsLoaded(true);
       }
     };
     load();
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    const save = async () => {
-      try {
-        const toSave = messages.filter((m) => m.id !== "welcome");
-        await AsyncStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(toSave));
-      } catch (e) {
-        console.error("Error saving chat history:", e);
-      }
-    };
-    save();
-  }, [messages, isLoaded]);
+  }, [user?.id]);
 
   const chatMutation = useMutation({
     mutationFn: async ({ text, files }: { text: string; files: PendingFile[] }) => {
-      const chatHistory = messages
-        .filter((m) => m.id !== "welcome")
-        .slice(-10)
-        .map((m) => ({ role: m.role, content: m.content }));
-
-      const [upcomingEvents, existingFilesList] = await Promise.all([
-        user?.id ? calendarRepo.getUpcomingCalendarEvents(user.id) : Promise.resolve([]),
-        user?.id ? filesRepo.getAllToothFiles(user.id) : Promise.resolve([]),
-      ]);
-
-      const userContext = {
-        profile: profile ? {
-          displayName: profile.displayName,
-          birthDate: profile.birthDate,
-          gender: profile.gender,
-          goals: profile.goals,
-          location: profile.location,
-          allergyToAnesthetics: profile.allergyToAnesthetics,
-          seriousIllnesses: profile.seriousIllnesses,
-          age: profile.age,
-          brushingFrequency: profile.brushingFrequency,
-          usesFloss: profile.usesFloss,
-          usesIrrigator: profile.usesIrrigator,
-          hasBraces: profile.hasBraces,
-          hasSensitivity: profile.hasSensitivity,
-          hasGumBleeding: profile.hasGumBleeding,
-          hasCrownsVeneers: profile.hasCrownsVeneers,
-          hasRemovableDentures: profile.hasRemovableDentures,
-          hasImplants: profile.hasImplants,
-        } : null,
-        toothData: toothData?.map((t) => ({ toothNumber: t.toothNumber, problems: t.problems, notes: t.notes })) || [],
-        latestTest: testResult ? {
-          teethRiskScore: testResult.teethRiskScore,
-          gumsRiskScore: testResult.gumsRiskScore,
-          overallRiskLevel: testResult.overallRiskLevel,
-        } : null,
-        upcomingEvents: upcomingEvents.map((e) => ({
-          title: e.title,
-          date: e.date,
-          time: e.time,
-          type: e.type,
-          description: e.description,
-        })),
-        existingFiles: existingFilesList.map((f) => ({
-          fileName: f.fileName,
-          aiDescription: f.aiDescription || f.description,
-          fileType: f.fileType,
-        })),
-      };
-
-      const payload: any = {
+      const payload: ChatPayload = {
         message: text,
-        history: chatHistory,
-        userContext,
         userId: user?.id,
       };
 

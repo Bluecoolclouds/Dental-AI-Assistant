@@ -24,9 +24,11 @@ import {
   insertToothHistorySchema,
   insertToothFileSchema,
   insertCalendarEventSchema,
+  type ChatSession,
 } from "@shared/schema";
 import { createHash, randomInt } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
+import type { TextBlock } from "@anthropic-ai/sdk/resources/messages/messages";
 import { sendVerificationEmail } from "./email";
 
 function getClaude(): Anthropic | null {
@@ -432,6 +434,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/chat/history/:userId — return active session messages
+  app.get("/api/chat/history/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ error: "Пользователь не найден" });
+      const messages = await storage.getChatHistory(userId);
+      return res.json(messages);
+    } catch (error) {
+      console.error("Get chat history error:", error);
+      return res.status(500).json({ error: "Ошибка получения истории" });
+    }
+  });
+
+  // POST /api/chat/session/:userId — create new session (new dialog)
+  app.post("/api/chat/session/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ error: "Пользователь не найден" });
+
+      // Optionally summarize the old session
+      const claude = getClaude();
+      if (claude) {
+        try {
+          const session = await storage.getOrCreateActiveSession(userId);
+          const oldMessages = await storage.getSessionMessages(session.id, 40);
+          if (oldMessages.length > 0) {
+            const historyText = oldMessages.map((m) => `${m.role === "user" ? "Пользователь" : "Ассистент"}: ${m.content}`).join("\n");
+            const summaryResp = await claude.messages.create({
+              model: CLAUDE_FAST,
+              max_tokens: 400,
+              messages: [{
+                role: "user",
+                content: `Кратко резюмируй следующий диалог стоматологического чат-ассистента в 2-4 предложениях. Упомяни ключевые жалобы, обсуждённые зубы и рекомендации. Пиши по-русски:\n\n${historyText}`,
+              }],
+            });
+            const summaryBlock = summaryResp.content[0];
+            const summary = (summaryBlock && summaryBlock.type === "text") ? (summaryBlock as TextBlock).text.trim() : "";
+            if (summary) {
+              await storage.updateSessionSummary(session.id, summary);
+            }
+          }
+        } catch (e) {
+          console.error("Session summary error:", e);
+        }
+      }
+
+      const newSession = await storage.createNewSession(userId);
+      return res.status(201).json({ sessionId: newSession.id });
+    } catch (error) {
+      console.error("Create session error:", error);
+      return res.status(500).json({ error: "Ошибка создания сессии" });
+    }
+  });
+
   // AI Chat Route - using Claude
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
@@ -443,10 +501,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { message, history, userId, files: incomingFiles, userContext } = req.body;
+      const { message, userId, files: incomingFiles, userContext } = req.body;
 
       if (!message || typeof message !== "string") {
         return res.status(400).json({ error: "Требуется сообщение" });
+      }
+
+      // Validate userId if provided
+      if (userId) {
+        const validUser = await storage.getUser(userId);
+        if (!validUser) {
+          return res.status(404).json({ error: "Пользователь не найден" });
+        }
       }
 
       // Daily limit check
@@ -500,6 +566,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .slice(0, 20);
         } catch (e) {
           console.error("Error fetching user data for chat:", e);
+        }
+      }
+
+      // Fetch active session early to get summary for system prompt
+      let earlyActiveSession: ChatSession | null = null;
+      if (userId) {
+        try {
+          earlyActiveSession = await storage.getOrCreateActiveSession(userId);
+        } catch (e) {
+          console.error("Error fetching active session early:", e);
         }
       }
 
@@ -573,6 +649,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           `\n\nЕсли пользователь просит проанализировать файл или задаёт вопрос по документам, используй информацию из индекса. Файлы, загруженные в этом сообщении, прикреплены ниже.`
         : "";
 
+      // Add session summary context if present (from previous truncated history)
+      const sessionSummaryContext = earlyActiveSession?.summary
+        ? `\n\nКраткое содержание предыдущего диалога (для контекста):\n${earlyActiveSession.summary}`
+        : "";
+
       const systemPrompt = `Ты — виртуальный стоматологический консультант внутри мобильного приложения Toothy.
 Твоя задача — помогать пользователю понимать состояние зубов и дёсен, объяснять возможные причины симптомов простым языком и мотивировать своевременно обращаться к стоматологу. Ты НЕ ставишь диагноз и НЕ назначаешь лечение. Вся информация носит справочный характер.
 
@@ -584,7 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - анкета здоровья (возраст, привычки гигиены, брекеты, кровоточивость дёсен, чувствительность и т.п.);
 - результаты теста состояния (риски для зубов/дёсен);
 - календарь: ближайшие запланированные события (приёмы, напоминания, события от ИИ) на 90 дней вперёд;
-- текущие жалобы и история чата.${fileManifest}
+- текущие жалобы и история чата.${fileManifest}${sessionSummaryContext}
 
 Если пользователь спрашивает о своих планах, записях к стоматологу или напоминаниях — используй данные из поля calendar. Если календарь пустой — сообщи об этом и предложи добавить событие через раздел «Календарь» или нажав кнопку ИИ там.
 
@@ -737,26 +818,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })) : [],
       };
 
-      // Build Claude message history
+      // Load and save server-side session history (always when userId present)
+      let activeSession = earlyActiveSession;
+      if (userId && activeSession) {
+        // Save user message to DB — propagate errors to prevent silent history loss
+        await storage.saveChatMessage({
+          chatId: activeSession.id,
+          userId,
+          role: "user",
+          content: message,
+          metadata: savedNewFiles.length > 0 ? { files: savedNewFiles.map(f => ({ fileName: f.fileName, aiDescription: f.aiDescription })) } : null,
+        });
+      }
+
+      // Build Claude message history from server-side DB
       const claudeMessages: Array<{ role: "user" | "assistant"; content: any }> = [];
 
-      if (Array.isArray(history) && history.length > 0) {
-        const validHistory = history.slice(-6);
-        const alternating: Array<{ role: "user" | "assistant"; content: string }> = [];
-        for (const msg of validHistory) {
-          if (msg.role === "user" || msg.role === "assistant") {
-            const last = alternating[alternating.length - 1];
-            if (!last || last.role !== msg.role) {
-              alternating.push({ role: msg.role, content: msg.content });
+      if (userId && activeSession) {
+        try {
+          const dbMessages = await storage.getSessionMessages(activeSession.id, 40);
+          // Exclude the current message we just saved (last one)
+          const historyMessages = dbMessages.slice(0, -1);
+
+          const alternating: Array<{ role: "user" | "assistant"; content: string }> = [];
+          for (const msg of historyMessages) {
+            if (msg.role === "user" || msg.role === "assistant") {
+              const last = alternating[alternating.length - 1];
+              if (!last || last.role !== msg.role) {
+                alternating.push({ role: msg.role as "user" | "assistant", content: msg.content });
+              }
             }
           }
-        }
-        if (alternating.length > 0) {
-          if (alternating[0].role === "assistant") alternating.shift();
-          if (alternating.length > 0 && alternating[alternating.length - 1].role === "user") {
-            alternating.push({ role: "assistant", content: "Понял, продолжаем." });
+          if (alternating.length > 0) {
+            if (alternating[0].role === "assistant") alternating.shift();
+            if (alternating.length > 0 && alternating[alternating.length - 1].role === "user") {
+              alternating.push({ role: "assistant", content: "Понял, продолжаем." });
+            }
+            claudeMessages.push(...alternating);
           }
-          claudeMessages.push(...alternating);
+        } catch (e) {
+          console.error("Error loading session history:", e);
         }
       }
 
@@ -798,7 +899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: claudeMessages,
       });
 
-      const rawContent = (response.content[0] as any).text || "";
+      const firstBlock = response.content[0];
+      const rawContent = (firstBlock && firstBlock.type === "text") ? (firstBlock as TextBlock).text : "";
 
       let content = rawContent.trim();
       content = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
@@ -809,12 +911,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content = jsonMatch[0];
       }
       
+      const savedFileSummary = savedNewFiles.map(f => ({
+        id: f.id, fileName: f.fileName, fileType: f.fileType, aiDescription: f.aiDescription
+      }));
+
       try {
         const parsed = JSON.parse(content);
-        // Also attach saved file info to response
-        (parsed as any)._savedFiles = savedNewFiles.map(f => ({
-          id: f.id, fileName: f.fileName, fileType: f.fileType, aiDescription: f.aiDescription
-        }));
         
         if (!localMode && userId && parsed.state_updates) {
           const { teeth_updates, reminders } = parsed.state_updates;
@@ -913,10 +1015,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await incrementUsage(userId, date, "messages");
           if (hasFiles) await incrementUsage(userId, date, "files");
         }
+
+        const assistantText = parsed.assistant_message || content;
+        // Save assistant response to DB — propagate errors to prevent silent history loss
+        if (userId && activeSession) {
+          await storage.saveChatMessage({
+            chatId: activeSession.id,
+            userId,
+            role: "assistant",
+            content: assistantText,
+          });
+        }
+
         return res.json({ 
-          response: parsed.assistant_message || content,
+          response: assistantText,
           state_updates: parsed.state_updates,
-          safety: parsed.safety
+          safety: parsed.safety,
+          _savedFiles: savedFileSummary,
         });
       } catch {
         const msgMatch = rawContent.match(/"assistant_message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
@@ -929,7 +1044,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await incrementUsage(userId, date, "messages");
           if (hasFiles) await incrementUsage(userId, date, "files");
         }
-        return res.json({ response: fallbackMessage || "Извините, не удалось обработать ответ. Попробуйте перефразировать вопрос." });
+        const fallbackResp = fallbackMessage || "Извините, не удалось обработать ответ. Попробуйте перефразировать вопрос.";
+        // Best-effort save for fallback response (already in parse-error path)
+        if (userId && activeSession) {
+          await storage.saveChatMessage({
+            chatId: activeSession.id,
+            userId,
+            role: "assistant",
+            content: fallbackResp,
+          }).catch((e) => console.error("Error saving fallback assistant message:", e));
+        }
+        return res.json({ response: fallbackResp });
       }
     } catch (error) {
       console.error("AI chat error:", error);

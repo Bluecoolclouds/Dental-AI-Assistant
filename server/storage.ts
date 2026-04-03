@@ -9,6 +9,8 @@ import {
   toothHistory,
   toothFiles,
   calendarEvents,
+  chatSessions,
+  chatMessages,
   type User,
   type InsertUser,
   type UserProfile,
@@ -27,6 +29,8 @@ import {
   type InsertToothFile,
   type CalendarEvent,
   type InsertCalendarEvent,
+  type ChatSession,
+  type ChatMessage,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -148,6 +152,14 @@ export interface IStorage {
   createCalendarEvent(data: InsertCalendarEvent): Promise<CalendarEvent>;
   updateCalendarEvent(eventId: string, data: Partial<InsertCalendarEvent> & { googleCalendarEventId?: string | null }): Promise<CalendarEvent | undefined>;
   deleteCalendarEvent(eventId: string): Promise<void>;
+
+  // Chat Sessions & Messages
+  getOrCreateActiveSession(userId: string): Promise<ChatSession>;
+  createNewSession(userId: string): Promise<ChatSession>;
+  updateSessionSummary(sessionId: string, summary: string): Promise<void>;
+  getChatHistory(userId: string): Promise<ChatMessage[]>;
+  getSessionMessages(sessionId: string, limit?: number): Promise<ChatMessage[]>;
+  saveChatMessage(data: { chatId: string; userId: string; role: string; content: string; metadata?: Record<string, unknown> | null }): Promise<ChatMessage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -390,6 +402,70 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCalendarEvent(eventId: string): Promise<void> {
     await db.delete(calendarEvents).where(eq(calendarEvents.id, eventId));
+  }
+
+  // Chat Sessions & Messages
+  async getOrCreateActiveSession(userId: string): Promise<ChatSession> {
+    const [existing] = await db
+      .select()
+      .from(chatSessions)
+      .where(eq(chatSessions.userId, userId))
+      .orderBy(desc(chatSessions.createdAt))
+      .limit(1);
+    if (existing) return existing;
+    return this.createNewSession(userId);
+  }
+
+  async createNewSession(userId: string): Promise<ChatSession> {
+    const [created] = await db
+      .insert(chatSessions)
+      .values({ userId })
+      .returning();
+    return created;
+  }
+
+  async updateSessionSummary(sessionId: string, summary: string): Promise<void> {
+    await db
+      .update(chatSessions)
+      .set({ summary, updatedAt: new Date() })
+      .where(eq(chatSessions.id, sessionId));
+  }
+
+  async getChatHistory(userId: string): Promise<ChatMessage[]> {
+    const session = await this.getOrCreateActiveSession(userId);
+    return this.getSessionMessages(session.id);
+  }
+
+  async getSessionMessages(sessionId: string, limit = 1000): Promise<ChatMessage[]> {
+    if (limit >= 1000) {
+      return db
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.chatId, sessionId))
+        .orderBy(chatMessages.createdAt);
+    }
+    // Fetch latest N messages in desc order, then reverse to get chronological order
+    const rows = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.chatId, sessionId))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(limit);
+    return rows.reverse();
+  }
+
+  async saveChatMessage(data: { chatId: string; userId: string; role: string; content: string; metadata?: Record<string, unknown> | null }): Promise<ChatMessage> {
+    const [created] = await db
+      .insert(chatMessages)
+      .values({
+        chatId: data.chatId,
+        userId: data.userId,
+        role: data.role,
+        content: data.content,
+        metadata: data.metadata ?? null,
+      })
+      .returning();
+    return created;
   }
 }
 
