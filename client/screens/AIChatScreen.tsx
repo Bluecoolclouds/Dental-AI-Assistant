@@ -11,6 +11,7 @@ import {
   ScrollView,
   Animated,
   Text,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
@@ -632,6 +633,11 @@ export default function AIChatScreen() {
   const resultCount = hasQuery ? filteredMessages.length : 0;
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={tabBarHeight}
+    >
     <ThemedView style={styles.container}>
       <Animated.View
         style={[
@@ -671,6 +677,7 @@ export default function AIChatScreen() {
 
       <FlatList
         ref={flatListRef}
+        style={{ flex: 1 }}
         data={filteredMessages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
@@ -678,7 +685,7 @@ export default function AIChatScreen() {
           styles.listContent,
           {
             paddingTop: isSearching ? 52 + Spacing.sm : Spacing.sm,
-            paddingBottom: tabBarHeight + 100,
+            paddingBottom: Spacing.md,
           },
         ]}
         onContentSizeChange={() => {
@@ -791,6 +798,7 @@ export default function AIChatScreen() {
         </View>
       </View>
     </ThemedView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -843,10 +851,6 @@ const styles = StyleSheet.create({
   },
   messageText: { fontSize: 15, lineHeight: 22 },
   inputContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     paddingTop: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderTopWidth: 1,

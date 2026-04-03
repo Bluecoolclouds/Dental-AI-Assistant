@@ -274,7 +274,7 @@
   "aiChat": {
     "title": "AI Consultant",
     "searchPlaceholder": "Search messages...",
-    "inputPlaceholder": "Ask a question or attach a file...",
+    "inputPlaceholder": "Ask Toofy",
     "greeting": "Hello! I am your virtual dental consultant. Ask me any question about dental and oral health. You can also attach images, X-rays or other medical documents — I will analyze them.",
     "analyzeFiles": "Analyze attached files",
     "fileLimit": "File limit",
