@@ -338,7 +338,7 @@ export default function AIChatScreen() {
     const onShow = (e: any) => {
       setKeyboardVisible(true);
       Animated.timing(keyboardBottom, {
-        toValue: e.endCoordinates.height,
+        toValue: e.endCoordinates.height + 8,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
         useNativeDriver: false,
       }).start();
@@ -730,7 +730,7 @@ export default function AIChatScreen() {
           styles.inputContainer,
           {
             bottom: keyboardBottom,
-            paddingBottom: keyboardVisible ? Spacing.lg : tabBarHeight + Spacing.md,
+            paddingBottom: keyboardVisible ? Spacing["2xl"] : tabBarHeight + Spacing.md,
             backgroundColor: theme.backgroundDefault,
             borderTopColor: theme.border,
           },
