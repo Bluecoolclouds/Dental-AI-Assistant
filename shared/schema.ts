@@ -174,6 +174,34 @@ export const googleCalendarTokens = pgTable("google_calendar_tokens", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Per-user AI memory nodes — neuron-style persistent memory per client
+export const userMemoryNodes = pgTable("user_memory_nodes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  segment: varchar("segment", { length: 100 }).notNull(), // e.g. "tooth_26_health", "gum_health", "fears"
+  category: varchar("category", { length: 50 }).notNull(), // "tooth", "gum", "hygiene", "behavior", "preference", "history"
+  content: text("content").notNull(), // The actual memory content — written by AI
+  relatedTeeth: jsonb("related_teeth").default([]), // FDI tooth numbers this memory relates to
+  confidence: integer("confidence").default(80), // 0-100
+  source: varchar("source", { length: 20 }).default("ai"), // "ai" | "user" | "system"
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userSegmentIdx: uniqueIndex("user_memory_nodes_user_segment_idx").on(table.userId, table.segment),
+}));
+
+export const userMemoryNodesRelations = relations(userMemoryNodes, ({ one }) => ({
+  user: one(users, {
+    fields: [userMemoryNodes.userId],
+    references: [users.id],
+  }),
+}));
+
+export type UserMemoryNode = typeof userMemoryNodes.$inferSelect;
+export type InsertUserMemoryNode = typeof userMemoryNodes.$inferInsert;
+
 // App settings - configurable key-value store (managed from admin panel)
 export const appSettings = pgTable("app_settings", {
   key: varchar("key", { length: 100 }).primaryKey(),

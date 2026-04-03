@@ -58,6 +58,20 @@ docker compose logs -f     # Follow logs
 - `npm run server:build` — esbuild bundles server/index.ts + server/migrate.ts → server_dist/
 - `npm run server:migrate:prod` — apply migrations in production (requires DATABASE_URL)
 
+## AI Architecture — OpenClaw + Memory
+
+**AI Gateway:** OpenClaw (port 18789) → `local-proxy` provider → `/internal/v1/messages` proxy → Anthropic SDK (GlobalAI endpoint `https://globalai.vip`, model `claude-haiku-4-5-20251001`). Auth token: `toothy-openclaw-2026`. Timeout 120s.
+
+**Per-Client Neural Memory System (implemented 2026-04-03):**
+- `user_memory_nodes` table in PostgreSQL: `user_id`, `segment` (unique slug), `category`, `content`, `related_teeth` (JSONB), `confidence`, `source`, `updated_at`.
+- `server/memory.ts`: `loadUserMemory(userId)`, `saveMemoryUpdates(userId, updates)`, `formatMemoryForPrompt(nodes)`, `syncToOpenClawFiles(userId, updates)`.
+- Memory is loaded before each `/api/chat` call and injected into the system prompt under "ДОЛГОСРОЧНАЯ ПАМЯТЬ ПАЦИЕНТА".
+- AI returns `memory_updates: [{segment, category, content, related_teeth, action: "upsert"|"delete"}]` in its JSON response.
+- Memory is synced to `~/.openclaw/workspace/patients/<userId>/<segment>.md` as OpenClaw skill files.
+- Installed OpenClaw skills: `dentist`, `dental-self-care`, `neural-memory`, `knowledge-graph-skill`, `memory-notes`.
+
+**System prompt format** (`/api/chat`): Returns `{assistant_message, state_updates: {teeth_updates, reminders}, memory_updates, safety}`.
+
 ## Recent Changes
 - **2026-03-10**: i18n AUDIT COMPLETE — All 7 target screens (AboutMe, Analysis, Home, ToothDetail, ToothMap, Calendar, Profile) fully wired to i18n. Removed module-level dead code arrays with hardcoded Russian strings from AboutMeScreen, HomeScreen, CalendarScreen. PROBLEM_CONFIG in ToothDetailScreen cleaned up (labels were dead code). PROBLEM_CONFIG and FILE_TYPES in ToothMapScreen converted to use `labelKey` pattern. AnalysisScreen: added useTranslation, fixed getRiskLabel + empty state strings. CalendarScreen: removed static DAYS/MONTHS (was already using t() for days/months), fixed `timePlaceholderMinutes`. ProfileScreen: scheduleDentalReminders now accepts translated strings as params. Added missing translation keys to both ru.json and en.json: `common.{noResults,all,daysAgo,description}`, `home.betaDescription`, `toothDetail.{upperJaw,lowerJaw,markedProblems,noProblems,noProblemsDesc}`, `toothMap.{markProblems,markAsHealed,treatedBanner,describeOwnWords,aiUseNote,howToUse,position,teethMarked,totalProblems,problemTypes,noFiles,filesEmptyDesc,history,files,addRecord}`, `materials.{mb,infoBanner,noFiles,noFilesDesc}`, `notifications.active`, `aboutMe.{clickToChange,personalData,usageGoal,medicalInfo,detailsInAiChat}`, `analysis.{visitRecommendation,retakeTest,noResults,noResultsDesc}`, `calendar.timePlaceholderMinutes`.
 - **2026-03-10**: HYBRID MIGRATION — Auth moved to server PostgreSQL (with email code verification). User profiles, test results, feedback synced to server via write-through. Added admin analytics dashboard at `/admin?key=<ADMIN_SECRET>` with Chart.js (registrations chart, risk distribution, tooth problems, feedback list). Extended `userProfiles` schema with displayName/avatarUrl/birthDate/gender/goals/location/allergyToAnesthetics/seriousIllnesses. `ADMIN_SECRET` env var controls access.

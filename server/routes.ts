@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import { loadUserMemory, saveMemoryUpdates, formatMemoryForPrompt, type MemoryUpdate } from "./memory.js";
 import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage, incrementUsage } from "./storage";
 import { pool } from "./db";
 import { getAdminStats, renderAdminPage } from "./admin";
@@ -596,6 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let latestTest = null;
       let upcomingEvents: any[] = [];
       let existingFiles: any[] = [];
+      let memoryNodes: any[] = [];
 
       if (localMode) {
         userProfile = userContext.profile || null;
@@ -609,11 +611,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
       } else if (userId) {
         try {
-          [userProfile, toothData, latestTest, existingFiles] = await Promise.all([
+          [userProfile, toothData, latestTest, existingFiles, memoryNodes] = await Promise.all([
             storage.getProfile(userId),
             storage.getToothData(userId),
             storage.getLatestTestResult(userId),
             storage.getToothFiles(userId),
+            loadUserMemory(userId),
           ]);
           const allEvents = await storage.getCalendarEvents(userId);
           const today = new Date();
@@ -714,6 +717,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `\n\nКраткое содержание предыдущего диалога (для контекста):\n${earlyActiveSession.summary}`
         : "";
 
+      // Format long-term per-user memory for injection into system prompt
+      const memoryContext = memoryNodes.length > 0
+        ? `\n\n${formatMemoryForPrompt(memoryNodes)}`
+        : "";
+
       const systemPrompt = `Ты — виртуальный стоматологический консультант внутри мобильного приложения Toothy.
 Твоя задача — помогать пользователю понимать состояние зубов и дёсен, объяснять возможные причины симптомов простым языком и мотивировать своевременно обращаться к стоматологу. Ты НЕ ставишь диагноз и НЕ назначаешь лечение. Вся информация носит справочный характер.
 
@@ -725,7 +733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - анкета здоровья (возраст, привычки гигиены, брекеты, кровоточивость дёсен, чувствительность и т.п.);
 - результаты теста состояния (риски для зубов/дёсен);
 - календарь: ближайшие запланированные события (приёмы, напоминания, события от ИИ) на 90 дней вперёд;
-- текущие жалобы и история чата.${fileManifest}${sessionSummaryContext}
+- текущие жалобы и история чата.${fileManifest}${sessionSummaryContext}${memoryContext}
 
 Если пользователь спрашивает о своих планах, записях к стоматологу или напоминаниях — используй данные из поля calendar. Если календарь пустой — сообщи об этом и предложи добавить событие через раздел «Календарь» или нажав кнопку ИИ там.
 
@@ -792,12 +800,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     ]
   },
+  "memory_updates": [
+    {
+      "segment": "tooth_26_health",
+      "category": "tooth",
+      "content": "Острая боль от холодного, впервые упомянута пользователем 2026-04-03. Зуб 26 требует осмотра.",
+      "related_teeth": ["26"],
+      "action": "upsert"
+    }
+  ],
   "safety": {
     "needs_urgent_care": false,
     "urgent_reason": "string или null",
     "disclaimer": "string — напоминание, что это не диагноз и нужна консультация врача"
   }
 }
+
+Правила для memory_updates:
+- segment — уникальный slug узла памяти, например: "tooth_26_health", "gum_health", "fears", "hygiene_habits", "last_visit_info", "allergies", "braces_status"
+- category — одно из: "tooth", "gum", "hygiene", "behavior", "preference", "history", "general"
+- content — полное содержание узла памяти в 1-3 предложениях на русском языке, описывает то что важно помнить
+- related_teeth — массив FDI номеров зубов (например ["26"]) или [] если не относится к конкретному зубу
+- action — "upsert" (создать/обновить) или "delete" (удалить если проблема решена)
+- Добавляй/обновляй узлы ТОЛЬКО когда узнал что-то важное и новое о пациенте, чего ещё нет в памяти
+- Не дублируй уже существующие узлы без изменений
+- Если пользователь сообщил что проблема прошла — ставь action: "delete" для соответствующего узла
+- Если нет новой информации для памяти — "memory_updates": []
 
 Правила генерации:
 - assistant_message заполняй ВСЕГДА.
@@ -1066,6 +1094,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
+        // Process and persist AI-generated memory updates
+        if (userId && Array.isArray(parsed.memory_updates) && parsed.memory_updates.length > 0) {
+          const memUpdates = parsed.memory_updates as MemoryUpdate[];
+          saveMemoryUpdates(userId, memUpdates).catch((e) =>
+            console.error("[Memory] saveMemoryUpdates error:", e)
+          );
+        }
+
         if (userId) {
           const date = getTodayUTC();
           const hasFiles = Array.isArray(incomingFiles) && incomingFiles.length > 0;
