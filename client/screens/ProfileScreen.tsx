@@ -45,6 +45,10 @@ type ExtraReminder = {
   title: string;
   hour: number;
   minute: number;
+  enabled: boolean;
+  days: number[];
+  sound: boolean;
+  vibration: boolean;
 };
 
 async function scheduleAllReminders(
@@ -81,14 +85,36 @@ async function scheduleAllReminders(
   });
 
   for (const extra of extras) {
-    await Notifications.scheduleNotificationAsync({
-      content: { title: extra.title, body: extra.title },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: extra.hour,
-        minute: extra.minute,
-      },
-    });
+    if (!extra.enabled) continue;
+    const sound: boolean = extra.sound !== false;
+    const vibrate: number[] | undefined = extra.vibration !== false ? [0, 250, 250, 250] : undefined;
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    const days: number[] = Array.isArray(extra.days) && extra.days.length > 0 ? extra.days : allDays;
+    const isAllDays = days.length === 7;
+    const content = { title: extra.title, body: extra.title, sound, vibrate };
+    if (isAllDays) {
+      await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: extra.hour,
+          minute: extra.minute,
+        },
+      });
+    } else {
+      for (const day of days) {
+        const weekday = day === 6 ? 1 : day + 2;
+        await Notifications.scheduleNotificationAsync({
+          content,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday,
+            hour: extra.hour,
+            minute: extra.minute,
+          },
+        });
+      }
+    }
   }
 }
 
@@ -137,6 +163,9 @@ export default function ProfileScreen() {
   const [newExtraTitle, setNewExtraTitle] = useState("");
   const [newExtraHour, setNewExtraHour] = useState("12");
   const [newExtraMinute, setNewExtraMinute] = useState("00");
+  const [newExtraDays, setNewExtraDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [newExtraSound, setNewExtraSound] = useState(true);
+  const [newExtraVibration, setNewExtraVibration] = useState(true);
 
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -228,7 +257,17 @@ export default function ProfileScreen() {
       if (mm !== null) setMorningMinute(parseInt(mm));
       if (eh !== null) setEveningHour(parseInt(eh));
       if (em !== null) setEveningMinute(parseInt(em));
-      if (extras) setExtraReminders(JSON.parse(extras));
+      if (extras) {
+        const parsed: ExtraReminder[] = JSON.parse(extras);
+        const normalized = parsed.map((e) => ({
+          ...e,
+          enabled: e.enabled !== undefined ? e.enabled : true,
+          days: Array.isArray(e.days) ? e.days : [0, 1, 2, 3, 4, 5, 6],
+          sound: e.sound !== undefined ? e.sound : true,
+          vibration: e.vibration !== undefined ? e.vibration : true,
+        }));
+        setExtraReminders(normalized);
+      }
     } catch {}
   };
 
@@ -385,6 +424,10 @@ export default function ProfileScreen() {
       title: newExtraTitle.trim(),
       hour: h,
       minute: m,
+      enabled: true,
+      days: newExtraDays.length > 0 ? newExtraDays : [0, 1, 2, 3, 4, 5, 6],
+      sound: newExtraSound,
+      vibration: newExtraVibration,
     };
     const updated = [...extraReminders, newExtra];
     setExtraReminders(updated);
@@ -395,7 +438,36 @@ export default function ProfileScreen() {
     setNewExtraTitle("");
     setNewExtraHour("12");
     setNewExtraMinute("00");
+    setNewExtraDays([0, 1, 2, 3, 4, 5, 6]);
+    setNewExtraSound(true);
+    setNewExtraVibration(true);
     setShowAddExtra(false);
+  };
+
+  const handleToggleExtraEnabled = async (id: string, value: boolean) => {
+    const updated = extraReminders.map((e) => e.id === id ? { ...e, enabled: value } : e);
+    setExtraReminders(updated);
+    await saveTimes(morningHour, morningMinute, eveningHour, eveningMinute, updated);
+    if (notificationsEnabled) {
+      await applyReminders(morningHour, morningMinute, eveningHour, eveningMinute, updated);
+    }
+  };
+
+  const handleToggleExtraDay = async (id: string, day: number) => {
+    const updated = extraReminders.map((e) => {
+      if (e.id !== id) return e;
+      const currentDays = Array.isArray(e.days) ? e.days : [0, 1, 2, 3, 4, 5, 6];
+      const newDays = currentDays.includes(day)
+        ? currentDays.filter((d) => d !== day)
+        : [...currentDays, day].sort((a, b) => a - b);
+      if (newDays.length === 0) return e;
+      return { ...e, days: newDays };
+    });
+    setExtraReminders(updated);
+    await saveTimes(morningHour, morningMinute, eveningHour, eveningMinute, updated);
+    if (notificationsEnabled) {
+      await applyReminders(morningHour, morningMinute, eveningHour, eveningMinute, updated);
+    }
   };
 
   const handleRemoveExtra = async (id: string) => {
@@ -579,23 +651,62 @@ export default function ProfileScreen() {
 
           {extraReminders.length > 0 && (
             <View style={[styles.extrasSection, { borderTopColor: theme.border }]}>
-              {extraReminders.map((extra) => (
-                <View key={extra.id} style={styles.extraRow}>
-                  <View style={styles.extraLeft}>
-                    <ThemedText style={[styles.extraTitle, { color: theme.text }]}>
-                      {extra.title}
-                    </ThemedText>
-                    <Pressable onPress={() => openTimeEditor(extra.id)}>
-                      <ThemedText style={[styles.extraTime, { color: theme.primary }]}>
-                        {formatTime(extra.hour, extra.minute)}
-                      </ThemedText>
-                    </Pressable>
+              {extraReminders.map((extra) => {
+                const extraDays = Array.isArray(extra.days) && extra.days.length > 0 ? extra.days : [0, 1, 2, 3, 4, 5, 6];
+                const dayLabels = [
+                  t("profile.dayMon"), t("profile.dayTue"), t("profile.dayWed"),
+                  t("profile.dayThu"), t("profile.dayFri"), t("profile.daySat"), t("profile.daySun"),
+                ];
+                return (
+                  <View key={extra.id} style={styles.extraItem}>
+                    <View style={styles.extraRow}>
+                      <View style={styles.extraLeft}>
+                        <ThemedText style={[styles.extraTitle, { color: extra.enabled !== false ? theme.text : theme.textSecondary }]}>
+                          {extra.title}
+                        </ThemedText>
+                        <Pressable onPress={() => openTimeEditor(extra.id)}>
+                          <ThemedText style={[styles.extraTime, { color: extra.enabled !== false ? "#4A90D9" : theme.textSecondary }]}>
+                            {formatTime(extra.hour, extra.minute)}
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                      <View style={styles.extraRight}>
+                        <Switch
+                          value={extra.enabled !== false}
+                          onValueChange={(val) => handleToggleExtraEnabled(extra.id, val)}
+                          trackColor={{ false: theme.border, true: "#4A90D9" + "80" }}
+                          thumbColor={extra.enabled !== false ? "#4A90D9" : theme.textSecondary}
+                          style={styles.extraSwitch}
+                        />
+                        <Pressable onPress={() => handleRemoveExtra(extra.id)} hitSlop={8}>
+                          <AppIcon name="x" size={16} color={theme.danger} />
+                        </Pressable>
+                      </View>
+                    </View>
+                    <View style={styles.extraDaysRow}>
+                      {dayLabels.map((label, idx) => {
+                        const isActive = extraDays.includes(idx);
+                        return (
+                          <Pressable
+                            key={idx}
+                            onPress={() => handleToggleExtraDay(extra.id, idx)}
+                            style={[
+                              styles.dayChip,
+                              isActive
+                                ? { backgroundColor: "#4A90D9" }
+                                : { backgroundColor: theme.backgroundSecondary, borderColor: theme.border, borderWidth: 1 },
+                            ]}
+                          >
+                            <ThemedText style={[styles.dayChipText, { color: isActive ? "#FFFFFF" : theme.textSecondary }]}>
+                              {label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
-                  <Pressable onPress={() => handleRemoveExtra(extra.id)} hitSlop={8}>
-                    <AppIcon name="x" size={16} color={theme.danger} />
-                  </Pressable>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -761,6 +872,57 @@ export default function ProfileScreen() {
                     placeholder="ММ"
                     placeholderTextColor={theme.textSecondary}
                     textAlign="center"
+                  />
+                </View>
+                <View style={styles.modalDaysRow}>
+                  {[
+                    t("profile.dayMon"), t("profile.dayTue"), t("profile.dayWed"),
+                    t("profile.dayThu"), t("profile.dayFri"), t("profile.daySat"), t("profile.daySun"),
+                  ].map((label, idx) => {
+                    const isActive = newExtraDays.includes(idx);
+                    return (
+                      <Pressable
+                        key={idx}
+                        onPress={() => {
+                          const updated = isActive
+                            ? newExtraDays.filter((d) => d !== idx)
+                            : [...newExtraDays, idx].sort((a, b) => a - b);
+                          if (updated.length > 0) setNewExtraDays(updated);
+                        }}
+                        style={[
+                          styles.dayChip,
+                          isActive
+                            ? { backgroundColor: "#4A90D9" }
+                            : { backgroundColor: theme.backgroundSecondary, borderColor: theme.border, borderWidth: 1 },
+                        ]}
+                      >
+                        <ThemedText style={[styles.dayChipText, { color: isActive ? "#FFFFFF" : theme.textSecondary }]}>
+                          {label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <View style={[styles.modalToggleRow, { borderTopColor: theme.border }]}>
+                  <ThemedText style={[styles.modalToggleLabel, { color: theme.text }]}>
+                    {t("profile.sound")}
+                  </ThemedText>
+                  <Switch
+                    value={newExtraSound}
+                    onValueChange={setNewExtraSound}
+                    trackColor={{ false: theme.border, true: "#4A90D9" + "80" }}
+                    thumbColor={newExtraSound ? "#4A90D9" : theme.textSecondary}
+                  />
+                </View>
+                <View style={[styles.modalToggleRow, { borderTopColor: theme.border }]}>
+                  <ThemedText style={[styles.modalToggleLabel, { color: theme.text }]}>
+                    {t("profile.vibration")}
+                  </ThemedText>
+                  <Switch
+                    value={newExtraVibration}
+                    onValueChange={setNewExtraVibration}
+                    trackColor={{ false: theme.border, true: "#4A90D9" + "80" }}
+                    thumbColor={newExtraVibration ? "#4A90D9" : theme.textSecondary}
                   />
                 </View>
                 <View style={styles.modalActions}>
@@ -1027,16 +1189,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
   },
+  extraItem: {
+    paddingVertical: 4,
+    gap: 6,
+  },
   extraRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 4,
   },
   extraLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    flex: 1,
+  },
+  extraRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  extraSwitch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
   },
   extraTitle: {
     fontSize: 14,
@@ -1045,6 +1219,39 @@ const styles = StyleSheet.create({
   extraTime: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  extraDaysRow: {
+    flexDirection: "row",
+    gap: 4,
+    flexWrap: "wrap",
+    paddingLeft: 2,
+  },
+  dayChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayChipText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  modalDaysRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  modalToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+  },
+  modalToggleLabel: {
+    fontSize: 15,
+    fontWeight: "500",
   },
   addExtraBtn: {
     flexDirection: "row",
