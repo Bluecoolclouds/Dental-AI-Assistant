@@ -189,6 +189,7 @@ export default function AIChatScreen() {
   const navigation = useNavigation();
   const flatListRef = useRef<FlatList>(null);
   const keyboardBottom = useRef(new Animated.Value(0)).current;
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
     { ...WELCOME_MESSAGE, content: t(WELCOME_MESSAGE.content) }
@@ -335,6 +336,7 @@ export default function AIChatScreen() {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const onShow = (e: any) => {
+      setKeyboardVisible(true);
       Animated.timing(keyboardBottom, {
         toValue: e.endCoordinates.height,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
@@ -343,6 +345,7 @@ export default function AIChatScreen() {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     };
     const onHide = (e: any) => {
+      setKeyboardVisible(false);
       Animated.timing(keyboardBottom, {
         toValue: 0,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
@@ -727,7 +730,7 @@ export default function AIChatScreen() {
           styles.inputContainer,
           {
             bottom: keyboardBottom,
-            paddingBottom: tabBarHeight + Spacing.md,
+            paddingBottom: keyboardVisible ? Spacing.md : tabBarHeight + Spacing.md,
             backgroundColor: theme.backgroundDefault,
             borderTopColor: theme.border,
           },
