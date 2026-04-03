@@ -773,7 +773,7 @@ export default function AIChatScreen() {
         <View
           style={[
             styles.inputWrapper,
-            { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+            { backgroundColor: theme.backgroundSecondary, borderColor: theme.primary + "66" },
           ]}
         >
           <Pressable
