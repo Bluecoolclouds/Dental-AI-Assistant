@@ -11,7 +11,7 @@ import {
   ScrollView,
   Animated,
   Text,
-  KeyboardAvoidingView,
+  Keyboard,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
@@ -188,6 +188,7 @@ export default function AIChatScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation();
   const flatListRef = useRef<FlatList>(null);
+  const keyboardBottom = useRef(new Animated.Value(0)).current;
 
   const [messages, setMessages] = useState<Message[]>([
     { ...WELCOME_MESSAGE, content: t(WELCOME_MESSAGE.content) }
@@ -329,6 +330,29 @@ export default function AIChatScreen() {
     };
     load();
   }, [user?.id]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (e: any) => {
+      Animated.timing(keyboardBottom, {
+        toValue: e.endCoordinates.height - tabBarHeight,
+        duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
+        useNativeDriver: false,
+      }).start();
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    };
+    const onHide = (e: any) => {
+      Animated.timing(keyboardBottom, {
+        toValue: 0,
+        duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
+        useNativeDriver: false,
+      }).start();
+    };
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, [tabBarHeight]);
 
   const chatMutation = useMutation({
     mutationFn: async ({ text, files }: { text: string; files: PendingFile[] }) => {
@@ -633,11 +657,6 @@ export default function AIChatScreen() {
   const resultCount = hasQuery ? filteredMessages.length : 0;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={tabBarHeight}
-    >
     <ThemedView style={styles.container}>
       <Animated.View
         style={[
@@ -677,7 +696,6 @@ export default function AIChatScreen() {
 
       <FlatList
         ref={flatListRef}
-        style={{ flex: 1 }}
         data={filteredMessages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
@@ -685,7 +703,7 @@ export default function AIChatScreen() {
           styles.listContent,
           {
             paddingTop: isSearching ? 52 + Spacing.sm : Spacing.sm,
-            paddingBottom: Spacing.md,
+            paddingBottom: tabBarHeight + 100,
           },
         ]}
         onContentSizeChange={() => {
@@ -704,10 +722,11 @@ export default function AIChatScreen() {
         }
       />
 
-      <View
+      <Animated.View
         style={[
           styles.inputContainer,
           {
+            bottom: keyboardBottom,
             paddingBottom: tabBarHeight + Spacing.md,
             backgroundColor: theme.backgroundDefault,
             borderTopColor: theme.border,
@@ -796,9 +815,8 @@ export default function AIChatScreen() {
             )}
           </Pressable>
         </View>
-      </View>
+      </Animated.View>
     </ThemedView>
-    </KeyboardAvoidingView>
   );
 }
 
@@ -851,6 +869,10 @@ const styles = StyleSheet.create({
   },
   messageText: { fontSize: 15, lineHeight: 22 },
   inputContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingTop: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderTopWidth: 1,
