@@ -190,6 +190,7 @@ export default function AIChatScreen() {
   const navigation = useNavigation();
   const flatListRef = useRef<FlatList>(null);
   const keyboardBottom = useRef(new Animated.Value(0)).current;
+  const inputFocused = useRef(false);
   const keyboardPaddingBottom = keyboardBottom.interpolate({
     inputRange: [0, 1],
     outputRange: [tabBarHeight + Spacing.md, Spacing.md],
@@ -341,6 +342,7 @@ export default function AIChatScreen() {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const onShow = (e: any) => {
+      if (!inputFocused.current) return;
       Animated.timing(keyboardBottom, {
         toValue: e.endCoordinates.height,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
@@ -695,6 +697,8 @@ export default function AIChatScreen() {
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onFocus={() => { inputFocused.current = true; }}
+            onBlur={() => { inputFocused.current = false; }}
             returnKeyType="search"
             autoCorrect={false}
           />
@@ -811,6 +815,8 @@ export default function AIChatScreen() {
             placeholderTextColor={theme.textSecondary}
             value={inputText}
             onChangeText={setInputText}
+            onFocus={() => { inputFocused.current = true; }}
+            onBlur={() => { inputFocused.current = false; }}
             multiline
             maxLength={1000}
             editable={!chatMutation.isPending}
