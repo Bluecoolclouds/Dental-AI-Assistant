@@ -330,8 +330,6 @@ export default function WelcomeScreen() {
           <View style={styles.overlay} />
         </TouchableWithoutFeedback>
 
-        <View pointerEvents="none" style={styles.sheetBottomFill} />
-
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.sheetWrapper}
@@ -667,14 +665,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-  },
-  sheetBottomFill: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: "#FFFFFF",
   },
   sheet: {
     backgroundColor: "#FFFFFF",
