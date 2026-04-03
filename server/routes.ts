@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage, incrementUsage } from "./storage";
 import { pool } from "./db";
 import { getAdminStats, renderAdminPage } from "./admin";
+import { renderChatPage } from "./chatPage";
 import {
   isGoogleOAuthConfigured,
   getAuthUrl,
@@ -1404,6 +1405,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Settings save error:", error);
       return res.status(500).send("Ошибка сохранения");
     }
+  });
+
+  // AI Chat web page
+  app.get("/chat", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(renderChatPage());
   });
 
   // Admin Analytics Dashboard
