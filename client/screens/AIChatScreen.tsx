@@ -938,9 +938,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 36,
     maxHeight: 100,
-    paddingVertical: Spacing.xs,
+    paddingTop: Platform.OS === "android" ? 8 : Spacing.xs,
+    paddingBottom: Platform.OS === "android" ? 8 : Spacing.xs,
     paddingHorizontal: Spacing.sm,
-    textAlignVertical: "center",
+    ...(Platform.OS === "android" && { includeFontPadding: false }),
   },
   sendButton: {
     width: 36,
