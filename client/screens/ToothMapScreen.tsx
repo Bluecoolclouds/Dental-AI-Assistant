@@ -358,7 +358,7 @@ export default function ToothMapScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: headerHeight + Spacing.lg,
+            paddingTop: headerHeight + Spacing.sm,
             paddingBottom: tabBarHeight + Spacing["3xl"],
           }
         ]}
