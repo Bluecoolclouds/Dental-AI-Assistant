@@ -38,7 +38,7 @@ function getClaude(): Anthropic | null {
   return new Anthropic({ apiKey, baseURL: "https://globalai.vip" });
 }
 
-const CLAUDE_MAIN = "claude-opus-4-5-20251101";
+const CLAUDE_MAIN = "claude-haiku-4-5-20251001";
 const CLAUDE_FAST = "claude-haiku-4-5-20251001";
 
 interface UploadedFile {
