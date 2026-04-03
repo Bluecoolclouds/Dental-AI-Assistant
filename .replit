@@ -58,6 +58,8 @@ outputType = "webview"
 
 [userenv.shared]
 ADMIN_SECRET = "dentcor-admin-2026"
+AI_INTEGRATIONS_ANTHROPIC_BASE_URL = "http://localhost:1106/modelfarm/anthropic"
+AI_INTEGRATIONS_ANTHROPIC_API_KEY = "_DUMMY_API_KEY_"
 
 [postMerge]
 path = "scripts/post-merge.sh"

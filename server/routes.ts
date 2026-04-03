@@ -33,10 +33,15 @@ import type { TextBlock } from "@anthropic-ai/sdk/resources/messages/messages";
 import { sendVerificationEmail } from "./email";
 
 function getClaude(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return null;
+  const replitBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const replitKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  if (replitBaseUrl && replitKey) {
+    return new Anthropic({ apiKey: replitKey, baseURL: replitBaseUrl });
   }
-  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  if (process.env.ANTHROPIC_API_KEY) {
+    return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return null;
 }
 
 const CLAUDE_MAIN = "claude-opus-4-5";
