@@ -190,7 +190,11 @@ export default function AIChatScreen() {
   const navigation = useNavigation();
   const flatListRef = useRef<FlatList>(null);
   const keyboardBottom = useRef(new Animated.Value(0)).current;
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const keyboardPaddingBottom = keyboardBottom.interpolate({
+    inputRange: [0, 1],
+    outputRange: [tabBarHeight + Spacing.md, Spacing.md],
+    extrapolate: "clamp",
+  });
 
   const [messages, setMessages] = useState<Message[]>([
     { ...WELCOME_MESSAGE, content: t(WELCOME_MESSAGE.content) }
@@ -337,7 +341,6 @@ export default function AIChatScreen() {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const onShow = (e: any) => {
-      setKeyboardVisible(true);
       Animated.timing(keyboardBottom, {
         toValue: e.endCoordinates.height,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
@@ -346,7 +349,6 @@ export default function AIChatScreen() {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     };
     const onHide = (e: any) => {
-      setKeyboardVisible(false);
       Animated.timing(keyboardBottom, {
         toValue: 0,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
@@ -362,7 +364,6 @@ export default function AIChatScreen() {
     const sub = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
         keyboardBottom.setValue(0);
-        setKeyboardVisible(false);
       }
     });
     return () => sub.remove();
@@ -741,7 +742,7 @@ export default function AIChatScreen() {
           styles.inputContainer,
           {
             bottom: keyboardBottom,
-            paddingBottom: keyboardVisible ? Spacing.md : tabBarHeight + Spacing.md,
+            paddingBottom: keyboardPaddingBottom,
             backgroundColor: theme.backgroundDefault,
             borderTopColor: theme.border,
           },
