@@ -344,7 +344,7 @@ export default function AIChatScreen() {
     const onShow = (e: any) => {
       if (!inputFocused.current) return;
       Animated.timing(keyboardBottom, {
-        toValue: e.endCoordinates.height,
+        toValue: e.endCoordinates.height + 4,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
         useNativeDriver: false,
       }).start();
