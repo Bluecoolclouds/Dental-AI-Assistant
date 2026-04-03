@@ -138,7 +138,7 @@ export default function MainTabNavigator() {
         component={AIChatScreen}
         options={{
           title: t("nav.ai"),
-          headerShown: false,
+          headerTitle: t("aiChat.title"),
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="message-circle" size={size} color={color} />
           ),

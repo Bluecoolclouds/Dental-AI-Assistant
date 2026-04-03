@@ -16,6 +16,8 @@ import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useMutation } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
@@ -175,6 +177,8 @@ export default function AIChatScreen() {
   const { user } = useAuthContext();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation();
+  const headerHeight = useHeaderHeight();
   const flatListRef = useRef<FlatList>(null);
 
   const { profile } = useProfile();
@@ -220,6 +224,20 @@ export default function AIChatScreen() {
       useNativeDriver: false,
     }).start(() => setIsSearching(false));
   }, [searchBarAnim]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={isSearching ? () => closeSearch() : openSearch}
+          hitSlop={8}
+          style={{ marginRight: 4 }}
+        >
+          <AppIcon name={isSearching ? "x" : "search"} size={20} color={theme.primary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, isSearching, openSearch, closeSearch, theme.primary]);
 
   const filteredMessages = useMemo(() => {
     if (!searchQuery.trim()) return messages;
@@ -656,7 +674,7 @@ export default function AIChatScreen() {
           {
             height: searchBarHeight,
             opacity: searchBarOpacity,
-            top: insets.top,
+            top: headerHeight,
             backgroundColor: theme.backgroundDefault,
             borderBottomColor: theme.border,
           },
@@ -686,14 +704,6 @@ export default function AIChatScreen() {
         </View>
       </Animated.View>
 
-      <Pressable
-        style={[styles.searchFab, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border, top: insets.top + Spacing.md }]}
-        onPress={isSearching ? () => closeSearch() : openSearch}
-        hitSlop={4}
-      >
-        <AppIcon name={isSearching ? "x" : "search"} size={18} color={theme.primary} />
-      </Pressable>
-
       <FlatList
         ref={flatListRef}
         data={filteredMessages}
@@ -702,7 +712,7 @@ export default function AIChatScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: insets.top + Spacing.lg,
+            paddingTop: headerHeight + Spacing.sm,
             paddingBottom: tabBarHeight + 100,
           },
         ]}
