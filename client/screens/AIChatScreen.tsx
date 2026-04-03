@@ -363,7 +363,11 @@ export default function AIChatScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
-        keyboardBottom.setValue(0);
+        Animated.timing(keyboardBottom, {
+          toValue: 0,
+          duration: 80,
+          useNativeDriver: false,
+        }).start();
       }
     });
     return () => sub.remove();
