@@ -358,7 +358,7 @@ export default function ToothMapScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: headerHeight + Spacing.sm,
+            paddingTop: headerHeight + Spacing.lg,
             paddingBottom: tabBarHeight + Spacing["3xl"],
           }
         ]}
@@ -366,8 +366,6 @@ export default function ToothMapScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h3" style={styles.cardTitle}>{t("home.toothMap")}</ThemedText>
-
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: "#FBBF24" }]} />
