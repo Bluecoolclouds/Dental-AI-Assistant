@@ -154,6 +154,12 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
   <div class="sidebar-search">
     <input type="text" id="search-input" placeholder="Поиск пользователя…" oninput="filterUsers(this.value)" />
   </div>
+  <div style="padding:6px 6px 0">
+    <div class="user-item" id="ui-__admin__" data-uid="__admin__" style="background:#1e3a5f;border-color:#2563eb" onclick="selectUser('__admin__')">
+      <div class="user-name" style="color:#60a5fa">🤖 Тест ИИ (Админ)</div>
+      <div class="user-email">Прямой чат без пользователя</div>
+    </div>
+  </div>
   <div class="user-list" id="user-list"></div>
   <div class="sidebar-logout">
     <button class="btn-ghost" onclick="location.href='/chat'">Выйти</button>
@@ -185,6 +191,7 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
 
   let currentUserId = null;
   let isLoading = false;
+  const ADMIN_ID = '__admin__';
 
   // ── INIT ──
   renderUserList(ALL_USERS);
@@ -222,8 +229,6 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
   }
 
   async function selectUser(id) {
-    const u = USERS_MAP.get(id);
-    if (!u) return;
     document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
     const activeEl = document.getElementById('ui-' + id);
     if (activeEl) activeEl.classList.add('active');
@@ -231,13 +236,27 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
     currentUserId = id;
 
     const header = document.getElementById('chat-header');
-    header.innerHTML = \`
-      <div class="chat-header-info">
-        <div class="chat-header-name">\${escHtml(u.name || 'Без имени')}</div>
-        <div class="chat-header-meta">\${u.email ? escHtml(u.email) + ' · ' : ''}\${u.id}</div>
-      </div>
-      <button class="btn-new" onclick="newSession()">+ Новый диалог</button>
-    \`;
+    const isAdmin = id === ADMIN_ID;
+
+    if (isAdmin) {
+      header.innerHTML = \`
+        <div class="chat-header-info">
+          <div class="chat-header-name" style="color:#60a5fa">🤖 Тест ИИ — Режим администратора</div>
+          <div class="chat-header-meta">Прямой чат · история не сохраняется</div>
+        </div>
+        <button class="btn-new" onclick="clearAdminChat()">Очистить чат</button>
+      \`;
+    } else {
+      const u = USERS_MAP.get(id);
+      if (!u) return;
+      header.innerHTML = \`
+        <div class="chat-header-info">
+          <div class="chat-header-name">\${escHtml(u.name || 'Без имени')}</div>
+          <div class="chat-header-meta">\${u.email ? escHtml(u.email) + ' · ' : ''}\${u.id}</div>
+        </div>
+        <button class="btn-new" onclick="newSession()">+ Новый диалог</button>
+      \`;
+    }
 
     document.getElementById('no-user-placeholder').style.display = 'none';
     document.getElementById('messages').style.display = 'flex';
@@ -246,7 +265,11 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
     document.getElementById('send-btn').disabled = false;
     document.getElementById('msg-input').focus();
 
-    await loadHistory(id);
+    if (isAdmin) {
+      showEmpty();
+    } else {
+      await loadHistory(id);
+    }
   }
 
   // ── HISTORY ──
@@ -300,11 +323,16 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
     document.getElementById('send-btn').disabled = true;
     input.disabled = true;
 
+    const isAdmin = currentUserId === ADMIN_ID;
+    const body = isAdmin
+      ? { message: text }
+      : { message: text, userId: currentUserId };
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, userId: currentUserId }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       typingEl.remove();
@@ -329,9 +357,17 @@ export function renderChatPage(users: ChatUser[], adminKey: string): string {
     }
   }
 
+  // ── ADMIN CLEAR ──
+  function clearAdminChat() {
+    const el = document.getElementById('messages');
+    el.innerHTML = '';
+    showEmpty();
+    showToast('Чат очищен');
+  }
+
   // ── NEW SESSION ──
   async function newSession() {
-    if (!currentUserId) return;
+    if (!currentUserId || currentUserId === ADMIN_ID) return;
     if (!confirm('Начать новый диалог? Текущая история будет архивирована.')) return;
     try {
       await fetch('/api/chat/session/' + encodeURIComponent(currentUserId), { method: 'POST' });
