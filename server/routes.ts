@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage, incrementUsage } from "./storage";
 import { pool } from "./db";
 import { getAdminStats, renderAdminPage } from "./admin";
-import { renderChatPage } from "./chatPage";
+import { renderChatPage, renderChatLoginPage } from "./chatPage";
 import {
   isGoogleOAuthConfigured,
   getAuthUrl,
@@ -1407,10 +1407,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Chat web page
-  app.get("/chat", (_req: Request, res: Response) => {
+  // AI Chat web page (admin-only)
+  app.get("/chat", async (req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.status(200).send(renderChatPage());
+    const secret = process.env.ADMIN_SECRET;
+    const key = req.query.key as string | undefined;
+    if (!secret || !key) {
+      return res.status(200).send(renderChatLoginPage());
+    }
+    if (key !== secret) {
+      return res.status(200).send(renderChatLoginPage("Неверный ключ доступа"));
+    }
+    try {
+      const result = await pool.query<{ id: string; email: string | null; display_name: string | null; created_at: Date | null }>(
+        `SELECT u.id, u.email, p.display_name, u.created_at
+         FROM users u
+         LEFT JOIN user_profiles p ON p.user_id = u.id
+         ORDER BY u.created_at DESC`
+      );
+      const users = result.rows.map((r) => ({
+        id: r.id,
+        email: r.email,
+        name: r.display_name,
+        createdAt: r.created_at,
+      }));
+      return res.status(200).send(renderChatPage(users, key));
+    } catch (err) {
+      console.error("[chat page] DB error:", err);
+      return res.status(500).send("Ошибка загрузки пользователей");
+    }
   });
 
   // Admin Analytics Dashboard
