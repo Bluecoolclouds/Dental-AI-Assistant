@@ -730,7 +730,7 @@ export default function AIChatScreen() {
           styles.inputContainer,
           {
             bottom: keyboardBottom,
-            paddingBottom: keyboardVisible ? Spacing.md : tabBarHeight + Spacing.md,
+            paddingBottom: keyboardVisible ? Spacing.lg : tabBarHeight + Spacing.md,
             backgroundColor: theme.backgroundDefault,
             borderTopColor: theme.border,
           },
