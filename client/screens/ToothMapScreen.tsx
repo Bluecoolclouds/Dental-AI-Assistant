@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator, useWindowDimensions, Platform, TextInput, Alert, Modal } from "react-native";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useTranslation } from "react-i18next";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -123,7 +122,6 @@ function ToothShape({
 
 export default function ToothMapScreen() {
   const { t, i18n } = useTranslation();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -358,7 +356,6 @@ export default function ToothMapScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: headerHeight,
             paddingBottom: tabBarHeight + Spacing["3xl"],
           }
         ]}
