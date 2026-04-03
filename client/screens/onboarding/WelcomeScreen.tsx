@@ -275,9 +275,13 @@ export default function WelcomeScreen() {
       borderTopRightRadius: sheetRadius.value,
     };
     if (sheetHeight.value > 0) {
-      return { ...base, height: sheetHeight.value };
+      return {
+        ...base,
+        height: sheetHeight.value,
+        maxHeight: sheetHeight.value,
+      };
     }
-    return base;
+    return { ...base, maxHeight: SCREEN_HEIGHT * 0.78 };
   });
 
   const isLogin = authMode === "login";
@@ -670,7 +674,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: SCREEN_HEIGHT * 0.78,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
