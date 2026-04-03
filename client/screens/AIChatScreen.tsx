@@ -248,19 +248,6 @@ export default function AIChatScreen() {
     navigation.setOptions({
       headerRight: () => (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginRight: 4 }}>
-          {!isSearching && (
-            <Pressable
-              onPress={handleNewDialog}
-              hitSlop={8}
-              disabled={isStartingNewDialog}
-            >
-              {isStartingNewDialog ? (
-                <ActivityIndicator size="small" color={theme.primary} />
-              ) : (
-                <AppIcon name="plus-square" size={20} color={theme.primary} />
-              )}
-            </Pressable>
-          )}
           <Pressable
             onPress={isSearching ? () => closeSearch() : openSearch}
             hitSlop={8}
