@@ -997,7 +997,10 @@ export default function CalendarScreen() {
                 {Platform.OS !== "web" && (
                   <Pressable
                     onPress={async () => {
-                      if (!form.dateDay || !form.dateMonth || !form.dateYear) return;
+                      if (!form.dateDay || !form.dateMonth || !form.dateYear) {
+                        Alert.alert(t("common.error"), t("calendar.specifyDate"));
+                        return;
+                      }
                       const day = parseInt(form.dateDay);
                       const mon = parseInt(form.dateMonth);
                       const yr = parseInt(form.dateYear);
@@ -1024,13 +1027,19 @@ export default function CalendarScreen() {
                         await updateEventInCalendar(form.systemCalendarEventId, calParams);
                       } else {
                         const result = await addEventToCalendar(calParams);
-                        if (typeof result === "string") {
-                          setForm((prev) => ({ ...prev, systemCalendarEventId: result }));
-                          if (editingEvent) {
-                            await calendarRepo.updateCalendarEvent(editingEvent.id, {
-                              systemCalendarEventId: result,
-                            });
-                            await loadEvents();
+                        if (typeof result === "string" || result === true) {
+                          if (typeof result === "string" && result) {
+                            setForm((prev) => ({ ...prev, systemCalendarEventId: result }));
+                            if (editingEvent) {
+                              try {
+                                await calendarRepo.updateCalendarEvent(editingEvent.id, {
+                                  systemCalendarEventId: result,
+                                });
+                                await loadEvents();
+                              } catch (dbError) {
+                                console.log("Failed to persist calendar event ID:", dbError);
+                              }
+                            }
                           }
                         }
                       }
