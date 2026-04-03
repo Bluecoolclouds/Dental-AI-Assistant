@@ -245,7 +245,7 @@ export default function AIChatScreen() {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginRight: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginRight: 12 }}>
           <Pressable
             onPress={isSearching ? () => closeSearch() : openSearch}
             hitSlop={8}
