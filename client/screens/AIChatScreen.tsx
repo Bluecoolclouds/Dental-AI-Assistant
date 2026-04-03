@@ -336,7 +336,7 @@ export default function AIChatScreen() {
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const onShow = (e: any) => {
       Animated.timing(keyboardBottom, {
-        toValue: e.endCoordinates.height - tabBarHeight,
+        toValue: e.endCoordinates.height,
         duration: Platform.OS === "ios" ? e.duration ?? 250 : 200,
         useNativeDriver: false,
       }).start();
