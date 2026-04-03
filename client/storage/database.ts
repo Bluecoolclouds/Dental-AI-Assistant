@@ -13,9 +13,9 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 }
 
 async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> {
+  await database.runAsync('PRAGMA foreign_keys = ON;');
+
   await database.execAsync(`
-    PRAGMA foreign_keys = ON;
-    
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       email TEXT NOT NULL UNIQUE,
