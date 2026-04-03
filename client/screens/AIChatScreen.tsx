@@ -365,6 +365,8 @@ export default function AIChatScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
       if (nextState === "background") {
+        Keyboard.dismiss();
+        inputFocused.current = false;
         keyboardBottom.setValue(0);
       }
     });
