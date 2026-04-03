@@ -33,19 +33,13 @@ import type { TextBlock } from "@anthropic-ai/sdk/resources/messages/messages";
 import { sendVerificationEmail } from "./email";
 
 function getClaude(): Anthropic | null {
-  const replitBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
-  const replitKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
-  if (replitBaseUrl && replitKey) {
-    return new Anthropic({ apiKey: replitKey, baseURL: replitBaseUrl });
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return null;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  return new Anthropic({ apiKey, baseURL: "https://globalai.vip" });
 }
 
-const CLAUDE_MAIN = "claude-opus-4-5";
-const CLAUDE_FAST = "claude-haiku-4-5";
+const CLAUDE_MAIN = "claude-opus-4-5-20251101";
+const CLAUDE_FAST = "claude-haiku-4-5-20251001";
 
 interface UploadedFile {
   name: string;
