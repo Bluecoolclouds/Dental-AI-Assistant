@@ -6,7 +6,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -22,33 +21,11 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 function ToothMascot() {
   return (
-    <Svg width={60} height={70} viewBox="0 0 60 70">
-      <Defs>
-        <RadialGradient id="mascotGrad" cx="50%" cy="30%" r="70%">
-          <Stop offset="0%" stopColor="#FFFFFF" />
-          <Stop offset="100%" stopColor="#E0E0E0" />
-        </RadialGradient>
-      </Defs>
-      <Path
-        d="M15,25 C15,10 22,3 30,3 C38,3 45,10 45,25 L43,50 C43,58 40,67 36,67 C34,67 32,64 31,60 L30,60 L29,60 C28,64 26,67 24,67 C20,67 17,58 17,50 Z"
-        fill="url(#mascotGrad)"
-        stroke="#BDBDBD"
-        strokeWidth={1}
-      />
-      <Circle cx="24" cy="20" r="3" fill="#333" />
-      <Circle cx="36" cy="20" r="3" fill="#333" />
-      <Circle cx="25" cy="21" r="1" fill="#FFF" />
-      <Circle cx="37" cy="21" r="1" fill="#FFF" />
-      <Path
-        d="M24,30 Q30,36 36,30"
-        fill="none"
-        stroke="#E91E63"
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-      <Circle cx="18" cy="25" r="4" fill="#FFCDD2" opacity={0.6} />
-      <Circle cx="42" cy="25" r="4" fill="#FFCDD2" opacity={0.6} />
-    </Svg>
+    <Image
+      source={require("../../assets/images/tooth_mascot.png")}
+      style={{ width: 80, height: 95 }}
+      resizeMode="contain"
+    />
   );
 }
 
