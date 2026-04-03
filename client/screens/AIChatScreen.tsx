@@ -17,7 +17,6 @@ import AppIcon from "@/components/Icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useMutation } from "@tanstack/react-query";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
@@ -187,7 +186,6 @@ export default function AIChatScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation();
-  const headerHeight = useHeaderHeight();
   const flatListRef = useRef<FlatList>(null);
 
   const [messages, setMessages] = useState<Message[]>([
@@ -252,7 +250,7 @@ export default function AIChatScreen() {
             onPress={isSearching ? () => closeSearch() : openSearch}
             hitSlop={8}
           >
-            <AppIcon name={isSearching ? "x" : "search"} size={20} color={theme.primary} />
+            <AppIcon name={isSearching ? "x" : "search"} size={22} color={theme.primary} />
           </Pressable>
         </View>
       ),
@@ -641,7 +639,7 @@ export default function AIChatScreen() {
           {
             height: searchBarHeight,
             opacity: searchBarOpacity,
-            top: headerHeight,
+            top: 0,
             backgroundColor: theme.backgroundDefault,
             borderBottomColor: theme.border,
           },
@@ -649,7 +647,7 @@ export default function AIChatScreen() {
         pointerEvents={isSearching ? "auto" : "none"}
       >
         <View style={[styles.searchInputWrapper, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
-          <AppIcon name="search" size={16} color={theme.textSecondary} />
+          <AppIcon name="search" size={20} color={theme.textSecondary} />
           <TextInput
             ref={searchInputRef}
             style={[styles.searchInput, { color: theme.text }]}
@@ -679,7 +677,7 @@ export default function AIChatScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: headerHeight + Spacing.sm,
+            paddingTop: isSearching ? 52 + Spacing.sm : Spacing.sm,
             paddingBottom: tabBarHeight + 100,
           },
         ]}
@@ -920,7 +918,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    paddingHorizontal: Spacing.md,
+    paddingLeft: Spacing.sm,
+    paddingRight: Spacing.md,
     height: 40,
   },
   searchInput: {
