@@ -1199,7 +1199,9 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
+    paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xl,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
