@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { loadUserMemory, saveMemoryUpdates, formatMemoryForPrompt, type MemoryUpdate } from "./memory.js";
-import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage, incrementUsage } from "./storage";
+import { storage, getSetting, setSetting, seedDefaultSettings, getOrCreateUsage, incrementUsage, addTokenUsage } from "./storage";
 import { pool } from "./db";
 import { getAdminStats, renderAdminPage } from "./admin";
 import { renderChatPage, renderChatLoginPage } from "./chatPage";
@@ -1107,6 +1107,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const hasFiles = Array.isArray(incomingFiles) && incomingFiles.length > 0;
           await incrementUsage(userId, date, "messages");
           if (hasFiles) await incrementUsage(userId, date, "files");
+          // Track token usage from OpenAI-compatible response
+          const inputTok = response.usage?.prompt_tokens ?? 0;
+          const outputTok = response.usage?.completion_tokens ?? 0;
+          if (inputTok > 0 || outputTok > 0) {
+            addTokenUsage(userId, date, inputTok, outputTok).catch((e) =>
+              console.error("[Tokens] addTokenUsage error:", e)
+            );
+          }
         }
 
         const assistantText = parsed.assistant_message || content;

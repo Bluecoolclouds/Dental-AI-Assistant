@@ -18,6 +18,12 @@ export async function getAdminStats() {
     aiTopUsers,
     msgLimitSetting,
     fileLimitSetting,
+    tokenToday,
+    tokenWeek,
+    tokenMonth,
+    tokenTopUsers,
+    memoryStats,
+    memoryTopNodes,
   ] = await Promise.all([
     pool.query(`SELECT COUNT(*)::int AS count FROM users`),
 
@@ -131,6 +137,80 @@ export async function getAdminStats() {
 
     getSetting("daily_message_limit"),
     getSetting("daily_file_limit"),
+
+    // Token usage today
+    pool.query(`
+      SELECT
+        COALESCE(SUM(input_tokens),0)::int AS input_tokens,
+        COALESCE(SUM(output_tokens),0)::int AS output_tokens,
+        COALESCE(SUM(input_tokens+output_tokens),0)::int AS total_tokens
+      FROM ai_usage
+      WHERE date = TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+    `).catch(() => ({ rows: [{ input_tokens: 0, output_tokens: 0, total_tokens: 0 }] })),
+
+    // Token usage last 7 days
+    pool.query(`
+      SELECT
+        COALESCE(SUM(input_tokens),0)::int AS input_tokens,
+        COALESCE(SUM(output_tokens),0)::int AS output_tokens,
+        COALESCE(SUM(input_tokens+output_tokens),0)::int AS total_tokens
+      FROM ai_usage
+      WHERE date >= TO_CHAR(NOW() AT TIME ZONE 'UTC' - INTERVAL '6 days', 'YYYY-MM-DD')
+    `).catch(() => ({ rows: [{ input_tokens: 0, output_tokens: 0, total_tokens: 0 }] })),
+
+    // Token usage last 30 days
+    pool.query(`
+      SELECT
+        COALESCE(SUM(input_tokens),0)::int AS input_tokens,
+        COALESCE(SUM(output_tokens),0)::int AS output_tokens,
+        COALESCE(SUM(input_tokens+output_tokens),0)::int AS total_tokens
+      FROM ai_usage
+      WHERE date >= TO_CHAR(NOW() AT TIME ZONE 'UTC' - INTERVAL '29 days', 'YYYY-MM-DD')
+    `).catch(() => ({ rows: [{ input_tokens: 0, output_tokens: 0, total_tokens: 0 }] })),
+
+    // Top 10 users by tokens
+    pool.query(`
+      SELECT
+        u.email,
+        COALESCE(SUM(a.input_tokens),0)::int AS input_tokens,
+        COALESCE(SUM(a.output_tokens),0)::int AS output_tokens,
+        COALESCE(SUM(a.input_tokens+a.output_tokens),0)::int AS total_tokens
+      FROM ai_usage a
+      JOIN users u ON u.id = a.user_id
+      GROUP BY u.email
+      HAVING SUM(a.input_tokens+a.output_tokens) > 0
+      ORDER BY total_tokens DESC
+      LIMIT 10
+    `).catch(() => ({ rows: [] })),
+
+    // Memory stats: per-user summary
+    pool.query(`
+      SELECT
+        u.email,
+        COUNT(m.id)::int AS node_count,
+        COALESCE(SUM(length(m.content)),0)::int AS total_chars,
+        COALESCE(SUM(length(m.content)/4),0)::int AS est_tokens
+      FROM user_memory_nodes m
+      JOIN users u ON u.id = m.user_id
+      GROUP BY u.email
+      ORDER BY node_count DESC
+      LIMIT 15
+    `).catch(() => ({ rows: [] })),
+
+    // Top memory segments by estimated token size (across all users)
+    pool.query(`
+      SELECT
+        u.email,
+        m.segment,
+        m.category,
+        length(m.content)::int AS chars,
+        (length(m.content)/4)::int AS est_tokens,
+        LEFT(m.content, 120) AS preview
+      FROM user_memory_nodes m
+      JOIN users u ON u.id = m.user_id
+      ORDER BY length(m.content) DESC
+      LIMIT 20
+    `).catch(() => ({ rows: [] })),
   ]);
 
   // Also query tooth_data for most common tooth problems
@@ -164,6 +244,12 @@ export async function getAdminStats() {
       daily_message_limit: msgLimitSetting ?? "20",
       daily_file_limit: fileLimitSetting ?? "2",
     },
+    tokenToday: tokenToday.rows[0] ?? { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+    tokenWeek: tokenWeek.rows[0] ?? { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+    tokenMonth: tokenMonth.rows[0] ?? { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+    tokenTopUsers: tokenTopUsers.rows,
+    memoryStats: memoryStats.rows,
+    memoryTopNodes: memoryTopNodes.rows,
   };
 }
 
@@ -348,6 +434,79 @@ export function renderAdminPage(stats: Awaited<ReturnType<typeof getAdminStats>>
     </tbody>
   </table>
 </div>
+
+<p class="section-title">Статистика токенов</p>
+<div class="grid" style="padding-top:12px">
+  <div class="ai-stat-card" style="border-top-color:#a78bfa">
+    <div class="label">Токенов сегодня</div>
+    <div class="value" style="color:#a78bfa">${stats.tokenToday.total_tokens.toLocaleString("ru")}</div>
+    <div class="sub">вход: ${stats.tokenToday.input_tokens.toLocaleString("ru")} · выход: ${stats.tokenToday.output_tokens.toLocaleString("ru")}</div>
+  </div>
+  <div class="ai-stat-card" style="border-top-color:#a78bfa">
+    <div class="label">Токенов за 7 дней</div>
+    <div class="value" style="color:#a78bfa">${stats.tokenWeek.total_tokens.toLocaleString("ru")}</div>
+    <div class="sub">вход: ${stats.tokenWeek.input_tokens.toLocaleString("ru")} · выход: ${stats.tokenWeek.output_tokens.toLocaleString("ru")}</div>
+  </div>
+  <div class="ai-stat-card" style="border-top-color:#a78bfa">
+    <div class="label">Токенов за 30 дней</div>
+    <div class="value" style="color:#a78bfa">${stats.tokenMonth.total_tokens.toLocaleString("ru")}</div>
+    <div class="sub">вход: ${stats.tokenMonth.input_tokens.toLocaleString("ru")} · выход: ${stats.tokenMonth.output_tokens.toLocaleString("ru")}</div>
+  </div>
+</div>
+
+${stats.tokenTopUsers.length > 0 ? `
+<div class="table-card">
+  <h2>Топ пользователей по токенам</h2>
+  <table>
+    <thead><tr><th>Email</th><th>Входящих</th><th>Исходящих</th><th>Всего токенов</th></tr></thead>
+    <tbody>
+      ${stats.tokenTopUsers.map((u: any) => `
+      <tr>
+        <td>${u.email}</td>
+        <td>${Number(u.input_tokens).toLocaleString("ru")}</td>
+        <td>${Number(u.output_tokens).toLocaleString("ru")}</td>
+        <td><strong>${Number(u.total_tokens).toLocaleString("ru")}</strong></td>
+      </tr>`).join("")}
+    </tbody>
+  </table>
+</div>` : ""}
+
+<p class="section-title">Нейронная память пациентов</p>
+
+${stats.memoryStats.length > 0 ? `
+<div class="table-card">
+  <h2>Память по пользователям</h2>
+  <table>
+    <thead><tr><th>Email</th><th>Узлов</th><th>Символов</th><th>≈ Токенов</th></tr></thead>
+    <tbody>
+      ${stats.memoryStats.map((m: any) => `
+      <tr>
+        <td>${m.email}</td>
+        <td><strong>${m.node_count}</strong></td>
+        <td>${Number(m.total_chars).toLocaleString("ru")}</td>
+        <td style="color:#a78bfa"><strong>~${Number(m.est_tokens).toLocaleString("ru")}</strong></td>
+      </tr>`).join("")}
+    </tbody>
+  </table>
+</div>
+
+<div class="table-card">
+  <h2>Топ узлов памяти по размеру</h2>
+  <table>
+    <thead><tr><th>Email</th><th>Сегмент</th><th>Категория</th><th>≈ Токенов</th><th>Превью</th></tr></thead>
+    <tbody>
+      ${stats.memoryTopNodes.map((n: any) => `
+      <tr>
+        <td style="font-size:12px;color:#94a3b8">${n.email}</td>
+        <td><code style="font-size:11px;background:#1e293b;padding:2px 6px;border-radius:4px">${n.segment}</code></td>
+        <td><span class="badge badge-${n.category}" style="font-size:11px">${n.category}</span></td>
+        <td style="color:#a78bfa;font-weight:bold">~${Number(n.est_tokens).toLocaleString("ru")}</td>
+        <td style="font-size:12px;color:#94a3b8;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(n.preview || "").replace(/</g, "&lt;")}</td>
+      </tr>`).join("")}
+    </tbody>
+  </table>
+</div>
+` : `<div class="table-card" style="text-align:center;color:#94a3b8;padding:32px">Узлов памяти пока нет. Они появятся после диалогов с пациентами.</div>`}
 
 <div class="charts">
   <div class="chart-card" style="grid-column:1/-1">

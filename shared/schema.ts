@@ -239,6 +239,8 @@ export const aiUsage = pgTable("ai_usage", {
   date: varchar("date", { length: 10 }).notNull(), // "YYYY-MM-DD"
   messagesCount: integer("messages_count").default(0).notNull(),
   filesCount: integer("files_count").default(0).notNull(),
+  inputTokens: integer("input_tokens").default(0).notNull(),
+  outputTokens: integer("output_tokens").default(0).notNull(),
 }, (table) => ({
   userDateIdx: uniqueIndex("ai_usage_user_date_idx").on(table.userId, table.date),
 }));

@@ -94,10 +94,26 @@ export async function incrementUsage(
 ): Promise<void> {
   const col = field === "messages" ? "messages_count" : "files_count";
   await pool.query(
-    `INSERT INTO ai_usage (user_id, date, messages_count, files_count)
-     VALUES ($1, $2, ${field === "messages" ? 1 : 0}, ${field === "files" ? 1 : 0})
+    `INSERT INTO ai_usage (user_id, date, messages_count, files_count, input_tokens, output_tokens)
+     VALUES ($1, $2, ${field === "messages" ? 1 : 0}, ${field === "files" ? 1 : 0}, 0, 0)
      ON CONFLICT (user_id, date) DO UPDATE SET ${col} = ai_usage.${col} + 1`,
     [userId, date]
+  );
+}
+
+export async function addTokenUsage(
+  userId: string,
+  date: string,
+  inputTokens: number,
+  outputTokens: number
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO ai_usage (user_id, date, messages_count, files_count, input_tokens, output_tokens)
+     VALUES ($1, $2, 0, 0, $3, $4)
+     ON CONFLICT (user_id, date) DO UPDATE SET
+       input_tokens = ai_usage.input_tokens + EXCLUDED.input_tokens,
+       output_tokens = ai_usage.output_tokens + EXCLUDED.output_tokens`,
+    [userId, date, inputTokens, outputTokens]
   );
 }
 
