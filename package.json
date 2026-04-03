@@ -5,7 +5,8 @@
   "scripts": {
     "expo:dev": "EXPO_NO_REACT_NATIVE_DEVTOOLS=1 EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN npx expo start --localhost --clear --non-interactive",
     "server:dev": "NODE_ENV=development tsx server/index.ts",
-    "all:dev": "fuser -k 5000/tcp 8081/tcp 2>/dev/null; echo \"EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN\" > .env.local; sleep 3; npm run expo:dev & npm run server:dev",
+    "openclaw:dev": "fuser -k 18789/tcp 2>/dev/null; openclaw gateway --port 18789",
+    "all:dev": "fuser -k 5000/tcp 8081/tcp 18789/tcp 2>/dev/null; echo \"EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN\" > .env.local; sleep 1; npm run openclaw:dev & sleep 4; npm run expo:dev & npm run server:dev",
     "expo:start:static:build": "EXPO_PUBLIC_DOMAIN=$REPLIT_INTERNAL_APP_DOMAIN npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
     "server:build": "esbuild server/index.ts server/migrate.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist",
@@ -60,6 +61,7 @@
     "http-proxy-middleware": "^3.0.5",
     "i18next": "^25.8.17",
     "openai": "^6.27.0",
+    "openclaw": "^2026.4.2",
     "pg": "^8.20.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",

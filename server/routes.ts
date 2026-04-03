@@ -30,6 +30,7 @@ import {
 import { createHash, randomInt } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import type { TextBlock } from "@anthropic-ai/sdk/resources/messages/messages";
+import OpenAI from "openai";
 import { sendVerificationEmail } from "./email";
 
 function getClaude(): Anthropic | null {
@@ -38,8 +39,16 @@ function getClaude(): Anthropic | null {
   return new Anthropic({ apiKey, baseURL: "https://globalai.vip" });
 }
 
+function getOpenClaw(): OpenAI | null {
+  return new OpenAI({
+    baseURL: "http://127.0.0.1:18789/v1",
+    apiKey: "toothy-openclaw-2026",
+  });
+}
+
 const CLAUDE_MAIN = "claude-haiku-4-5-20251001";
 const CLAUDE_FAST = "claude-haiku-4-5-20251001";
+const OPENCLAW_AGENT = "openclaw/main";
 
 interface UploadedFile {
   name: string;
@@ -91,6 +100,57 @@ async function checkDailyLimits(
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed default settings (no-op if already seeded)
   seedDefaultSettings().catch((e) => console.error("Settings seed error:", e));
+
+  // Internal Anthropic proxy for OpenClaw Gateway
+  // OpenClaw calls this instead of GlobalAI directly (avoids connectivity issues)
+  app.post("/internal/v1/messages", async (req: Request, res: Response) => {
+    try {
+      const claude = getClaude();
+      if (!claude) return res.status(503).json({ error: "AI недоступен" });
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { model, max_tokens, system, messages, stream: wantsStream, tools: _tools, ...rest } = req.body;
+
+      if (wantsStream) {
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders();
+
+        const stream = await (claude as any).messages.stream({
+          model: model || CLAUDE_MAIN,
+          max_tokens: max_tokens || 2048,
+          system,
+          messages,
+        });
+
+        for await (const event of stream) {
+          if ((event as any).type) {
+            res.write(`event: ${(event as any).type}\ndata: ${JSON.stringify(event)}\n\n`);
+          } else {
+            res.write(`data: ${JSON.stringify(event)}\n\n`);
+          }
+        }
+        res.write("data: [DONE]\n\n");
+        res.end();
+      } else {
+        const response = await (claude as any).messages.create({
+          model: model || CLAUDE_MAIN,
+          max_tokens: max_tokens || 2048,
+          stream: false,
+          system,
+          messages,
+          ...rest,
+        });
+        return res.json(response);
+      }
+    } catch (err: any) {
+      console.error("Internal AI proxy error:", err?.message);
+      if (!res.headersSent) {
+        return res.status(500).json({ error: err?.message || "Proxy error" });
+      }
+      res.end();
+    }
+  });
 
   // Send email verification code
   app.post("/api/auth/send-code", async (req: Request, res: Response) => {
@@ -490,11 +550,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Chat Route - using Claude
+  // AI Chat Route - using OpenClaw Gateway
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      const claude = getClaude();
-      if (!claude) {
+      const openclaw = getOpenClaw();
+      if (!openclaw) {
         return res.status(503).json({ 
           error: "AI недоступен", 
           response: "AI-консультант временно недоступен. Пожалуйста, попробуйте позже."
@@ -861,10 +921,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Build current user message with optional file attachments
+      // Build current user message in OpenAI format for OpenClaw
       const userContentBlocks: any[] = [];
 
-      // Attach files uploaded in this turn with prompt caching
+      // Attach images in OpenAI format (PDFs described via file manifest in system prompt)
       for (const f of savedNewFiles) {
         if (!f._base64) continue;
         const isImg = f._mimeType?.startsWith("image/");
@@ -872,15 +932,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isImg) {
           const mime = supportedMimes.includes(f._mimeType) ? f._mimeType : "image/jpeg";
           userContentBlocks.push({
-            type: "image",
-            source: { type: "base64", media_type: mime, data: f._base64 },
-            cache_control: { type: "ephemeral" },
-          });
-        } else if (f._mimeType === "application/pdf") {
-          userContentBlocks.push({
-            type: "document",
-            source: { type: "base64", media_type: "application/pdf", data: f._base64 },
-            cache_control: { type: "ephemeral" },
+            type: "image_url",
+            image_url: { url: `data:${mime};base64,${f._base64}` },
           });
         }
       }
@@ -890,17 +943,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         text: `Контекст пользователя:\n${JSON.stringify(claudeUserContext, null, 2)}\n\nСообщение: ${message}`,
       });
 
-      claudeMessages.push({ role: "user", content: userContentBlocks });
+      // Build OpenAI-format messages: system first, then history, then current user message
+      const openAIMessages: Array<{ role: "system" | "user" | "assistant"; content: any }> = [
+        { role: "system", content: systemPrompt },
+        ...claudeMessages,
+        { role: "user", content: userContentBlocks.length === 1 ? userContentBlocks[0].text : userContentBlocks },
+      ];
 
-      const response = await claude.messages.create({
-        model: CLAUDE_MAIN,
+      const response = await openclaw.chat.completions.create({
+        model: OPENCLAW_AGENT,
         max_tokens: 2048,
-        system: systemPrompt,
-        messages: claudeMessages,
+        messages: openAIMessages,
+        user: userId || undefined,
       });
 
-      const firstBlock = response.content[0];
-      const rawContent = (firstBlock && firstBlock.type === "text") ? (firstBlock as TextBlock).text : "";
+      const rawContent = response.choices[0]?.message?.content ?? "";
 
       let content = rawContent.trim();
       content = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
