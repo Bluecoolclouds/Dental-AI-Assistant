@@ -13,7 +13,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 }
 
 async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> {
-  await database.runAsync('PRAGMA foreign_keys = ON;');
+  await database.runAsync('PRAGMA foreign_keys = OFF;');
 
   await database.execAsync(`
     CREATE TABLE IF NOT EXISTS users (
