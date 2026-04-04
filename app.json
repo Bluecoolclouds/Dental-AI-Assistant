@@ -15,7 +15,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.toothy.app"
+      "bundleIdentifier": "com.toothy.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Toothy использует микрофон для голосового ввода сообщений."
+      }
     },
     "android": {
       "adaptiveIcon": {

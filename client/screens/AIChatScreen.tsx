@@ -23,6 +23,7 @@ import { useMutation } from "@tanstack/react-query";
 import NetInfo from "@react-native-community/netinfo";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
+import { Audio } from "expo-av";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { ThemedText } from "@/components/ThemedText";
@@ -272,6 +273,11 @@ export default function AIChatScreen() {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [lastFailedPayload, setLastFailedPayload] = useState<{ text: string; files: PendingFile[] } | null>(null);
   const offlineBannerAnim = useRef(new Animated.Value(0)).current;
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -636,6 +642,69 @@ export default function AIChatScreen() {
     chatMutation.mutate(payload);
   }, [chatMutation, lastFailedPayload]);
 
+  const startRecording = useCallback(async () => {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) {
+        Alert.alert(t("aiChat.micPermissionTitle"), t("aiChat.micPermissionMsg"));
+        return;
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      recordingRef.current = recording;
+      setIsRecording(true);
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(recordingAnim, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+          Animated.timing(recordingAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        ])
+      ).start();
+    } catch (e) {
+      console.error("Recording start error:", e);
+    }
+  }, [t, recordingAnim]);
+
+  const stopRecordingAndTranscribe = useCallback(async () => {
+    if (!recordingRef.current) return;
+    recordingAnim.stopAnimation();
+    recordingAnim.setValue(1);
+    setIsRecording(false);
+    setIsTranscribing(true);
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+      if (!uri) { setIsTranscribing(false); return; }
+
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const resp = await apiRequest("POST", "/api/transcribe", {
+        audioBase64: base64,
+        mimeType: "audio/m4a",
+      });
+      const data = await resp.json();
+      if (data.text?.trim()) {
+        setInputText((prev) => prev ? `${prev} ${data.text.trim()}` : data.text.trim());
+      }
+    } catch (e) {
+      console.error("Transcription error:", e);
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [recordingAnim]);
+
+  const handleMicPress = useCallback(() => {
+    if (isRecording) {
+      stopRecordingAndTranscribe();
+    } else {
+      startRecording();
+    }
+  }, [isRecording, startRecording, stopRecordingAndTranscribe]);
+
   const renderHighlightedText = useCallback(
     (text: string, isUser: boolean) => {
       if (!searchQuery.trim()) {
@@ -962,6 +1031,28 @@ export default function AIChatScreen() {
             maxLength={1000}
             editable={!chatMutation.isPending}
           />
+
+          <Pressable
+            onPress={handleMicPress}
+            disabled={chatMutation.isPending || isTranscribing}
+            hitSlop={6}
+            style={{ paddingHorizontal: 6, justifyContent: "center", alignItems: "center" }}
+          >
+            {isTranscribing ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : isRecording ? (
+              <Animated.View style={{ opacity: recordingAnim }}>
+                <AppIcon name="square" size={20} color="#EF4444" />
+              </Animated.View>
+            ) : (
+              <AppIcon
+                name="mic"
+                size={20}
+                color={isConnected === false ? theme.textSecondary : theme.textSecondary}
+              />
+            )}
+          </Pressable>
+
           <Pressable
             style={[
               styles.sendButton,

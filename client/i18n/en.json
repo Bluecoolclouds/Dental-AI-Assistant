@@ -293,7 +293,9 @@
     "offlineBanner": "No internet connection",
     "onlineBanner": "Connection restored",
     "offlineRetry": "Retry",
-    "errorOffline": "No internet. Message not sent — retry when connection is restored."
+    "errorOffline": "No internet. Message not sent — retry when connection is restored.",
+    "micPermissionTitle": "Microphone access required",
+    "micPermissionMsg": "Please allow microphone access in settings to use voice input."
   },
   "calendar": {
     "today": "Today",

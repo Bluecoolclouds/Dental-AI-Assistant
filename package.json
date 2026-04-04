@@ -34,6 +34,7 @@
     "drizzle-zod": "^0.7.1",
     "esbuild": "^0.27.3",
     "expo": "~55.0.9",
+    "expo-av": "^16.0.8",
     "expo-blur": "~55.0.12",
     "expo-calendar": "~55.0.12",
     "expo-constants": "~55.0.11",

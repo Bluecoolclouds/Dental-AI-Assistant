@@ -1758,6 +1758,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/transcribe", async (req: Request, res: Response) => {
+    try {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "AI недоступен" });
+      }
+      const { audioBase64, mimeType } = req.body;
+      if (!audioBase64 || typeof audioBase64 !== "string") {
+        return res.status(400).json({ error: "Аудио не передано" });
+      }
+
+      const openai = new OpenAI({ baseURL: "https://globalai.vip/v1", apiKey });
+      const { toFile } = await import("openai");
+
+      const buffer = Buffer.from(audioBase64, "base64");
+      const ext = (mimeType || "audio/m4a").includes("webm") ? "webm" : "m4a";
+      const file = await toFile(buffer, `recording.${ext}`, { type: mimeType || "audio/m4a" });
+
+      const transcription = await openai.audio.transcriptions.create({
+        file,
+        model: "whisper-1",
+        language: "ru",
+      });
+
+      return res.json({ text: transcription.text });
+    } catch (error: any) {
+      console.error("Transcription error:", error?.message || error);
+      return res.status(500).json({ error: "Ошибка транскрипции" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
