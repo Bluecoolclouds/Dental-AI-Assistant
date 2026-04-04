@@ -58,9 +58,30 @@ docker compose logs -f     # Follow logs
 - `npm run server:build` — esbuild bundles server/index.ts + server/migrate.ts → server_dist/
 - `npm run server:migrate:prod` — apply migrations in production (requires DATABASE_URL)
 
+## Replit Environment Setup
+
+**Node.js:** v22 (required by openclaw — installed via `nodejs-22` module).
+
+**Services (started by `npm run all:dev`):**
+1. **OpenClaw gateway** (port 18789) — started first, waits 4s before others
+2. **Expo Metro** (port 8081) — React Native bundler
+3. **Express server** (port 5000) — backend API
+
+**OpenClaw config** (`~/.openclaw/openclaw.json`):
+- `gateway.mode=local`, `auth.mode=none`
+- `gateway.http.endpoints.chatCompletions.enabled=true` — enables `/v1/chat/completions` HTTP API
+- Provider: `anthropic` → `https://globalai.vip` with `${ANTHROPIC_API_KEY}`
+- Default agent model: `anthropic/claude-haiku-4-5-20251001`
+
+**AI Key:** `ANTHROPIC_API_KEY` secret — works with `https://globalai.vip` proxy (not native Anthropic format).
+
+**Known cosmetic warnings (non-blocking):**
+- `@slack/web-api` missing — openclaw skips slack stage gracefully
+- `libgbm.so.1` missing — React Native DevTools fails to load (doesn't affect Metro/bundler)
+
 ## AI Architecture — OpenClaw + Memory
 
-**AI Gateway:** OpenClaw (port 18789) → `local-proxy` provider → `/internal/v1/messages` proxy → Anthropic SDK (GlobalAI endpoint `https://globalai.vip`, model `claude-haiku-4-5-20251001`). Auth token: `toothy-openclaw-2026`. Timeout 120s.
+**AI Gateway:** OpenClaw (port 18789) → Anthropic provider → GlobalAI proxy `https://globalai.vip` → Claude Haiku model `claude-haiku-4-5-20251001`. Auth token for server→openclaw: `toothy-openclaw-2026`. Timeout 120s.
 
 **Per-Client Neural Memory System (implemented 2026-04-03):**
 - `user_memory_nodes` table in PostgreSQL: `user_id`, `segment` (unique slug), `category`, `content`, `related_teeth` (JSONB), `confidence`, `source`, `updated_at`.
