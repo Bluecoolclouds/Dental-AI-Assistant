@@ -7,7 +7,7 @@ import AppIcon from "@/components/Icons";
 import Svg, { Ellipse, G } from "react-native-svg";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -148,9 +148,16 @@ export default function ToothMapScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingHistory, setIsCreatingHistory] = useState(false);
   const [isUpdatingHistory, setIsUpdatingHistory] = useState(false);
-  const { toothData, isLoading, saveTooth, markToothAsHealed } = useToothData();
+  const { toothData, isLoading, saveTooth, markToothAsHealed, refetch: refetchToothData } = useToothData();
   const { history: historyData, createHistory, updateHistory, refetch: refetchHistory } = useToothHistory();
   const { files: filesData, deleteFile } = useToothFiles();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchToothData();
+      refetchHistory();
+    }, [refetchToothData, refetchHistory])
+  );
 
   const handleOpenDetails = (event: ToothHistory) => {
     setSelectedHistoryEvent(event);

@@ -176,11 +176,25 @@ async function processStateUpdates(
         if (!update.tooth_id) continue;
         const toothNumber = parseInt(String(update.tooth_id), 10);
         if (isNaN(toothNumber)) continue;
-        const problems: string[] = Array.isArray(update.problems)
-          ? update.problems
-          : update.reason
-          ? [update.reason]
-          : [];
+        let problems: string[];
+        if (Array.isArray(update.problems) && update.problems.length > 0) {
+          problems = update.problems;
+        } else {
+          const r = (update.reason || "").toLowerCase();
+          if (r.includes("скол") || r.includes("chip") || r.includes("трещин") || r.includes("crack")) {
+            problems = ["chip"];
+          } else if (r.includes("кровоточ") || r.includes("bleeding")) {
+            problems = ["bleeding"];
+          } else if (r.includes("чувствитель") || r.includes("sensitivity")) {
+            problems = ["sensitivity"];
+          } else if (r.includes("кариес") || r.includes("cavity")) {
+            problems = ["cavity"];
+          } else if (r.includes("пломб") || r.includes("filling")) {
+            problems = ["filling"];
+          } else {
+            problems = ["pain"];
+          }
+        }
         const tooth = await toothRepo.createOrUpdateTooth({
           userId,
           toothNumber,
