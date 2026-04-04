@@ -30,6 +30,9 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import * as filesRepo from "@/storage/repositories/toothFilesRepository";
 import * as alertsRepo from "@/storage/repositories/alertsRepository";
+import * as calendarRepo from "@/storage/repositories/calendarRepository";
+import * as toothRepo from "@/storage/repositories/toothRepository";
+import * as toothHistoryRepo from "@/storage/repositories/toothHistoryRepository";
 
 interface PendingFile {
   name: string;
@@ -135,34 +138,66 @@ async function saveFileLocally(
 async function processStateUpdates(
   userId: string,
   stateUpdates: any,
-  safety: any
+  safety: any,
+  t: (key: string) => string
 ): Promise<void> {
   try {
     if (Array.isArray(stateUpdates?.reminders)) {
       for (const reminder of stateUpdates.reminders) {
         if (!reminder.title) continue;
-        await alertsRepo.createAlert({
+        let date = new Date().toISOString().split("T")[0];
+        let time: string | undefined;
+        if (reminder.due_time) {
+          const dt = new Date(reminder.due_time);
+          if (!isNaN(dt.getTime())) {
+            date = dt.toISOString().split("T")[0];
+            const h = String(dt.getUTCHours()).padStart(2, "0");
+            const m = String(dt.getUTCMinutes()).padStart(2, "0");
+            time = `${h}:${m}`;
+          }
+        }
+        await calendarRepo.createCalendarEvent({
           userId,
-          type: "reminder",
           title: reminder.title,
-          description: reminder.description,
-          priority: "routine",
+          date,
+          time,
+          type: "appointment",
+          source: "ai",
+          description: reminder.description || null,
           relatedTeeth: reminder.related_teeth || [],
-          dueTime: reminder.due_time,
+          alarmMinutes: [30],
+          recurrence: reminder.repeat && reminder.repeat !== "none" ? reminder.repeat : null,
         });
       }
     }
 
     if (Array.isArray(stateUpdates?.teeth_updates)) {
       for (const update of stateUpdates.teeth_updates) {
-        if (!update.tooth_id || !update.mark_for_check) continue;
-        await alertsRepo.createAlert({
+        if (!update.tooth_id) continue;
+        const toothNumber = parseInt(String(update.tooth_id), 10);
+        if (isNaN(toothNumber)) continue;
+        const problems: string[] = Array.isArray(update.problems)
+          ? update.problems
+          : update.reason
+          ? [update.reason]
+          : [];
+        const tooth = await toothRepo.createOrUpdateTooth({
           userId,
-          type: "reminder",
-          title: `Зуб ${update.tooth_id}: ${update.reason || t("aiChat.checkTag")}`,
-          priority: update.priority || "routine",
-          relatedTeeth: [String(update.tooth_id)],
+          toothNumber,
+          problems,
+          notes: update.reason || null,
         });
+        if (update.mark_for_check || problems.length > 0) {
+          await toothHistoryRepo.createToothHistory({
+            userId,
+            toothId: tooth.id,
+            eventType: "ai_flag",
+            reason: update.reason || "Помечен ИИ для проверки",
+            priority: update.priority || "routine",
+            markForCheck: !!update.mark_for_check,
+            source: "ai",
+          });
+        }
       }
     }
 
@@ -437,7 +472,7 @@ export default function AIChatScreen() {
         }
 
         if (data.state_updates || data.safety) {
-          await processStateUpdates(user.id, data.state_updates, data.safety);
+          await processStateUpdates(user.id, data.state_updates, data.safety, t);
         }
       }
     },
