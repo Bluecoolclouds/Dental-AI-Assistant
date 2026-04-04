@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
+import NetInfo from "@react-native-community/netinfo";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { useTheme } from "@/hooks/useTheme";
@@ -268,6 +269,26 @@ export default function AIChatScreen() {
   const searchBarAnim = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
 
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [lastFailedPayload, setLastFailedPayload] = useState<{ text: string; files: PendingFile[] } | null>(null);
+  const offlineBannerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const connected = state.isConnected ?? false;
+      setIsConnected(connected);
+      Animated.timing(offlineBannerAnim, {
+        toValue: connected ? 0 : 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    });
+    NetInfo.fetch().then((state) => {
+      setIsConnected(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const openSearch = useCallback(() => {
     setIsSearching(true);
     Animated.timing(searchBarAnim, {
@@ -490,7 +511,7 @@ export default function AIChatScreen() {
         }
       }
     },
-    onError: (error: any) => {
+    onError: (error: any, variables: any) => {
       if (error?.limitData?.error === "daily_limit_reached") {
         const ld = error.limitData;
         const isFiles = ld.reason === "files";
@@ -503,6 +524,26 @@ export default function AIChatScreen() {
             id: Date.now().toString(),
             role: "assistant",
             content: limitMsg,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        return;
+      }
+      const errMsg: string = error?.message || "";
+      const isNetworkError =
+        errMsg.includes("Network request failed") ||
+        errMsg.includes("Failed to fetch") ||
+        errMsg.includes("NetworkError") ||
+        errMsg.includes("ECONNREFUSED") ||
+        errMsg.includes("ERR_NETWORK");
+      if (isNetworkError) {
+        setLastFailedPayload(variables ?? null);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: t("aiChat.errorOffline"),
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -584,8 +625,16 @@ export default function AIChatScreen() {
     const filesToSend = [...pendingFiles];
     setInputText("");
     setPendingFiles([]);
+    setLastFailedPayload(null);
     chatMutation.mutate({ text: displayText, files: filesToSend });
   }, [inputText, pendingFiles, chatMutation]);
+
+  const handleRetry = useCallback(() => {
+    if (!lastFailedPayload || chatMutation.isPending) return;
+    const payload = lastFailedPayload;
+    setLastFailedPayload(null);
+    chatMutation.mutate(payload);
+  }, [chatMutation, lastFailedPayload]);
 
   const renderHighlightedText = useCallback(
     (text: string, isUser: boolean) => {
@@ -711,7 +760,7 @@ export default function AIChatScreen() {
     [theme, renderHighlightedText, hasQuery, highlightedMessageId, highlightAnim, closeSearch],
   );
 
-  const canSend = (inputText.trim().length > 0 || pendingFiles.length > 0) && !chatMutation.isPending;
+  const canSend = (inputText.trim().length > 0 || pendingFiles.length > 0) && !chatMutation.isPending && isConnected !== false;
 
   const searchBarHeight = searchBarAnim.interpolate({
     inputRange: [0, 1],
@@ -762,6 +811,47 @@ export default function AIChatScreen() {
             <AppIcon name="x" size={18} color={theme.textSecondary} />
           </Pressable>
         </View>
+      </Animated.View>
+
+      <Animated.View
+        style={{
+          height: offlineBannerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 44] }),
+          opacity: offlineBannerAnim,
+          overflow: "hidden",
+          backgroundColor: isConnected === false ? "#EF4444" : "#22C55E",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: Spacing.md,
+          gap: 8,
+        }}
+      >
+        <AppIcon
+          name={isConnected === false ? "wifi-off" : "wifi"}
+          size={16}
+          color="#FFFFFF"
+        />
+        <ThemedText style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "600" }}>
+          {isConnected === false
+            ? t("aiChat.offlineBanner")
+            : t("aiChat.onlineBanner")}
+        </ThemedText>
+        {isConnected !== false && lastFailedPayload && (
+          <Pressable
+            onPress={handleRetry}
+            style={{
+              marginLeft: 8,
+              backgroundColor: "rgba(255,255,255,0.25)",
+              borderRadius: 10,
+              paddingHorizontal: 10,
+              paddingVertical: 3,
+            }}
+          >
+            <ThemedText style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "700" }}>
+              {t("aiChat.offlineRetry")}
+            </ThemedText>
+          </Pressable>
+        )}
       </Animated.View>
 
       <FlatList

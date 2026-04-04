@@ -289,7 +289,11 @@
     "checkTag": "check recommended",
     "usageCounter": "Today: {{msgUsed}}/{{msgLimit}} messages · {{fileUsed}}/{{fileLimit}} files",
     "messageLimitReached": "Daily message limit reached ({{limit}} per day). Available again tomorrow. 🦷",
-    "fileLimitReached": "Daily file limit reached ({{limit}} per day). Available again tomorrow."
+    "fileLimitReached": "Daily file limit reached ({{limit}} per day). Available again tomorrow.",
+    "offlineBanner": "No internet connection",
+    "onlineBanner": "Connection restored",
+    "offlineRetry": "Retry",
+    "errorOffline": "No internet. Message not sent — retry when connection is restored."
   },
   "calendar": {
     "today": "Today",
