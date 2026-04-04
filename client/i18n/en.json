@@ -216,6 +216,27 @@
     "feedback": "Feedback",
     "notifications": "Notifications"
   },
+  "healthSurvey": {
+    "aiNote": "This data is used by the AI consultant for personalized recommendations",
+    "onceADay": "Once a day",
+    "twiceADay": "Twice a day",
+    "saved": "Survey data updated",
+    "saveFailed": "Failed to save survey"
+  },
+  "favoriteDoctors": {
+    "emptyTitle": "No favorite doctors",
+    "emptyDesc": "Add doctors you want to remember — from treatment history or manually",
+    "addDoctor": "Add doctor",
+    "doctorNamePlaceholder": "Doctor's name",
+    "clinicNamePlaceholder": "Clinic name (optional)",
+    "deleteTitle": "Remove doctor",
+    "deleteConfirm": "Remove {{name}} from favorites?",
+    "saveFailed": "Failed to save doctor",
+    "deleteFailed": "Failed to remove doctor",
+    "emptyName": "Enter doctor's name",
+    "fromHistory": "From treatment history",
+    "alreadyAdded": "Already added"
+  },
   "toothMap": {
     "pain": "Pain",
     "cavity": "Cavity",

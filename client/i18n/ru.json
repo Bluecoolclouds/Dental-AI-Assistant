@@ -216,6 +216,27 @@
     "feedback": "Обратная связь",
     "notifications": "Уведомления"
   },
+  "healthSurvey": {
+    "aiNote": "Данные используются ИИ-консультантом для персональных рекомендаций",
+    "onceADay": "1 раз в день",
+    "twiceADay": "2 раза в день",
+    "saved": "Данные анкеты обновлены",
+    "saveFailed": "Не удалось сохранить анкету"
+  },
+  "favoriteDoctors": {
+    "emptyTitle": "Нет избранных врачей",
+    "emptyDesc": "Добавьте врачей, которых хотите запомнить — из истории лечения или вручную",
+    "addDoctor": "Добавить врача",
+    "doctorNamePlaceholder": "ФИО врача",
+    "clinicNamePlaceholder": "Название клиники (необязательно)",
+    "deleteTitle": "Удалить врача",
+    "deleteConfirm": "Удалить {{name}} из избранного?",
+    "saveFailed": "Не удалось сохранить врача",
+    "deleteFailed": "Не удалось удалить врача",
+    "emptyName": "Введите имя врача",
+    "fromHistory": "Из истории лечения",
+    "alreadyAdded": "Уже добавлен"
+  },
   "toothMap": {
     "pain": "Боль",
     "cavity": "Кариес",

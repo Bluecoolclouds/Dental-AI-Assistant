@@ -125,6 +125,14 @@ async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> 
       is_completed INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS favorite_doctors (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      doctor_name TEXT NOT NULL,
+      clinic_name TEXT NOT NULL DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   const migrations = [
@@ -172,6 +180,7 @@ export async function clearAllData(): Promise<void> {
     DELETE FROM feedback;
     DELETE FROM test_results;
     DELETE FROM tooth_data;
+    DELETE FROM favorite_doctors;
     DELETE FROM user_profiles;
     DELETE FROM users;
   `);

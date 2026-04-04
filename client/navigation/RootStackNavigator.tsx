@@ -12,6 +12,9 @@ import ToothDetailScreen from "@/screens/ToothDetailScreen";
 import NotificationsScreen from "@/screens/NotificationsScreen";
 import MaterialsScreen from "@/screens/MaterialsScreen";
 import AboutMeScreen from "@/screens/AboutMeScreen";
+import HealthSurveyScreen from "@/screens/HealthSurveyScreen";
+import FavoriteDoctorsScreen from "@/screens/FavoriteDoctorsScreen";
+import SettingsScreen from "@/screens/SettingsScreen";
 import { ActivityIndicator, View } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -25,6 +28,9 @@ export type RootStackParamList = {
   Notifications: undefined;
   Materials: undefined;
   AboutMe: undefined;
+  HealthSurvey: undefined;
+  FavoriteDoctors: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -109,6 +115,27 @@ export default function RootStackNavigator() {
             component={AboutMeScreen}
             options={{
               headerTitle: "О себе",
+            }}
+          />
+          <Stack.Screen
+            name="HealthSurvey"
+            component={HealthSurveyScreen}
+            options={{
+              headerTitle: "Анкета здоровья",
+            }}
+          />
+          <Stack.Screen
+            name="FavoriteDoctors"
+            component={FavoriteDoctorsScreen}
+            options={{
+              headerTitle: "Избранные врачи",
+            }}
+          />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{
+              headerTitle: "Настройки",
             }}
           />
         </>
