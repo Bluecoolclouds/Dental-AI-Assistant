@@ -1,0 +1,38 @@
+ INFO  🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+/home/runner/workspace/node_modules/expo/node_modules/@expo/cli/build/src/utils/errors.js:130
+    throw error;
+    ^
+
+Error: ENOENT: no such file or directory, watch '/home/runner/workspace/node_modules/openclaw/node_modules/.readable-web-to-node-stream-PYCHFBNn/node_modules/string_decoder'
+    at FSWatcher.<computed> (node:internal/fs/watchers:254:19)
+    at Object.watch (node:fs:2561:36)
+    at FallbackWatcher._watchdir (/home/runner/workspace/node_modules/@expo/metro/node_modules/metro-file-map/src/watchers/FallbackWatcher.js:119:33)
+    at /home/runner/workspace/node_modules/@expo/metro/node_modules/metro-file-map/src/watchers/FallbackWatcher.js:219:22
+    at Walker.<anonymous> (/home/runner/workspace/node_modules/@expo/metro/node_modules/metro-file-map/src/watchers/FallbackWatcher.js:358:5)
+    at Walker.emit (node:events:519:28)
+    at /home/runner/workspace/node_modules/walker/lib/walker.js:69:16
+    at FSReqCallback.oncomplete (node:fs:186:23) {
+  errno: -2,
+  syscall: 'watch',
+  code: 'ENOENT',
+  path: '/home/runner/workspace/node_modules/openclaw/node_modules/.readable-web-to-node-stream-PYCHFBNn/node_modules/string_decoder',
+  filename: '/home/runner/workspace/node_modules/openclaw/node_modules/.readable-web-to-node-stream-PYCHFBNn/node_modules/string_decoder'
+}
+
+Node.js v22.22.0
+~/workspace$ sudo npx expo start --tunnel
+env: load .env.local
+env: export EXPO_PUBLIC_DOMAIN
+Starting project at /home/runner/workspace
+› Port 8081 is being used by another process
+✔ Use port 8082 instead? … yes
+React Compiler enabled
+Starting Metro Bundler
+
+ ERROR  An unknown error occurred while installing React Native DevTools. Details:
+
+/home/runner/workspace/node_modules/@react-native/debugger-shell/bin/react-native-devtools: error while loading shared libraries: libgbm.so.1: cannot open shared object file: No such file or directory
+
+CommandError: TypeError: Cannot read properties of undefined (reading 'body')
+Check the Ngrok status page for outages: https://status.ngrok.com/
+~/workspace$ 

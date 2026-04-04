@@ -8,6 +8,7 @@ config.watchFolders = [__dirname];
 config.resolver.blockList = [
   /\.cache\/dotslash\/.*/,
   /\.cache\/replit\/.*/,
+  /node_modules\/openclaw\/node_modules\/.*/,
 ];
 
 module.exports = config;
