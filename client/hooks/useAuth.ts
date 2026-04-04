@@ -5,6 +5,7 @@ import {
   clearCurrentUser,
 } from "@/storage/secureStorage";
 import { apiRequest } from "@/lib/query-client";
+import { ensureLocalUser } from "@/storage/database";
 
 export interface AuthUser {
   id: string;
@@ -20,6 +21,7 @@ export function useAuth() {
     try {
       const credentials = await getCurrentUserCredentials();
       if (credentials) {
+        await ensureLocalUser(credentials.userId, credentials.email);
         setUser({ id: credentials.userId, email: credentials.email });
         setIsAuthenticated(true);
       }
@@ -40,6 +42,7 @@ export function useAuth() {
       const data = await resp.json();
 
       await saveCurrentUser(data.id, data.email);
+      await ensureLocalUser(data.id, data.email);
       setUser({ id: data.id, email: data.email });
       setIsAuthenticated(true);
       return { success: true };
@@ -62,6 +65,7 @@ export function useAuth() {
       const data = await resp.json();
 
       await saveCurrentUser(data.id, data.email);
+      await ensureLocalUser(data.id, data.email);
       setUser({ id: data.id, email: data.email });
       return { success: true };
     } catch (err: any) {

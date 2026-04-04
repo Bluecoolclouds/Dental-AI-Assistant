@@ -148,6 +148,14 @@ async function initializeSchema(database: SQLite.SQLiteDatabase): Promise<void> 
   }
 }
 
+export async function ensureLocalUser(userId: string, email: string): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(
+    `INSERT OR IGNORE INTO users (id, email, password_hash) VALUES (?, ?, ?)`,
+    [userId, email, "server-auth"]
+  );
+}
+
 export async function closeDatabase(): Promise<void> {
   if (db) {
     await db.closeAsync();
