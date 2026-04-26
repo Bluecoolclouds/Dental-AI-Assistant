@@ -35,9 +35,10 @@ import OpenAI from "openai";
 import { sendVerificationEmail } from "./email";
 
 function getClaude(): Anthropic | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  return new Anthropic({ apiKey, baseURL: "https://globalai.vip" });
+  const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  return new Anthropic({ apiKey, ...(baseURL ? { baseURL } : {}) });
 }
 
 function getOpenClaw(): OpenAI | null {
@@ -1760,7 +1761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/transcribe", async (req: Request, res: Response) => {
     try {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
         return res.status(503).json({ error: "AI недоступен" });
       }
@@ -1769,7 +1770,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Аудио не передано" });
       }
 
-      const openai = new OpenAI({ baseURL: "https://globalai.vip/v1", apiKey });
+      const transcribeBaseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL
+        ? process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL.replace(/\/anthropic\/?$/, "") + "/openai"
+        : undefined;
+      const openai = new OpenAI({ ...(transcribeBaseURL ? { baseURL: transcribeBaseURL } : {}), apiKey });
       const { toFile } = await import("openai");
 
       const buffer = Buffer.from(audioBase64, "base64");
