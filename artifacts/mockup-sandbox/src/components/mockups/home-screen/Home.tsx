@@ -117,7 +117,7 @@ export function Home() {
               >
                 <span
                   style={{
-                    color: "#2F80ED",
+                    color: "#4A90D9",
                     fontSize: 11,
                     fontWeight: 800,
                     letterSpacing: 1.2,
