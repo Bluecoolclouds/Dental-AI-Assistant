@@ -291,7 +291,7 @@ export default function WelcomeScreen() {
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.xs }]}>
         <View style={styles.brandRow}>
           <ToothLogo />
           <View>
