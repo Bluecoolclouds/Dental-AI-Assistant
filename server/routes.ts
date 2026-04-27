@@ -233,20 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const emailLower = email.trim().toLowerCase();
 
-      // Verify the email code
-      if (!verificationCode) {
-        return res.status(400).json({ error: "Требуется код подтверждения email" });
-      }
-      const verifyResult = await pool.query(
-        `SELECT * FROM email_verifications WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1`,
-        [emailLower, String(verificationCode).trim()]
-      );
-      if (verifyResult.rows.length === 0) {
-        return res.status(400).json({ error: "Неверный или истёкший код" });
-      }
-      if (new Date(verifyResult.rows[0].expires_at) < new Date()) {
-        return res.status(400).json({ error: "Код истёк" });
-      }
+      // Email verification disabled (temporary)
 
       const existingUser = await storage.getUserByEmail(emailLower);
       if (existingUser) {
@@ -256,12 +243,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = hashPassword(password);
       const user = await storage.createUser({ email: emailLower, password: hashedPassword });
       await storage.createProfile({ userId: user.id });
-
-      // Mark code as used
-      await pool.query(
-        `UPDATE email_verifications SET used = true WHERE email = $1 AND code = $2`,
-        [emailLower, String(verificationCode).trim()]
-      );
 
       return res.status(201).json({ 
         id: user.id, 
