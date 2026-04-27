@@ -100,50 +100,38 @@ export function Home() {
               backgroundPosition: "center right",
             }}
           >
-            {/* Readability gradient: dark on left → transparent on right */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background:
-                  "linear-gradient(90deg, rgba(20,55,100,0.78) 0%, rgba(20,55,100,0.55) 35%, rgba(20,55,100,0.15) 65%, rgba(20,55,100,0) 85%)",
-              }}
-            />
-            <div className="flex flex-col relative" style={{ flex: 1, zIndex: 1, maxWidth: "65%" }}>
+            <div className="flex flex-col" style={{ flex: 1, zIndex: 1, maxWidth: "65%" }}>
               <div
                 className="self-start"
                 style={{
-                  background: "rgba(255,255,255,0.22)",
+                  background: "rgba(15,42,68,0.10)",
                   paddingLeft: 12,
                   paddingRight: 12,
                   paddingTop: 4,
                   paddingBottom: 4,
                   borderRadius: 9999,
                   marginBottom: 12,
-                  backdropFilter: "blur(4px)",
                 }}
               >
-                <span style={{ color: "#FFFFFF", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>АКЦИЯ</span>
+                <span style={{ color: "#0F2A44", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>АКЦИЯ</span>
               </div>
               <div
                 style={{
-                  color: "#FFFFFF",
+                  color: "#0F2A44",
                   fontSize: 22,
                   fontWeight: 700,
                   lineHeight: "28px",
                   marginBottom: 4,
                   whiteSpace: "pre-line",
-                  textShadow: "0 2px 8px rgba(0,0,0,0.25)",
                 }}
               >
                 {"Бесплатная\nдиагностика"}
               </div>
               <div
                 style={{
-                  color: "rgba(255,255,255,0.92)",
+                  color: "#5B7C99",
                   fontSize: 12,
                   marginBottom: 16,
-                  textShadow: "0 1px 4px rgba(0,0,0,0.2)",
                 }}
               >
                 Пройдите тест и получите рекомендации
@@ -152,18 +140,18 @@ export function Home() {
                 type="button"
                 className="self-start flex items-center"
                 style={{
-                  background: "#FFFFFF",
+                  background: "#2F80ED",
                   paddingLeft: 16,
                   paddingRight: 16,
                   paddingTop: 8,
                   paddingBottom: 8,
                   borderRadius: 9999,
                   gap: 8,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+                  boxShadow: "0 4px 12px rgba(47,128,237,0.32)",
                 }}
               >
-                <Phone size={14} color="#4A90D9" />
-                <span style={{ color: "#4A90D9", fontSize: 14, fontWeight: 600 }}>Начать тест</span>
+                <Phone size={14} color="#FFFFFF" />
+                <span style={{ color: "#FFFFFF", fontSize: 14, fontWeight: 600 }}>Начать тест</span>
               </button>
             </div>
           </div>
