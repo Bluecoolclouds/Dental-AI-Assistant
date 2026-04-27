@@ -31,46 +31,46 @@ export function Welcome() {
         backgroundPosition: "center",
       }}
     >
-      {/* Header */}
+      {/* Header — centered horizontally */}
       <div
+        className="flex items-center justify-center"
         style={{
           paddingTop: insetTop + 20,
           paddingLeft: 20,
           paddingRight: 20,
           position: "relative",
           zIndex: 2,
+          gap: 12,
         }}
       >
-        <div className="flex items-center" style={{ gap: 12 }}>
-          <ToothLogo />
-          <div>
-            <div
-              style={{
-                color: "#FFFFFF",
-                fontSize: 22,
-                fontWeight: 700,
-                lineHeight: "26px",
-                textShadow: "0 1px 6px rgba(0,40,70,0.35)",
-              }}
-            >
-              Toothy
-            </div>
-            <div
-              style={{
-                color: "rgba(255,255,255,0.95)",
-                fontSize: 10,
-                letterSpacing: 3,
-                fontWeight: 500,
-                textShadow: "0 1px 4px rgba(0,40,70,0.35)",
-              }}
-            >
-              DENTAL CARE
-            </div>
+        <ToothLogo />
+        <div>
+          <div
+            style={{
+              color: "#FFFFFF",
+              fontSize: 22,
+              fontWeight: 700,
+              lineHeight: "26px",
+              textShadow: "0 1px 6px rgba(0,40,70,0.35)",
+            }}
+          >
+            Toothy
+          </div>
+          <div
+            style={{
+              color: "rgba(255,255,255,0.95)",
+              fontSize: 10,
+              letterSpacing: 3,
+              fontWeight: 500,
+              textShadow: "0 1px 4px rgba(0,40,70,0.35)",
+            }}
+          >
+            DENTAL CARE
           </div>
         </div>
       </div>
 
-      {/* Centered content: hero text + button */}
+      {/* Hero text — centered vertically */}
       <div
         className="flex flex-col items-center justify-center"
         style={{
@@ -79,7 +79,6 @@ export function Welcome() {
           zIndex: 2,
           paddingLeft: 32,
           paddingRight: 32,
-          paddingBottom: insetBottom + 20,
           gap: 14,
         }}
       >
@@ -103,11 +102,23 @@ export function Welcome() {
             maxWidth: 280,
             textAlign: "center",
             textShadow: "0 1px 8px rgba(0,40,70,0.45)",
-            marginBottom: 16,
           }}
         >
           Войдите, чтобы продолжить заботу о здоровье зубов
         </div>
+      </div>
+
+      {/* Button at bottom */}
+      <div
+        className="flex items-center justify-center"
+        style={{
+          position: "relative",
+          zIndex: 2,
+          paddingLeft: 32,
+          paddingRight: 32,
+          paddingBottom: insetBottom + 24,
+        }}
+      >
         <button
           type="button"
           className="flex items-center justify-center"
