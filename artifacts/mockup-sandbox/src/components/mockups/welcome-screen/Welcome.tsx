@@ -1,19 +1,18 @@
 import welcomeBg from "@/assets/welcome-bg.png";
+import toothLogo from "@/assets/tooth-logo.png";
 
 function ToothLogo() {
   return (
-    <div
-      className="flex items-center justify-center"
-      style={{ width: 40, height: 40 }}
-    >
-      <svg width={40} height={40} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="20" cy="20" r="20" fill="white" />
-        <path
-          d="M13,18 C13,12 16,9 20,9 C24,9 27,12 27,18 L26,28 C26,31 25,34 23,34 C22,34 21,32 20.5,30 L20,30 L19.5,30 C19,32 18,34 17,34 C15,34 14,31 14,28 Z"
-          fill="#4A90D9"
-        />
-      </svg>
-    </div>
+    <img
+      src={toothLogo}
+      alt="Toothy"
+      style={{
+        width: 48,
+        height: 48,
+        objectFit: "contain",
+        filter: "drop-shadow(0 2px 6px rgba(0,40,70,0.25))",
+      }}
+    />
   );
 }
 
