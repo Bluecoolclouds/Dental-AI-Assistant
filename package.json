@@ -3,7 +3,7 @@
   "main": "client/index.js",
   "version": "1.0.0",
   "scripts": {
-    "expo:dev": "EXPO_NO_REACT_NATIVE_DEVTOOLS=1 EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN npx expo start --localhost --clear --non-interactive",
+    "expo:dev": "EXPO_NO_REACT_NATIVE_DEVTOOLS=1 EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN bash -c '(printf \"\\x1b[B\\n\"; sleep infinity) | npx expo start --localhost --clear'",
     "server:dev": "NODE_ENV=development tsx server/index.ts",
     "openclaw:dev": "fuser -k 18789/tcp 2>/dev/null; openclaw gateway --port 18789 --allow-unconfigured --auth none",
     "all:dev": "fuser -k 5000/tcp 8081/tcp 18789/tcp 2>/dev/null; echo \"EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN\" > .env.local; sleep 1; npm run openclaw:dev & sleep 4; npm run expo:dev & npm run server:dev",
