@@ -34,7 +34,7 @@ export function Welcome() {
       <div
         className="flex items-center justify-center"
         style={{
-          paddingTop: insetTop - 8,
+          paddingTop: 8,
           paddingLeft: 20,
           paddingRight: 20,
           position: "relative",

@@ -291,7 +291,7 @@ export default function WelcomeScreen() {
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={[styles.header, { paddingTop: Math.max(insets.top - 8, 0) }]}>
+      <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.brandRow}>
           <ToothLogo />
           <View>
