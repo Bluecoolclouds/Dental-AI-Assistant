@@ -1,30 +1,5 @@
 import { Bell, MapPin, ClipboardList, Sun, User, Phone, Activity, MessageCircle, ChevronRight, AlertTriangle, AlertCircle } from "lucide-react";
-
-function ToothMascot() {
-  return (
-    <svg width={60} height={70} viewBox="0 0 60 70" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="mascotGrad" cx="50%" cy="30%" r="70%">
-          <stop offset="0%" stopColor="#FFFFFF" />
-          <stop offset="100%" stopColor="#E0E0E0" />
-        </radialGradient>
-      </defs>
-      <path
-        d="M15,25 C15,10 22,3 30,3 C38,3 45,10 45,25 L43,50 C43,58 40,67 36,67 C34,67 32,64 31,60 L30,60 L29,60 C28,64 26,67 24,67 C20,67 17,58 17,50 Z"
-        fill="url(#mascotGrad)"
-        stroke="#BDBDBD"
-        strokeWidth={1}
-      />
-      <circle cx="24" cy="20" r="3" fill="#333" />
-      <circle cx="36" cy="20" r="3" fill="#333" />
-      <circle cx="25" cy="21" r="1" fill="#FFF" />
-      <circle cx="37" cy="21" r="1" fill="#FFF" />
-      <path d="M24,30 Q30,36 36,30" fill="none" stroke="#E91E63" strokeWidth={2} strokeLinecap="round" />
-      <circle cx="18" cy="25" r="4" fill="#FFCDD2" opacity={0.6} />
-      <circle cx="42" cy="25" r="4" fill="#FFCDD2" opacity={0.6} />
-    </svg>
-  );
-}
+import promoBanner from "@/assets/promo-banner.png";
 
 const QUICK_ACTIONS = [
   { id: "toothmap", name: "Карта зубов", Icon: MapPin, bgColor: "#EBF5FF", iconColor: "#4A90D9" },
@@ -120,60 +95,50 @@ export function Home() {
               borderRadius: 30,
               padding: 20,
               minHeight: 170,
-              background: "linear-gradient(135deg, #5B9FE3 0%, #4A8FD3 100%)",
+              backgroundImage: `url(${promoBanner})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center right",
             }}
           >
-            <div
-              style={{
-                position: "absolute",
-                top: -40,
-                right: -20,
-                width: 130,
-                height: 130,
-                borderRadius: 65,
-                background: "rgba(255,255,255,0.1)",
-              }}
-            />
-            <div className="flex flex-col" style={{ flex: 1, zIndex: 1 }}>
+            <div className="flex flex-col" style={{ flex: 1, zIndex: 1, maxWidth: "62%" }}>
               <div
                 className="self-start"
                 style={{
-                  background: "rgba(255,255,255,0.2)",
+                  background: "rgba(74,144,217,0.18)",
                   paddingLeft: 12,
                   paddingRight: 12,
                   paddingTop: 4,
                   paddingBottom: 4,
                   borderRadius: 9999,
                   marginBottom: 12,
+                  backdropFilter: "blur(4px)",
                 }}
               >
-                <span style={{ color: "#FFFFFF", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>АКЦИЯ</span>
+                <span style={{ color: "#1E5A99", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>АКЦИЯ</span>
               </div>
-              <div style={{ color: "#FFFFFF", fontSize: 22, fontWeight: 700, lineHeight: "28px", marginBottom: 4, whiteSpace: "pre-line" }}>
+              <div style={{ color: "#1A1A2E", fontSize: 22, fontWeight: 700, lineHeight: "28px", marginBottom: 4, whiteSpace: "pre-line" }}>
                 {"Бесплатная\nдиагностика"}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, marginBottom: 16 }}>
+              <div style={{ color: "#1E5A99", fontSize: 12, marginBottom: 16 }}>
                 Пройдите тест и получите рекомендации
               </div>
               <button
                 type="button"
                 className="self-start flex items-center"
                 style={{
-                  background: "#FFFFFF",
+                  background: "#4A90D9",
                   paddingLeft: 16,
                   paddingRight: 16,
                   paddingTop: 8,
                   paddingBottom: 8,
                   borderRadius: 9999,
                   gap: 8,
+                  boxShadow: "0 2px 8px rgba(74,144,217,0.35)",
                 }}
               >
-                <Phone size={14} color="#4A90D9" />
-                <span style={{ color: "#4A90D9", fontSize: 14, fontWeight: 600 }}>Начать тест</span>
+                <Phone size={14} color="#FFFFFF" />
+                <span style={{ color: "#FFFFFF", fontSize: 14, fontWeight: 600 }}>Начать тест</span>
               </button>
-            </div>
-            <div style={{ position: "absolute", right: 16, bottom: 16 }}>
-              <ToothMascot />
             </div>
           </div>
         </div>
