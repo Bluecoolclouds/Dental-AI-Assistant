@@ -30,14 +30,16 @@ export function Welcome() {
         backgroundPosition: "center",
       }}
     >
-      {/* Header — centered horizontally */}
+      {/* Header — centered horizontally, absolute so it doesn't push the hero */}
       <div
         className="flex items-center justify-center"
         style={{
-          paddingTop: insetTop + 12,
+          position: "absolute",
+          top: insetTop + 12,
+          left: 0,
+          right: 0,
           paddingLeft: 20,
           paddingRight: 20,
-          position: "relative",
           zIndex: 2,
           gap: 12,
         }}

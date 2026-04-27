@@ -291,7 +291,7 @@ export default function WelcomeScreen() {
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
+      <View style={[styles.header, { top: insets.top + Spacing.md }]}>
         <View style={styles.brandRow}>
           <ToothLogo />
           <View>
@@ -546,7 +546,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   header: {
+    position: "absolute",
+    left: 0,
+    right: 0,
     paddingHorizontal: Spacing.xl,
+    zIndex: 2,
   },
   brandRow: {
     flexDirection: "row",
