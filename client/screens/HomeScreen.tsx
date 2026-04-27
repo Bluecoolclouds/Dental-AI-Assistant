@@ -1,12 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { StyleSheet, View, ScrollView, Pressable, Platform, Image, Modal, Animated, TouchableWithoutFeedback, FlatList, ActivityIndicator, Alert as RNAlert } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Platform, Image, ImageBackground, Modal, Animated, TouchableWithoutFeedback, FlatList, ActivityIndicator, Alert as RNAlert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
 import AppIcon from "@/components/Icons";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Path, Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -19,39 +18,6 @@ import { markAlertAsRead, deleteAlert, Alert as AlertType } from "@/storage/repo
 import { getDefaultAvatar } from "@/utils/defaultAvatar";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
-function ToothMascot() {
-  return (
-    <Svg width={60} height={70} viewBox="0 0 60 70">
-      <Defs>
-        <RadialGradient id="mascotGrad" cx="50%" cy="30%" r="70%">
-          <Stop offset="0%" stopColor="#FFFFFF" />
-          <Stop offset="100%" stopColor="#E0E0E0" />
-        </RadialGradient>
-      </Defs>
-      <Path
-        d="M15,25 C15,10 22,3 30,3 C38,3 45,10 45,25 L43,50 C43,58 40,67 36,67 C34,67 32,64 31,60 L30,60 L29,60 C28,64 26,67 24,67 C20,67 17,58 17,50 Z"
-        fill="url(#mascotGrad)"
-        stroke="#BDBDBD"
-        strokeWidth={1}
-      />
-      <Circle cx="24" cy="20" r="3" fill="#333" />
-      <Circle cx="36" cy="20" r="3" fill="#333" />
-      <Circle cx="25" cy="21" r="1" fill="#FFF" />
-      <Circle cx="37" cy="21" r="1" fill="#FFF" />
-      <Path
-        d="M24,30 Q30,36 36,30"
-        fill="none"
-        stroke="#E91E63"
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-      <Circle cx="18" cy="25" r="4" fill="#FFCDD2" opacity={0.6} />
-      <Circle cx="42" cy="25" r="4" fill="#FFCDD2" opacity={0.6} />
-    </Svg>
-  );
-}
-
 
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -158,13 +124,12 @@ export default function HomeScreen() {
           </View>
 
           <Pressable onPress={() => navigation.navigate("TestFlow")}>
-            <LinearGradient
-              colors={["#5B9FE3", "#4A8FD3"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <ImageBackground
+              source={require("../../assets/images/promo-banner.png")}
               style={styles.promoBanner}
+              imageStyle={styles.promoBannerImage}
+              resizeMode="cover"
             >
-              <View style={styles.promoDecorCircle} />
               <View style={styles.promoContent}>
                 <View style={styles.promoTag}>
                   <ThemedText style={styles.promoTagText}>{t("home.promo")}</ThemedText>
@@ -176,14 +141,11 @@ export default function HomeScreen() {
                   {t("home.promoSubtitle")}
                 </ThemedText>
                 <View style={styles.promoButton}>
-                  <AppIcon name="phone" size={14} color="#4A90D9" />
+                  <AppIcon name="phone" size={14} color="#FFFFFF" />
                   <ThemedText style={styles.promoButtonText}>{t("home.startTest")}</ThemedText>
                 </View>
               </View>
-              <View style={styles.promoMascot}>
-                <ToothMascot />
-              </View>
-            </LinearGradient>
+            </ImageBackground>
           </Pressable>
         </View>
 
@@ -535,33 +497,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 170,
     overflow: "hidden",
+    backgroundColor: "#9DC8E8",
   },
-  promoDecorCircle: {
-    position: "absolute",
-    top: -40,
-    right: -20,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: "rgba(255,255,255,0.1)",
+  promoBannerImage: {
+    borderRadius: BorderRadius.xl,
   },
   promoContent: {
     flex: 1,
     zIndex: 1,
+    maxWidth: "65%",
   },
   promoTag: {
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: 5,
     borderRadius: BorderRadius.full,
     alignSelf: "flex-start",
     marginBottom: Spacing.md,
+    ...Platform.select({
+      ios: {
+        shadowColor: "rgba(15,42,68,0.18)",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
   },
   promoTagText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
+    color: "#4A90D9",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.2,
   },
   promoTitle: {
     color: "#FFFFFF",
@@ -569,31 +536,41 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 28,
     marginBottom: Spacing.xs,
+    textShadowColor: "rgba(15,42,68,0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   promoSubtitle: {
-    color: "rgba(255,255,255,0.85)",
+    color: "rgba(255,255,255,0.95)",
     fontSize: 12,
     marginBottom: Spacing.lg,
+    textShadowColor: "rgba(15,42,68,0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   promoButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#2F80ED",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     alignSelf: "flex-start",
+    ...Platform.select({
+      ios: {
+        shadowColor: "rgba(47,128,237,0.5)",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+    }),
   },
   promoButtonText: {
-    color: "#4A90D9",
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
-  },
-  promoMascot: {
-    position: "absolute",
-    right: Spacing.lg,
-    bottom: Spacing.lg,
   },
   section: {
     gap: Spacing.md,

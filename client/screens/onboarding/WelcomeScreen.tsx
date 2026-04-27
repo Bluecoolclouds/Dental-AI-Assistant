@@ -11,13 +11,13 @@ import {
   Platform,
   ScrollView,
   TouchableWithoutFeedback,
+  Image,
+  ImageBackground,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AppIcon from "@/components/Icons";
-import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Path, Circle } from "react-native-svg";
 import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
@@ -37,21 +37,17 @@ import { apiRequest } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<OnboardingStackParamList, "Welcome">;
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_THRESHOLD = 120;
 const DISMISS_VELOCITY = 800;
 
 function ToothLogo() {
   return (
-    <View style={styles.logoContainer}>
-      <Svg width={40} height={40} viewBox="0 0 40 40">
-        <Circle cx="20" cy="20" r="20" fill="white" />
-        <Path
-          d="M13,18 C13,12 16,9 20,9 C24,9 27,12 27,18 L26,28 C26,31 25,34 23,34 C22,34 21,32 20.5,30 L20,30 L19.5,30 C19,32 18,34 17,34 C15,34 14,31 14,28 Z"
-          fill="#4A90D9"
-        />
-      </Svg>
-    </View>
+    <Image
+      source={require("../../../assets/images/tooth-logo.png")}
+      style={styles.logoContainer}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -290,10 +286,11 @@ export default function WelcomeScreen() {
   const isLogin = authMode === "login";
 
   return (
-    <LinearGradient colors={["#4A90D9", "#7AADE6"]} style={styles.container}>
-      <View style={styles.decorativeCircle1} />
-      <View style={styles.decorativeCircle2} />
-
+    <ImageBackground
+      source={require("../../../assets/images/welcome-bg.png")}
+      style={styles.container}
+      resizeMode="cover"
+    >
       <View style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}>
         <View style={styles.brandRow}>
           <ToothLogo />
@@ -311,11 +308,6 @@ export default function WelcomeScreen() {
         <ThemedText style={styles.heroSubtitle}>
           {t("auth.loginSubtitle")}
         </ThemedText>
-      </View>
-
-      <View style={styles.toothIllustration}>
-        <View style={styles.toothShape1} />
-        <View style={styles.toothShape2} />
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.xl }]}>
@@ -544,7 +536,7 @@ export default function WelcomeScreen() {
         </KeyboardAvoidingView>
         </GestureHandlerRootView>
       </Modal>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 
@@ -553,48 +545,35 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: "hidden",
   },
-  decorativeCircle1: {
-    position: "absolute",
-    top: -80,
-    right: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  decorativeCircle2: {
-    position: "absolute",
-    bottom: -60,
-    left: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
   header: {
     paddingHorizontal: Spacing.xl,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.md,
   },
   logoContainer: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
   },
   brandName: {
     fontSize: 22,
     fontWeight: "700",
     color: "#FFFFFF",
+    textShadowColor: "rgba(0,40,70,0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   brandSub: {
     fontSize: 10,
     letterSpacing: 3,
-    color: "rgba(255,255,255,0.9)",
+    color: "rgba(255,255,255,0.95)",
     fontWeight: "500",
+    textShadowColor: "rgba(0,40,70,0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   mainContent: {
     flex: 1,
@@ -603,43 +582,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   heroTitle: {
-    fontSize: 36,
+    fontSize: 30,
     fontWeight: "700",
     color: "#FFFFFF",
     textAlign: "center",
-    lineHeight: 44,
-    marginBottom: Spacing.lg,
+    lineHeight: 38,
+    marginBottom: Spacing.md,
+    textShadowColor: "rgba(0,40,70,0.5)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 12,
   },
   heroSubtitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.95)",
     textAlign: "center",
     maxWidth: 280,
     lineHeight: 20,
-  },
-  toothIllustration: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: Spacing.xl,
-    marginBottom: Spacing["3xl"],
-  },
-  toothShape1: {
-    width: SCREEN_WIDTH * 0.3,
-    height: SCREEN_WIDTH * 0.38,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderTopLeftRadius: 60,
-    borderTopRightRadius: 60,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  toothShape2: {
-    width: SCREEN_WIDTH * 0.3,
-    height: SCREEN_WIDTH * 0.38,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderTopLeftRadius: 60,
-    borderTopRightRadius: 60,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    textShadowColor: "rgba(0,40,70,0.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
   footer: {
     paddingHorizontal: Spacing.xl,
@@ -650,12 +611,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 48,
-    height: 60,
-    borderRadius: 30,
-    minWidth: 200,
+    height: 58,
+    borderRadius: 29,
+    minWidth: 240,
+    ...Platform.select({
+      ios: {
+        shadowColor: "rgba(0,40,70,0.6)",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
+      },
+      android: { elevation: 10 },
+    }),
   },
   primaryButtonText: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "700",
     color: "#4A90D9",
     letterSpacing: 0.3,
