@@ -9,6 +9,8 @@ config.resolver.blockList = [
   /\.cache\/dotslash\/.*/,
   /\.cache\/replit\/.*/,
   /node_modules\/openclaw\/node_modules\/.*/,
+  /\.local\/skills\/.*/,
+  /\.local\/tasks\/.*/,
 ];
 
 module.exports = config;
