@@ -24,14 +24,15 @@ export interface MemoryUpdate extends MemoryNode {
   action: "upsert" | "delete";
 }
 
-// Загрузить все узлы памяти пользователя из БД
+// Загрузить топ-20 узлов памяти пользователя из БД (по дате обновления)
 export async function loadUserMemory(userId: string): Promise<MemoryNode[]> {
   try {
     const result = await pool.query(
       `SELECT segment, category, content, related_teeth, confidence, source
        FROM user_memory_nodes
        WHERE user_id = $1
-       ORDER BY category, segment`,
+       ORDER BY updated_at DESC NULLS LAST
+       LIMIT 20`,
       [userId]
     );
     return result.rows.map((row) => ({
@@ -158,6 +159,7 @@ export function formatMemoryForPrompt(nodes: MemoryNode[]): string {
   }
 
   const categoryLabels: Record<string, string> = {
+    personal: "Личный контекст (город, пол, профессия, часовой пояс)",
     tooth: "Состояние зубов",
     gum: "Дёсны",
     hygiene: "Гигиена",

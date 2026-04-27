@@ -799,12 +799,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 Правила для memory_updates:
-- segment — уникальный slug узла памяти, например: "tooth_26_health", "gum_health", "fears", "hygiene_habits", "last_visit_info", "allergies", "braces_status"
-- category — одно из: "tooth", "gum", "hygiene", "behavior", "preference", "history", "general"
+- segment — уникальный slug узла памяти, например: "tooth_26_health", "gum_health", "fears", "hygiene_habits", "last_visit_info", "allergies", "braces_status", "user_city", "user_gender", "user_timezone", "user_occupation"
+- category — одно из: "personal", "tooth", "gum", "hygiene", "behavior", "preference", "history", "general"
+  • personal — город/регион, пол, возраст (если уточнил сам), профессия (важна для рисков), часовой пояс или страна, семейное положение если релевантно (дети → детская стоматология). Примеры segment: "user_city", "user_gender", "user_timezone", "user_occupation", "user_has_children".
 - content — полное содержание узла памяти в 1-3 предложениях на русском языке, описывает то что важно помнить
 - related_teeth — массив FDI номеров зубов (например ["26"]) или [] если не относится к конкретному зубу
 - action — "upsert" (создать/обновить) или "delete" (удалить если проблема решена)
 - Добавляй/обновляй узлы ТОЛЬКО когда узнал что-то важное и новое о пациенте, чего ещё нет в памяти
+- Если пользователь упоминает свой город, страну, профессию, пол или часовой пояс — сразу сохраняй в категорию "personal"
 - Не дублируй уже существующие узлы без изменений
 - Если пользователь сообщил что проблема прошла — ставь action: "delete" для соответствующего узла
 - Если нет новой информации для памяти — "memory_updates": []
@@ -906,7 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (userId && activeSession) {
         try {
-          const dbMessages = await storage.getSessionMessages(activeSession.id, 40);
+          const dbMessages = await storage.getSessionMessages(activeSession.id, 10);
           // Exclude the current message we just saved (last one)
           const historyMessages = dbMessages.slice(0, -1);
 
