@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "1GadMtoe_d6ERHp-cIcLc"
+uri = "file://artifacts/mockup-sandbox/src/assets/welcome-bg.png"
+type = "image"
+title = "welcome dental wellness bg"

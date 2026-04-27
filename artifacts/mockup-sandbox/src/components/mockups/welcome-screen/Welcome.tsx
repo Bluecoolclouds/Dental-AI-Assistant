@@ -1,3 +1,5 @@
+import welcomeBg from "@/assets/welcome-bg.png";
+
 function ToothLogo() {
   return (
     <div
@@ -24,30 +26,22 @@ export function Welcome() {
       className="relative w-full overflow-hidden flex flex-col"
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(180deg, #4A90D9 0%, #7AADE6 100%)",
+        backgroundImage: `url(${welcomeBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
     >
-      {/* Decorative circles */}
+      {/* Soft dark gradient at the bottom for text readability */}
       <div
         style={{
           position: "absolute",
-          top: -80,
-          right: -40,
-          width: 220,
-          height: 220,
-          borderRadius: 110,
-          border: "1px solid rgba(255,255,255,0.1)",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          bottom: -60,
-          left: -40,
-          width: 180,
-          height: 180,
-          borderRadius: 90,
-          border: "1px solid rgba(255,255,255,0.1)",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: "55%",
+          background:
+            "linear-gradient(180deg, rgba(15,42,68,0) 0%, rgba(15,42,68,0.35) 45%, rgba(15,42,68,0.78) 100%)",
+          pointerEvents: "none",
         }}
       />
 
@@ -57,20 +51,31 @@ export function Welcome() {
           paddingTop: insetTop + 20,
           paddingLeft: 20,
           paddingRight: 20,
+          position: "relative",
+          zIndex: 2,
         }}
       >
         <div className="flex items-center" style={{ gap: 12 }}>
           <ToothLogo />
           <div>
-            <div style={{ color: "#FFFFFF", fontSize: 22, fontWeight: 700, lineHeight: "26px" }}>
+            <div
+              style={{
+                color: "#FFFFFF",
+                fontSize: 22,
+                fontWeight: 700,
+                lineHeight: "26px",
+                textShadow: "0 1px 6px rgba(0,40,70,0.35)",
+              }}
+            >
               Toothy
             </div>
             <div
               style={{
-                color: "rgba(255,255,255,0.9)",
+                color: "rgba(255,255,255,0.95)",
                 fontSize: 10,
                 letterSpacing: 3,
                 fontWeight: 500,
+                textShadow: "0 1px 4px rgba(0,40,70,0.35)",
               }}
             >
               DENTAL CARE
@@ -79,79 +84,46 @@ export function Welcome() {
         </div>
       </div>
 
-      {/* Hero */}
+      {/* Spacer pushes content to bottom */}
+      <div style={{ flex: 1 }} />
+
+      {/* Bottom content: hero text + button */}
       <div
-        className="flex flex-col items-center justify-center"
+        className="flex flex-col items-center"
         style={{
-          flex: 1,
+          position: "relative",
+          zIndex: 2,
           paddingLeft: 32,
           paddingRight: 32,
-          textAlign: "center",
+          paddingBottom: insetBottom + 24,
+          gap: 14,
         }}
       >
         <div
           style={{
             color: "#FFFFFF",
-            fontSize: 36,
+            fontSize: 30,
             fontWeight: 700,
-            lineHeight: "44px",
-            marginBottom: 16,
+            lineHeight: "38px",
             textAlign: "center",
+            textShadow: "0 2px 10px rgba(0,40,70,0.45)",
           }}
         >
           Следите за здоровьем зубов
         </div>
         <div
           style={{
-            color: "rgba(255,255,255,0.8)",
+            color: "rgba(255,255,255,0.92)",
             fontSize: 14,
             lineHeight: "20px",
             maxWidth: 280,
             textAlign: "center",
+            textShadow: "0 1px 6px rgba(0,40,70,0.4)",
+            marginBottom: 12,
           }}
         >
           Войдите, чтобы продолжить заботу о здоровье зубов
         </div>
-      </div>
-
-      {/* Tooth illustration */}
-      <div
-        className="flex items-center justify-center"
-        style={{ gap: 20, marginBottom: 32 }}
-      >
-        <div
-          style={{
-            width: 117,
-            height: 148,
-            background: "rgba(255,255,255,0.15)",
-            borderTopLeftRadius: 60,
-            borderTopRightRadius: 60,
-            borderBottomLeftRadius: 20,
-            borderBottomRightRadius: 20,
-          }}
-        />
-        <div
-          style={{
-            width: 117,
-            height: 148,
-            background: "rgba(255,255,255,0.15)",
-            borderTopLeftRadius: 60,
-            borderTopRightRadius: 60,
-            borderBottomLeftRadius: 20,
-            borderBottomRightRadius: 20,
-          }}
-        />
-      </div>
-
-      {/* Footer button */}
-      <div
-        className="flex items-center justify-center"
-        style={{
-          paddingLeft: 20,
-          paddingRight: 20,
-          paddingBottom: insetBottom + 20,
-        }}
-      >
         <button
           type="button"
           className="flex items-center justify-center"
@@ -159,13 +131,14 @@ export function Welcome() {
             background: "#FFFFFF",
             paddingLeft: 48,
             paddingRight: 48,
-            height: 60,
-            borderRadius: 30,
-            minWidth: 200,
+            height: 58,
+            borderRadius: 29,
+            minWidth: 240,
             color: "#4A90D9",
-            fontSize: 20,
+            fontSize: 19,
             fontWeight: 700,
             letterSpacing: 0.3,
+            boxShadow: "0 10px 28px rgba(0,40,70,0.3)",
           }}
         >
           Начать
