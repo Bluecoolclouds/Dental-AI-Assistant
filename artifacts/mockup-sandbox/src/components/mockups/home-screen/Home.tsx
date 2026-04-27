@@ -102,19 +102,30 @@ export function Home() {
           >
             <div className="flex flex-col" style={{ flex: 1, zIndex: 1, maxWidth: "65%" }}>
               <div
-                className="self-start"
+                className="self-start inline-flex items-center justify-center"
                 style={{
-                  background: "rgba(255,255,255,0.25)",
+                  background: "#FFFFFF",
                   paddingLeft: 12,
                   paddingRight: 12,
-                  paddingTop: 4,
-                  paddingBottom: 4,
+                  paddingTop: 5,
+                  paddingBottom: 5,
                   borderRadius: 9999,
                   marginBottom: 12,
-                  backdropFilter: "blur(4px)",
+                  boxShadow: "0 2px 8px rgba(15,42,68,0.18)",
+                  lineHeight: 1,
                 }}
               >
-                <span style={{ color: "#FFFFFF", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>АКЦИЯ</span>
+                <span
+                  style={{
+                    color: "#2F80ED",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1.2,
+                    lineHeight: 1,
+                  }}
+                >
+                  АКЦИЯ
+                </span>
               </div>
               <div
                 style={{
