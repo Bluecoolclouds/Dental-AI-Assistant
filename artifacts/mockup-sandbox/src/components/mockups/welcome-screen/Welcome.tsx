@@ -31,20 +31,6 @@ export function Welcome() {
         backgroundPosition: "center",
       }}
     >
-      {/* Soft dark gradient at the bottom for text readability */}
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: "55%",
-          background:
-            "linear-gradient(180deg, rgba(15,42,68,0) 0%, rgba(15,42,68,0.35) 45%, rgba(15,42,68,0.78) 100%)",
-          pointerEvents: "none",
-        }}
-      />
-
       {/* Header */}
       <div
         style={{
@@ -84,18 +70,16 @@ export function Welcome() {
         </div>
       </div>
 
-      {/* Spacer pushes content to bottom */}
-      <div style={{ flex: 1 }} />
-
-      {/* Bottom content: hero text + button */}
+      {/* Centered content: hero text + button */}
       <div
-        className="flex flex-col items-center"
+        className="flex flex-col items-center justify-center"
         style={{
+          flex: 1,
           position: "relative",
           zIndex: 2,
           paddingLeft: 32,
           paddingRight: 32,
-          paddingBottom: insetBottom + 24,
+          paddingBottom: insetBottom + 20,
           gap: 14,
         }}
       >
@@ -106,20 +90,20 @@ export function Welcome() {
             fontWeight: 700,
             lineHeight: "38px",
             textAlign: "center",
-            textShadow: "0 2px 10px rgba(0,40,70,0.45)",
+            textShadow: "0 2px 12px rgba(0,40,70,0.5)",
           }}
         >
           Следите за здоровьем зубов
         </div>
         <div
           style={{
-            color: "rgba(255,255,255,0.92)",
+            color: "rgba(255,255,255,0.95)",
             fontSize: 14,
             lineHeight: "20px",
             maxWidth: 280,
             textAlign: "center",
-            textShadow: "0 1px 6px rgba(0,40,70,0.4)",
-            marginBottom: 12,
+            textShadow: "0 1px 8px rgba(0,40,70,0.45)",
+            marginBottom: 16,
           }}
         >
           Войдите, чтобы продолжить заботу о здоровье зубов
