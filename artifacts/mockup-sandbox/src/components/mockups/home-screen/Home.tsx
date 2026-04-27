@@ -104,34 +104,37 @@ export function Home() {
               <div
                 className="self-start"
                 style={{
-                  background: "rgba(15,42,68,0.10)",
+                  background: "rgba(255,255,255,0.25)",
                   paddingLeft: 12,
                   paddingRight: 12,
                   paddingTop: 4,
                   paddingBottom: 4,
                   borderRadius: 9999,
                   marginBottom: 12,
+                  backdropFilter: "blur(4px)",
                 }}
               >
-                <span style={{ color: "#0F2A44", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>АКЦИЯ</span>
+                <span style={{ color: "#FFFFFF", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>АКЦИЯ</span>
               </div>
               <div
                 style={{
-                  color: "#0F2A44",
+                  color: "#FFFFFF",
                   fontSize: 22,
                   fontWeight: 700,
                   lineHeight: "28px",
                   marginBottom: 4,
                   whiteSpace: "pre-line",
+                  textShadow: "0 1px 6px rgba(15,42,68,0.35)",
                 }}
               >
                 {"Бесплатная\nдиагностика"}
               </div>
               <div
                 style={{
-                  color: "#5B7C99",
+                  color: "rgba(255,255,255,0.95)",
                   fontSize: 12,
                   marginBottom: 16,
+                  textShadow: "0 1px 4px rgba(15,42,68,0.3)",
                 }}
               >
                 Пройдите тест и получите рекомендации
