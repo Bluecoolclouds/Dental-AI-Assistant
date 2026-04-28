@@ -545,13 +545,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Chat Route - using OpenClaw Gateway
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      const openclaw = getOpenClaw();
-      if (!openclaw) {
-        return res.status(503).json({ 
-          error: "AI недоступен", 
-          response: "AI-консультант временно недоступен. Пожалуйста, попробуйте позже."
-        });
-      }
 
       const { message, userId, files: incomingFiles, userContext } = req.body;
 
@@ -978,25 +971,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { role: "user", content: userContentBlocks.length === 1 ? userContentBlocks[0].text : userContentBlocks },
       ];
 
-      let response: Awaited<ReturnType<typeof openclaw.chat.completions.create>>;
-      try {
-        response = await openclaw.chat.completions.create({
-          model: OPENCLAW_AGENT,
-          max_tokens: 2048,
-          messages: openAIMessages,
-          user: userId || undefined,
-        });
-      } catch (openclawErr) {
-        console.warn("[Chat] OpenClaw failed, falling back to direct Claude:", (openclawErr as any)?.message ?? openclawErr);
-        const directAI = getClaudeOpenAI();
-        if (!directAI) throw openclawErr;
-        response = await directAI.chat.completions.create({
-          model: CLAUDE_MAIN,
-          max_tokens: 2048,
-          messages: openAIMessages,
-          user: userId || undefined,
-        });
+      const directAI = getClaudeOpenAI();
+      if (!directAI) {
+        return res.status(503).json({ error: "AI недоступен", response: "AI-консультант временно недоступен. Пожалуйста, попробуйте позже." });
       }
+      const response = await directAI.chat.completions.create({
+        model: CLAUDE_MAIN,
+        max_tokens: 2048,
+        messages: openAIMessages,
+        user: userId || undefined,
+      });
 
       const rawContent = response.choices[0]?.message?.content ?? "";
 
