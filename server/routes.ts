@@ -48,6 +48,15 @@ function getOpenClaw(): OpenAI | null {
   });
 }
 
+function getClaudeOpenAI(): OpenAI | null {
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  const baseURL = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL
+    ? process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL.replace(/\/anthropic\/?$/, "") + "/openai"
+    : "https://api.anthropic.com/v1";
+  return new OpenAI({ baseURL, apiKey });
+}
+
 const CLAUDE_MAIN = "claude-haiku-4-5-20251001";
 const CLAUDE_FAST = "claude-haiku-4-5-20251001";
 const OPENCLAW_AGENT = "openclaw/main";
@@ -969,12 +978,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { role: "user", content: userContentBlocks.length === 1 ? userContentBlocks[0].text : userContentBlocks },
       ];
 
-      const response = await openclaw.chat.completions.create({
-        model: OPENCLAW_AGENT,
-        max_tokens: 2048,
-        messages: openAIMessages,
-        user: userId || undefined,
-      });
+      let response: Awaited<ReturnType<typeof openclaw.chat.completions.create>>;
+      try {
+        response = await openclaw.chat.completions.create({
+          model: OPENCLAW_AGENT,
+          max_tokens: 2048,
+          messages: openAIMessages,
+          user: userId || undefined,
+        });
+      } catch (openclawErr) {
+        console.warn("[Chat] OpenClaw failed, falling back to direct Claude:", (openclawErr as any)?.message ?? openclawErr);
+        const directAI = getClaudeOpenAI();
+        if (!directAI) throw openclawErr;
+        response = await directAI.chat.completions.create({
+          model: CLAUDE_MAIN,
+          max_tokens: 2048,
+          messages: openAIMessages,
+          user: userId || undefined,
+        });
+      }
 
       const rawContent = response.choices[0]?.message?.content ?? "";
 
