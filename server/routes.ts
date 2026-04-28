@@ -597,13 +597,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ]);
           const allEvents = await storage.getCalendarEvents(userId);
           const today = new Date();
-          const in90days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
           const todayStr = today.toISOString().split("T")[0];
-          const limitStr = in90days.toISOString().split("T")[0];
           upcomingEvents = allEvents
-            .filter((e) => e.date >= todayStr && e.date <= limitStr && !e.isCompleted)
+            .filter((e) => e.date >= todayStr && !e.isCompleted)
             .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(0, 20);
+            .slice(0, 50);
         } catch (e) {
           console.error("Error fetching user data for chat:", e);
         }
@@ -713,7 +711,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `\n\n${formatMemoryForPrompt(memoryNodes)}`
         : "";
 
-      const systemPrompt = `Ты — виртуальный стоматологический консультант внутри мобильного приложения Toothy.
+      const nowStr = new Date().toLocaleString("ru-RU", { timeZone: "UTC", dateStyle: "long", timeStyle: "short" });
+      const systemPrompt = `Сегодня: ${nowStr} (UTC).
+
+Ты — виртуальный стоматологический консультант внутри мобильного приложения Toothy.
 Твоя задача — помогать пользователю понимать состояние зубов и дёсен, объяснять возможные причины симптомов простым языком и мотивировать своевременно обращаться к стоматологу. Ты НЕ ставишь диагноз и НЕ назначаешь лечение. Вся информация носит справочный характер.
 
 Тематика и контекст
@@ -723,7 +724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - карта зубов (по каждому зубу: боль, скол, пломба, кариес, кровоточивость, чувствительность и т.д.);
 - анкета здоровья (возраст, привычки гигиены, брекеты, кровоточивость дёсен, чувствительность и т.п.);
 - результаты теста состояния (риски для зубов/дёсен);
-- календарь: ближайшие запланированные события (приёмы, напоминания, события от ИИ) на 90 дней вперёд;
+- календарь: все запланированные будущие события (приёмы, напоминания, события от ИИ);
 - текущие жалобы и история чата.${fileManifest}${sessionSummaryContext}${memoryContext}
 
 Если пользователь спрашивает о своих планах, записях к стоматологу или напоминаниях — используй данные из поля calendar. Если календарь пустой — сообщи об этом и предложи добавить событие через раздел «Календарь» или нажав кнопку ИИ там.
