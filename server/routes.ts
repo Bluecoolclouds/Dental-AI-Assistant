@@ -578,7 +578,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let toothData: any[] = [];
       let latestTest = null;
       let upcomingEvents: any[] = [];
-      let existingFiles: any[] = [];
       let memoryNodes: any[] = [];
 
       if (localMode) {
@@ -586,18 +585,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         toothData = userContext.toothData || [];
         latestTest = userContext.latestTest || null;
         upcomingEvents = userContext.upcomingEvents || [];
-        existingFiles = (userContext.existingFiles || []).map((f: any) => ({
-          fileName: f.fileName,
-          aiDescription: f.aiDescription,
-          description: f.aiDescription,
-        }));
       } else if (userId) {
         try {
-          [userProfile, toothData, latestTest, existingFiles, memoryNodes] = await Promise.all([
+          [userProfile, toothData, latestTest, memoryNodes] = await Promise.all([
             storage.getProfile(userId),
             storage.getToothData(userId),
             storage.getLatestTestResult(userId),
-            storage.getToothFiles(userId),
             loadUserMemory(userId),
           ]);
           const allEvents = await storage.getCalendarEvents(userId);
@@ -677,6 +670,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 relatedTeeth: [],
               });
               savedNewFiles.push({ ...saved, _base64: f.base64Data, _mimeType: f.mimeType });
+              // Save file to long-term memory so bot remembers it across sessions
+              if (aiDesc) {
+                const dateStr = new Date().toISOString().split("T")[0];
+                const safeSegment = `file_${f.name.replace(/[^a-z0-9]/gi, "_").toLowerCase().slice(0, 50)}`;
+                saveMemoryUpdates(userId, [{
+                  action: "upsert",
+                  segment: safeSegment,
+                  category: "history",
+                  content: `Файл «${f.name}» загружен ${dateStr}. ${aiDesc}`,
+                  relatedTeeth: [],
+                  confidence: 90,
+                  source: "file",
+                }]).catch(e => console.error("[Memory] file node error:", e));
+              }
             } else {
               savedNewFiles.push({ fileName: f.name, aiDescription: aiDesc, _base64: f.base64Data, _mimeType: f.mimeType });
             }
@@ -686,12 +693,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Build file manifest for system prompt
-      const manifestFiles = [...existingFiles, ...savedNewFiles.map(f => ({ ...f, aiDescription: f.aiDescription }))];
-      const fileManifest = manifestFiles.length > 0
-        ? `\n\nУ пользователя есть загруженные медицинские документы (файл-индекс):\n` +
-          manifestFiles.map((f, i) => `${i + 1}. ${f.fileName} — ${f.aiDescription || f.description || "без описания"}`).join("\n") +
-          `\n\nЕсли пользователь просит проанализировать файл или задаёт вопрос по документам, используй информацию из индекса. Файлы, загруженные в этом сообщении, прикреплены ниже.`
+      // Build file manifest for system prompt — only freshly uploaded files in this request.
+      // Previously uploaded files are covered by long-term memory nodes (category: history).
+      const fileManifest = savedNewFiles.length > 0
+        ? `\n\nФайлы, загруженные в этом сообщении:\n` +
+          savedNewFiles.map((f, i) => `${i + 1}. ${f.fileName} — ${f.aiDescription || f.description || "без описания"}`).join("\n") +
+          `\n\nПроанализируй приложенные файлы и ответь на вопрос пользователя.`
         : "";
 
       // Add session summary context if present (from previous truncated history)
