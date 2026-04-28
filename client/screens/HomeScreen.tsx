@@ -37,7 +37,7 @@ export default function HomeScreen() {
     { id: "profile", name: t("home.profile"), icon: "user" as const, bgColor: "#ECFDF5", iconColor: "#10B981", route: "ProfileTab" },
   ];
 
-  const userName = user?.email?.split("@")[0] || t("common.patient");
+  const userName = profile?.displayName || user?.email?.split("@")[0] || t("common.patient");
   const defaultAvatar = getDefaultAvatar(profile?.gender ?? null, user?.id ?? "default");
   
   const urgentAlerts = alerts.filter((a) => a.type === "urgent" || a.priority === "urgent");
