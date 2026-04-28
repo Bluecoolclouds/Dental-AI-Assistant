@@ -162,20 +162,43 @@ export default function WelcomeScreen() {
     try {
       const resp = await apiRequest("POST", "/api/auth/send-code", { email: email.trim() });
       const data = await resp.json();
-      if (data.devMode) setDevMode(true);
+      if (data.devMode) {
+        // Email verification disabled on server — register directly without code step
+        const result = await register(email.trim(), password, "devmode");
+        if (!result.success) {
+          setError(result.error || t("auth.errors.registerError"));
+          return;
+        }
+        animateClose(() => {
+          setSheetVisible(false);
+          navigation.navigate("ProfileSetup");
+        });
+        return;
+      }
       setRegisterStep("code");
       startCountdown(60);
     } catch (err: any) {
       const raw = err?.message || "";
+      // Try to extract JSON error from "STATUS: {json}" pattern
       const statusMatch = raw.match(/^(\d+):\s*([\s\S]*)/);
       if (statusMatch) {
         const body = statusMatch[2].trim();
+        // Don't show raw HTML or internal error codes
+        if (body.startsWith("<") || body === "server_error") {
+          setError(t("auth.errors.serverUnavailable") || "Сервер временно недоступен. Попробуйте позже.");
+          return;
+        }
         try {
           const parsed = JSON.parse(body);
           setError(parsed.error || t("auth.errors.sendError"));
           return;
         } catch {}
         setError(body || t("auth.errors.sendError"));
+        return;
+      }
+      // JSON parse error or network error — likely server returned HTML
+      if (raw.includes("<!") || raw.includes("<html") || raw.toLowerCase().includes("unexpected token")) {
+        setError(t("auth.errors.serverUnavailable") || "Сервер временно недоступен. Попробуйте позже.");
         return;
       }
       setError(raw || t("auth.errors.sendError"));

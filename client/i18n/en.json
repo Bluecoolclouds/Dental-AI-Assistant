@@ -83,7 +83,8 @@
       "sendError": "Error sending code",
       "registerError": "Registration error",
       "noConnection": "No server connection",
-      "sendFailed": "Send failed"
+      "sendFailed": "Send failed",
+      "serverUnavailable": "Server temporarily unavailable. Please try again later."
     }
   },
   "onboarding": {

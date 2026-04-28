@@ -19,6 +19,10 @@ export function getApiUrl(): string {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    // If response is HTML (server error page), don't expose raw HTML
+    if (text.trimStart().startsWith("<")) {
+      throw new Error(`${res.status}: server_error`);
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

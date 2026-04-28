@@ -83,7 +83,8 @@
       "sendError": "Ошибка отправки кода",
       "registerError": "Ошибка регистрации",
       "noConnection": "Нет соединения с сервером",
-      "sendFailed": "Ошибка отправки"
+      "sendFailed": "Ошибка отправки",
+      "serverUnavailable": "Сервер временно недоступен. Попробуйте позже."
     }
   },
   "onboarding": {
