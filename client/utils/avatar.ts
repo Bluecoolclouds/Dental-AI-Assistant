@@ -17,7 +17,8 @@ async function saveImageToLocal(uri: string, userId: string): Promise<string> {
   const dir = getAvatarDir();
   await ensureAvatarDir(dir);
   const ext = uri.split(".").pop()?.split("?")[0] || "jpg";
-  const destPath = `${dir}avatar_${userId}.${ext}`;
+  const ts = Date.now();
+  const destPath = `${dir}avatar_${userId}_${ts}.${ext}`;
   await FileSystem.copyAsync({ from: uri, to: destPath });
   return destPath;
 }
