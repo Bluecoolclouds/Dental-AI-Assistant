@@ -942,19 +942,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Build current user message in OpenAI format for OpenClaw
+      // Build current user message in Anthropic format
       const userContentBlocks: any[] = [];
 
-      // Attach images in OpenAI format (PDFs described via file manifest in system prompt)
+      // Attach images in Anthropic format
+      const supportedMimes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
       for (const f of savedNewFiles) {
         if (!f._base64) continue;
         const isImg = f._mimeType?.startsWith("image/");
-        const supportedMimes = ["image/jpeg","image/png","image/gif","image/webp"];
         if (isImg) {
           const mime = supportedMimes.includes(f._mimeType) ? f._mimeType : "image/jpeg";
           userContentBlocks.push({
-            type: "image_url",
-            image_url: { url: `data:${mime};base64,${f._base64}` },
+            type: "image",
+            source: { type: "base64", media_type: mime, data: f._base64 },
           });
         }
       }
@@ -964,25 +964,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         text: `Контекст пользователя:\n${JSON.stringify(claudeUserContext, null, 2)}\n\nСообщение: ${message}`,
       });
 
-      // Build OpenAI-format messages: system first, then history, then current user message
-      const openAIMessages: Array<{ role: "system" | "user" | "assistant"; content: any }> = [
-        { role: "system", content: systemPrompt },
-        ...claudeMessages,
-        { role: "user", content: userContentBlocks.length === 1 ? userContentBlocks[0].text : userContentBlocks },
-      ];
-
-      const directAI = getClaudeOpenAI();
-      if (!directAI) {
+      const claude = getClaude();
+      if (!claude) {
         return res.status(503).json({ error: "AI недоступен", response: "AI-консультант временно недоступен. Пожалуйста, попробуйте позже." });
       }
-      const response = await directAI.chat.completions.create({
+
+      const response = await claude.messages.create({
         model: CLAUDE_MAIN,
         max_tokens: 2048,
-        messages: openAIMessages,
-        user: userId || undefined,
+        system: systemPrompt,
+        messages: [
+          ...claudeMessages,
+          { role: "user", content: userContentBlocks.length === 1 ? userContentBlocks[0].text : userContentBlocks },
+        ],
       });
 
-      const rawContent = response.choices[0]?.message?.content ?? "";
+      const rawContent = (response.content[0] as TextBlock)?.text ?? "";
 
       let content = rawContent.trim();
       content = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
@@ -1104,9 +1101,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const hasFiles = Array.isArray(incomingFiles) && incomingFiles.length > 0;
           await incrementUsage(userId, date, "messages");
           if (hasFiles) await incrementUsage(userId, date, "files");
-          // Track token usage from OpenAI-compatible response
-          const inputTok = response.usage?.prompt_tokens ?? 0;
-          const outputTok = response.usage?.completion_tokens ?? 0;
+          // Track token usage from Anthropic response
+          const inputTok = response.usage?.input_tokens ?? 0;
+          const outputTok = response.usage?.output_tokens ?? 0;
           if (inputTok > 0 || outputTok > 0) {
             addTokenUsage(userId, date, inputTok, outputTok).catch((e) =>
               console.error("[Tokens] addTokenUsage error:", e)
