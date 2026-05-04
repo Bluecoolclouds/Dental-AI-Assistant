@@ -1,377 +1,473 @@
 import { useState } from "react";
-import { MapPin, X, CheckCircle, Zap, Slash, Square, Droplet, Wind, Circle } from "lucide-react";
+import {
+  Zap, Slash, Square, Droplet, Wind, Circle, CheckCircle,
+  Info, Clock, Folder, Plus, ChevronRight, X
+} from "lucide-react";
 
 const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 
+const primary = "#4A90D9";
+
 const PROBLEM_CONFIG: Record<string, { label: string; color: string; Icon: any }> = {
-  pain:        { label: "Боль",          color: "#F44336", Icon: Zap },
-  chip:        { label: "Скол",          color: "#9C27B0", Icon: Slash },
-  filling:     { label: "Пломба",        color: "#2196F3", Icon: Square },
-  bleeding:    { label: "Кровоточивость", color: "#E91E63", Icon: Droplet },
-  sensitivity: { label: "Чувствит.",     color: "#FF9800", Icon: Wind },
-  cavity:      { label: "Кариес",        color: "#795548", Icon: Circle },
+  pain:        { label: "Боль",            color: "#F44336", Icon: Zap },
+  chip:        { label: "Скол",            color: "#9C27B0", Icon: Slash },
+  filling:     { label: "Пломба",          color: "#2196F3", Icon: Square },
+  bleeding:    { label: "Кровоточивость",  color: "#E91E63", Icon: Droplet },
+  sensitivity: { label: "Чувствительность",color: "#FF9800", Icon: Wind },
+  cavity:      { label: "Кариес",          color: "#795548", Icon: Circle },
+  treated:     { label: "Вылечен",         color: "#4CAF50", Icon: CheckCircle },
 };
 
-const SAMPLE_PROBLEMS: Record<number, { problems: string[] }> = {
-  16: { problems: ["cavity"] },
-  11: { problems: ["pain"] },
-  26: { problems: ["filling"] },
-  36: { problems: ["treated"] },
-  46: { problems: ["sensitivity"] },
-  44: { problems: ["bleeding"] },
+const SAMPLE_PROBLEMS: Record<number, string[]> = {
+  16: ["cavity"],
+  11: ["pain"],
+  26: ["filling"],
+  36: ["treated"],
+  46: ["sensitivity"],
+  44: ["bleeding"],
 };
 
-type ToothType = "incisor" | "canine" | "premolar" | "molar";
+const SAMPLE_HISTORY = [
+  { id: 1, toothId: "16", reason: "Обнаружен кариес на жевательной поверхности", eventType: "treatment", source: "ai", priority: "urgent", date: "3 мая 2026", doctorName: "", clinicName: "" },
+  { id: 2, toothId: "36", reason: "Пломбирование завершено успешно", eventType: "resolved", source: "user", priority: "routine", date: "28 апр. 2026", doctorName: "Иванова А.В.", clinicName: "Dental City" },
+];
 
-function getToothType(toothNum: number): ToothType {
-  const pos = toothNum % 10;
-  if (pos <= 2) return "incisor";
-  if (pos === 3) return "canine";
-  if (pos <= 5) return "premolar";
-  return "molar";
+function calculateArchPosition(index: number, total: number, isUpper: boolean, archWidth: number, archHeight: number) {
+  const normalizedIndex = index / (total - 1);
+  const angle = Math.PI * (0.15 + normalizedIndex * 0.7);
+  const radiusX = archWidth / 2 - 20;
+  const radiusY = archHeight - 30;
+  const x = archWidth / 2 - Math.cos(angle) * radiusX;
+  const y = isUpper
+    ? archHeight - Math.sin(angle) * radiusY - 10
+    : Math.sin(angle) * radiusY + 10;
+  const isBackTooth = index < 3 || index > total - 4;
+  const size = isBackTooth ? 24 : 20;
+  return { x, y, size };
 }
 
-function getToothPath(type: ToothType, w: number, h: number): string {
-  switch (type) {
-    case "incisor":
-      return `M ${w*0.15} ${h*0.1} Q ${w*0.5} ${-h*0.05} ${w*0.85} ${h*0.1} Q ${w} ${h*0.3} ${w*0.95} ${h*0.55} Q ${w*0.85} ${h*0.85} ${w*0.5} ${h*0.95} Q ${w*0.15} ${h*0.85} ${w*0.05} ${h*0.55} Q 0 ${h*0.3} ${w*0.15} ${h*0.1} Z`;
-    case "canine":
-      return `M ${w*0.2} ${h*0.15} Q ${w*0.5} ${-h*0.08} ${w*0.8} ${h*0.15} Q ${w} ${h*0.35} ${w*0.9} ${h*0.6} Q ${w*0.75} ${h*0.9} ${w*0.5} ${h} Q ${w*0.25} ${h*0.9} ${w*0.1} ${h*0.6} Q 0 ${h*0.35} ${w*0.2} ${h*0.15} Z`;
-    case "premolar":
-      return `M ${w*0.1} ${h*0.15} Q ${w*0.3} 0 ${w*0.5} ${h*0.05} Q ${w*0.7} 0 ${w*0.9} ${h*0.15} Q ${w*1.05} ${h*0.4} ${w*0.95} ${h*0.65} Q ${w*0.8} ${h*0.95} ${w*0.5} ${h} Q ${w*0.2} ${h*0.95} ${w*0.05} ${h*0.65} Q ${-w*0.05} ${h*0.4} ${w*0.1} ${h*0.15} Z`;
-    case "molar":
-      return `M ${w*0.08} ${h*0.2} Q ${w*0.2} ${h*0.02} ${w*0.35} ${h*0.05} Q ${w*0.5} ${-h*0.02} ${w*0.65} ${h*0.05} Q ${w*0.8} ${h*0.02} ${w*0.92} ${h*0.2} Q ${w*1.05} ${h*0.45} ${w*0.95} ${h*0.7} Q ${w*0.82} ${h*0.95} ${w*0.5} ${h} Q ${w*0.18} ${h*0.95} ${w*0.05} ${h*0.7} Q ${-w*0.05} ${h*0.45} ${w*0.08} ${h*0.2} Z`;
-  }
-}
-
-function getToothDims(type: ToothType, scale: number): { w: number; h: number } {
-  switch (type) {
-    case "incisor":  return { w: 14 * scale, h: 18 * scale };
-    case "canine":   return { w: 15 * scale, h: 20 * scale };
-    case "premolar": return { w: 16 * scale, h: 18 * scale };
-    case "molar":    return { w: 20 * scale, h: 20 * scale };
-  }
-}
-
-function calculateArchPositions(
-  teeth: number[], isUpper: boolean, svgWidth: number,
-  centerY: number, archRadiusX: number, archRadiusY: number
-) {
-  const total = teeth.length;
-  return teeth.map((toothNum, index) => {
-    const t = index / (total - 1);
-    const angle = Math.PI * (0.12 + t * 0.76);
-    const cx = svgWidth / 2;
-    const x = cx - Math.cos(angle) * archRadiusX;
-    const y = isUpper
-      ? centerY - Math.sin(angle) * archRadiusY
-      : centerY + Math.sin(angle) * archRadiusY;
-    const rotation = isUpper
-      ? (angle * 180) / Math.PI - 90
-      : -((angle * 180) / Math.PI - 90);
-    return { toothNum, x, y, angle: rotation };
-  });
-}
-
-function getProblemColor(problems: string[]): string {
-  if (!problems || problems.length === 0) return "";
-  if (problems.includes("treated")) return "#4CAF50";
-  const p = problems[0];
-  return PROBLEM_CONFIG[p]?.color || "#888";
-}
-
-function ToothMapSvg({
-  selectedTooth,
-  onToothPress,
-  toothData,
-}: {
-  selectedTooth: number | null;
-  onToothPress: (n: number) => void;
-  toothData: typeof SAMPLE_PROBLEMS;
-}) {
-  const svgWidth = 310;
-  const svgHeight = 300;
-  const scale = 0.9;
-  const archRadiusX = svgWidth * 0.38;
-  const archRadiusY = svgHeight * 0.22;
-  const upperCenterY = svgHeight * 0.38;
-  const lowerCenterY = svgHeight * 0.62;
-  const primary = "#4A90D9";
-
-  const upperPositions = calculateArchPositions(UPPER_TEETH, true, svgWidth, upperCenterY, archRadiusX, archRadiusY);
-  const lowerPositions = calculateArchPositions(LOWER_TEETH, false, svgWidth, lowerCenterY, archRadiusX, archRadiusY);
-
-  const renderTooth = (toothNum: number, x: number, y: number, angle: number, isUpper: boolean) => {
-    const type = getToothType(toothNum);
-    const dims = getToothDims(type, scale);
-    const entry = toothData[toothNum];
-    const problems = entry?.problems || [];
-    const hasProblems = problems.length > 0;
-    const isSelected = selectedTooth === toothNum;
-    const problemColor = getProblemColor(problems);
-    const path = getToothPath(type, dims.w, dims.h);
-    const labelY = isUpper ? dims.h + 9 * scale : -5 * scale;
-    const gradId = `g${toothNum}`;
-
-    return (
-      <g
-        key={toothNum}
-        onClick={() => onToothPress(toothNum)}
-        transform={`translate(${x - dims.w / 2}, ${y - dims.h / 2}) rotate(${angle}, ${dims.w / 2}, ${dims.h / 2})`}
-        style={{ cursor: "pointer" }}
-      >
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={hasProblems ? problemColor : "#FAFAFA"} stopOpacity={hasProblems ? 0.3 : 1} />
-            <stop offset="1" stopColor={hasProblems ? problemColor : "#D5D5D5"} stopOpacity={hasProblems ? 0.35 : 0.85} />
-          </linearGradient>
-        </defs>
-        <path
-          d={path}
-          fill={`url(#${gradId})`}
-          stroke={isSelected ? primary : hasProblems ? problemColor : "#C0C0C0"}
-          strokeWidth={isSelected ? 2.5 : 1}
-          strokeOpacity={isSelected ? 1 : 0.7}
-        />
-        {isSelected && (
-          <path d={path} fill="none" stroke={primary} strokeWidth={3} strokeOpacity={0.35} />
-        )}
-        <text
-          x={dims.w / 2}
-          y={labelY}
-          fontSize={9 * scale}
-          fill={isSelected ? primary : "#999"}
-          fontWeight={isSelected ? "700" : "500"}
-          textAnchor="middle"
-          transform={`rotate(${-angle}, ${dims.w / 2}, ${labelY})`}
-          style={{ userSelect: "none" }}
-        >
-          {toothNum % 10}
-        </text>
-      </g>
-    );
-  };
+function ToothArch({ teeth, isUpper, archWidth, archHeight, selectedTooth, onToothPress, problems }:
+  { teeth: number[]; isUpper: boolean; archWidth: number; archHeight: number;
+    selectedTooth: number | null; onToothPress: (n: number) => void;
+    problems: Record<number, string[]> }) {
 
   return (
-    <div style={{ borderRadius: 12, background: `${primary}15`, padding: 8 }}>
-      <svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
-        <rect x="0" y="0" width={svgWidth} height={svgHeight} fill={`${primary}08`} rx="12" />
-        {upperPositions.map((p) => renderTooth(p.toothNum, p.x, p.y, p.angle, true))}
-        {lowerPositions.map((p) => renderTooth(p.toothNum, p.x, p.y, p.angle, false))}
-        <text x={svgWidth / 2} y={upperCenterY - archRadiusY - 12} textAnchor="middle" fontSize={10} fill="#999" style={{ userSelect: "none" }}>
-          Верхняя челюсть
-        </text>
-        <text x={svgWidth / 2} y={lowerCenterY + archRadiusY + 18} textAnchor="middle" fontSize={10} fill="#999" style={{ userSelect: "none" }}>
-          Нижняя челюсть
-        </text>
+    <div style={{ position: "relative", width: archWidth, height: archHeight }}>
+      <svg width={archWidth} height={archHeight} viewBox={`0 0 ${archWidth} ${archHeight}`} style={{ position: "absolute", top: 0, left: 0 }}>
+        {teeth.map((toothNum, index) => {
+          const pos = calculateArchPosition(index, teeth.length, isUpper, archWidth, archHeight);
+          const toothProblems = problems[toothNum] || [];
+          const hasProblems = toothProblems.length > 0;
+          const isSelected = selectedTooth === toothNum;
+          let fill = "#FFFFFF";
+          let stroke = "#D0D0D0";
+          if (isSelected) stroke = primary;
+          if (hasProblems) {
+            const p = toothProblems[0];
+            const color = PROBLEM_CONFIG[p]?.color || primary;
+            fill = color + "40";
+            stroke = isSelected ? primary : color;
+          }
+          return (
+            <g key={toothNum} onClick={() => onToothPress(toothNum)} style={{ cursor: "pointer" }}>
+              <ellipse
+                cx={pos.x} cy={pos.y}
+                rx={pos.size / 2} ry={pos.size / 2 * 1.2}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth={isSelected ? 2.5 : 1.5}
+              />
+              {hasProblems && (
+                <ellipse
+                  cx={pos.x} cy={pos.y}
+                  rx={4} ry={4}
+                  fill={PROBLEM_CONFIG[toothProblems[0]]?.color || primary}
+                />
+              )}
+            </g>
+          );
+        })}
       </svg>
+      {/* Tooth numbers overlay */}
+      <div style={{ position: "absolute", top: 0, left: 0, width: archWidth, height: archHeight }}>
+        {teeth.map((toothNum, index) => {
+          const pos = calculateArchPosition(index, teeth.length, isUpper, archWidth, archHeight);
+          const isSelected = selectedTooth === toothNum;
+          return (
+            <button
+              key={toothNum}
+              onClick={() => onToothPress(toothNum)}
+              style={{
+                position: "absolute",
+                left: pos.x - 12, top: pos.y - 12,
+                width: 24, height: 24,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: "transparent", border: "none", cursor: "pointer",
+                fontSize: 10, fontWeight: isSelected ? 700 : 500,
+                color: isSelected ? primary : "#888",
+              }}
+            >
+              {toothNum % 10}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 export function ToothMap() {
-  const [selectedTooth, setSelectedTooth] = useState<number | null>(16);
-  const [toothData] = useState(SAMPLE_PROBLEMS);
+  const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
+  const [problems] = useState(SAMPLE_PROBLEMS);
+  const [activeTab, setActiveTab] = useState<"history" | "files">("history");
+  const [hasNote, setHasNote] = useState(false);
+  const [note, setNote] = useState("");
 
-  const insetTop = 47;
-  const primary = "#4A90D9";
+  const archWidth = 320;
+  const archHeight = 120;
 
-  const selectedEntry = selectedTooth ? toothData[selectedTooth] : null;
-  const selectedProblems = selectedEntry?.problems || [];
+  const handleToothPress = (n: number) => setSelectedTooth(selectedTooth === n ? null : n);
 
-  const handleToothPress = (n: number) => {
-    setSelectedTooth(selectedTooth === n ? null : n);
-  };
-
-  const affectedCount = Object.keys(toothData).filter(
-    k => (toothData[Number(k)].problems || []).some(p => p !== "treated")
-  ).length;
-  const treatedCount = Object.keys(toothData).filter(
-    k => (toothData[Number(k)].problems || []).includes("treated")
-  ).length;
+  const selectedProblems = selectedTooth ? (problems[selectedTooth] || []) : [];
+  const markedCount = Object.keys(problems).length;
+  const totalProblems = Object.values(problems).reduce((acc, arr) => acc + arr.filter(p => p !== "treated").length, 0);
 
   return (
-    <div className="w-full min-h-screen" style={{ backgroundColor: "#F1F5F9", fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ backgroundColor: "#F1F5F9", minHeight: "100vh", width: "100%", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingBottom: 80 }}>
 
-        {/* HEADER */}
-        <div style={{
-          background: "white",
-          paddingTop: insetTop + 16,
-          paddingLeft: 16,
-          paddingRight: 16,
-          paddingBottom: 16,
-          borderBottomLeftRadius: 28,
-          borderBottomRightRadius: 28,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 18,
-              background: `linear-gradient(135deg, ${primary} 0%, #5BA3E5 100%)`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <MapPin size={18} color="#fff" />
+        {/* ── TOOTH MAP CARD ── */}
+        <div style={card}>
+          {/* Legend */}
+          <div style={{ display: "flex", flexDirection: "row", gap: 16, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#FBBF24" }} />
+              <span style={{ fontSize: 11, color: "#888" }}>Вылечен</span>
             </div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#1A2B4A" }}>Карта зубов</div>
-              <div style={{ fontSize: 12, color: "#8FA3BF" }}>Нажмите на зуб, чтобы отметить проблему</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#4A90D9" }} />
+              <span style={{ fontSize: 11, color: "#888" }}>Боль</span>
             </div>
           </div>
 
-          {/* Stats row */}
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <div style={{
-              flex: 1, background: "#FFF3F3", borderRadius: 12, padding: "8px 12px",
-              display: "flex", flexDirection: "column", alignItems: "center",
-            }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#F44336" }}>{affectedCount}</div>
-              <div style={{ fontSize: 11, color: "#888" }}>с проблемами</div>
+          {/* Arch container */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 500, color: "#8FA3BF", textTransform: "uppercase", letterSpacing: 1.5 }}>
+              Верхняя челюсть
+            </span>
+
+            <ToothArch
+              teeth={UPPER_TEETH}
+              isUpper={true}
+              archWidth={archWidth}
+              archHeight={archHeight}
+              selectedTooth={selectedTooth}
+              onToothPress={handleToothPress}
+              problems={problems}
+            />
+
+            {/* Separator */}
+            <div style={{ width: "100%", height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: "60%", height: 2, borderRadius: 1, backgroundColor: "#E8EDF3" }} />
             </div>
-            <div style={{
-              flex: 1, background: "#F0FAF4", borderRadius: 12, padding: "8px 12px",
-              display: "flex", flexDirection: "column", alignItems: "center",
-            }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#4CAF50" }}>{treatedCount}</div>
-              <div style={{ fontSize: 11, color: "#888" }}>вылечено</div>
-            </div>
-            <div style={{
-              flex: 1, background: "#EBF5FF", borderRadius: 12, padding: "8px 12px",
-              display: "flex", flexDirection: "column", alignItems: "center",
-            }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: primary }}>32</div>
-              <div style={{ fontSize: 11, color: "#888" }}>всего зубов</div>
-            </div>
+
+            <ToothArch
+              teeth={LOWER_TEETH}
+              isUpper={false}
+              archWidth={archWidth}
+              archHeight={archHeight}
+              selectedTooth={selectedTooth}
+              onToothPress={handleToothPress}
+              problems={problems}
+            />
+
+            <span style={{ fontSize: 10, fontWeight: 500, color: "#8FA3BF", textTransform: "uppercase", letterSpacing: 1.5 }}>
+              Нижняя челюсть
+            </span>
           </div>
         </div>
 
-        {/* LEGEND */}
-        <div style={{
-          marginLeft: 16, marginRight: 16,
-          background: "white", borderRadius: 16, padding: "10px 14px",
-          display: "flex", gap: 16, flexWrap: "wrap",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        }}>
-          {Object.entries(PROBLEM_CONFIG).map(([key, cfg]) => (
-            <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 5, background: cfg.color }} />
-              <span style={{ fontSize: 11, color: "#666" }}>{cfg.label}</span>
-            </div>
-          ))}
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 5, background: "#4CAF50" }} />
-            <span style={{ fontSize: 11, color: "#666" }}>Вылечен</span>
-          </div>
-        </div>
-
-        {/* TOOTH MAP */}
-        <div style={{
-          marginLeft: 16, marginRight: 16,
-          background: "white", borderRadius: 20, padding: 16,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-          display: "flex", justifyContent: "center",
-        }}>
-          <ToothMapSvg
-            selectedTooth={selectedTooth}
-            onToothPress={handleToothPress}
-            toothData={toothData}
-          />
-        </div>
-
-        {/* SELECTED TOOTH PANEL */}
+        {/* ── SELECTED TOOTH CARD ── */}
         {selectedTooth ? (
-          <div style={{
-            marginLeft: 16, marginRight: 16,
-            background: "white", borderRadius: 20, padding: 16,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-          }}>
+          <div style={card}>
+            {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#1A2B4A" }}>
-                  Зуб {selectedTooth % 10}
-                </div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#1A2B4A" }}>Зуб {selectedTooth % 10}</div>
                 <div style={{ fontSize: 12, color: "#8FA3BF" }}>Позиция: {selectedTooth}</div>
               </div>
               <button
                 onClick={() => setSelectedTooth(null)}
-                style={{
-                  width: 32, height: 32, borderRadius: 16,
-                  background: "#F1F5F9", border: "none", cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
+                style={{ width: 32, height: 32, borderRadius: 16, background: "#F1F5F9", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <X size={16} color="#8FA3BF" />
               </button>
             </div>
 
+            {/* Treated banner */}
             {selectedProblems.includes("treated") && (
-              <div style={{
-                background: "#E8F5E9", borderRadius: 10, padding: "8px 12px",
-                border: "1px solid #4CAF50", display: "flex", alignItems: "center",
-                gap: 8, marginBottom: 12,
-              }}>
-                <CheckCircle size={16} color="#4CAF50" />
-                <span style={{ fontSize: 12, color: "#2E7D32" }}>
-                  Зуб вылечен
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", borderRadius: 10, border: "1px solid #4CAF50", background: "#E8F5E9", marginBottom: 12 }}>
+                <CheckCircle size={18} color="#4CAF50" style={{ flexShrink: 0, marginTop: 1 }} />
+                <span style={{ fontSize: 12, color: "#2E7D32", lineHeight: 1.4 }}>
+                  Зуб вылечен. Чтобы снова отмечать проблемы, выберите их ниже — статус «вылечен» будет снят.
                 </span>
               </div>
             )}
 
             <div style={{ fontSize: 12, color: "#8FA3BF", marginBottom: 10 }}>Отметьте проблемы:</div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-              {Object.entries(PROBLEM_CONFIG).map(([key, cfg]) => {
+            {/* Problem buttons */}
+            <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {Object.entries(PROBLEM_CONFIG).filter(([k]) => k !== "treated").map(([key, cfg]) => {
                 const isActive = selectedProblems.filter(p => p !== "treated").includes(key);
                 return (
-                  <div
-                    key={key}
-                    style={{
-                      borderRadius: 12,
-                      padding: "10px 8px",
-                      background: isActive ? cfg.color + "18" : "#F8FAFC",
-                      border: `1.5px solid ${isActive ? cfg.color : "transparent"}`,
-                      display: "flex", flexDirection: "column",
-                      alignItems: "center", gap: 4, cursor: "pointer",
-                    }}
-                  >
+                  <div key={key} style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    paddingTop: 7, paddingBottom: 7, paddingLeft: 12, paddingRight: 12,
+                    borderRadius: 10, borderWidth: 1.5, borderStyle: "solid",
+                    borderColor: isActive ? cfg.color : "transparent",
+                    backgroundColor: isActive ? cfg.color + "18" : "#F1F5F9",
+                    cursor: "pointer",
+                  }}>
                     <cfg.Icon size={16} color={isActive ? cfg.color : "#B0BEC5"} />
-                    <span style={{ fontSize: 10, color: isActive ? cfg.color : "#888", textAlign: "center", lineHeight: 1.2 }}>
-                      {cfg.label}
-                    </span>
+                    <span style={{ fontSize: 13, color: isActive ? cfg.color : "#555" }}>{cfg.label}</span>
                   </div>
                 );
               })}
             </div>
 
+            {/* Mark as healed */}
             {!selectedProblems.includes("treated") && (
-              <button style={{
-                marginTop: 12, width: "100%", padding: "10px 0",
-                borderRadius: 12, border: "1.5px solid #4CAF50",
-                background: "#F0FAF4", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                marginTop: 14, paddingTop: 11, paddingBottom: 11,
+                borderRadius: 10, border: "1.5px solid #4CAF50", background: "#E8F5E9",
+                cursor: "pointer",
               }}>
-                <CheckCircle size={16} color="#4CAF50" />
+                <CheckCircle size={18} color="#4CAF50" />
                 <span style={{ fontSize: 13, color: "#2E7D32", fontWeight: 600 }}>Отметить как вылеченный</span>
-              </button>
+              </div>
             )}
+
+            {/* Custom note checkbox */}
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+                onClick={() => setHasNote(!hasNote)}
+              >
+                <div style={{
+                  width: 24, height: 24, borderRadius: 6,
+                  border: `2px solid ${hasNote ? primary : "#D0D9E5"}`,
+                  backgroundColor: hasNote ? primary : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  {hasNote && <span style={{ color: "#fff", fontSize: 14, lineHeight: 1 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: 14, color: "#1A2B4A" }}>Описать проблему своими словами</span>
+              </div>
+
+              {hasNote && (
+                <div style={{ marginTop: 10 }}>
+                  <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder="Опишите жалобы..."
+                    rows={4}
+                    style={{
+                      width: "100%", boxSizing: "border-box", padding: 12,
+                      borderRadius: 10, border: "1px solid #D0D9E5",
+                      backgroundColor: "#F8FAFC", color: "#1A2B4A",
+                      fontSize: 14, lineHeight: 1.5, resize: "none",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                  <button style={{
+                    marginTop: 8, display: "flex", alignItems: "center", gap: 6,
+                    paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16,
+                    borderRadius: 8, border: "none", backgroundColor: primary,
+                    color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                  }}>
+                    Сохранить
+                  </button>
+                  <div style={{ fontSize: 11, color: "#8FA3BF", marginTop: 6 }}>
+                    Эта информация будет использоваться ИИ-консультантом
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
-          <div style={{
-            marginLeft: 16, marginRight: 16,
-            background: "white", borderRadius: 20, padding: 20,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-          }}>
-            <MapPin size={28} color="#D0DAEC" />
-            <div style={{ fontSize: 14, color: "#B0BEC5", textAlign: "center" }}>
-              Выберите зуб на схеме, чтобы просмотреть или отметить проблемы
+          /* ── HINT CARD when nothing selected ── */
+          <div style={{ ...card, display: "flex", flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: primary + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Info size={20} color={primary} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1A2B4A", marginBottom: 3 }}>Как использовать</div>
+              <div style={{ fontSize: 12, color: "#8FA3BF", lineHeight: 1.4 }}>Нажмите на зуб на схеме, чтобы выбрать его и отметить проблемы</div>
             </div>
           </div>
         )}
 
-        <div style={{ height: 24 }} />
+        {/* ── STATS CARD ── */}
+        <div style={{ ...card, display: "flex", flexDirection: "row", alignItems: "center" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: primary, lineHeight: 1 }}>{markedCount}</div>
+            <div style={{ fontSize: 12, color: "#8FA3BF" }}>Зубов отмечено</div>
+          </div>
+          <div style={{ width: 1, height: 48, backgroundColor: "#E8EDF3", margin: "0 16px" }} />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: "#FF9800", lineHeight: 1 }}>{totalProblems}</div>
+            <div style={{ fontSize: 12, color: "#8FA3BF" }}>Всего проблем</div>
+          </div>
+        </div>
+
+        {/* ── LEGEND SECTION ── */}
+        <div style={{ padding: "0 16px" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1A2B4A", marginBottom: 12 }}>Типы проблем</div>
+          <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+            {Object.entries(PROBLEM_CONFIG).map(([key, cfg]) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, width: "44%" }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: cfg.color + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <cfg.Icon size={14} color={cfg.color} />
+                </div>
+                <span style={{ fontSize: 12, color: "#1A2B4A" }}>{cfg.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── HISTORY / FILES TABS CARD ── */}
+        <div style={card}>
+          {/* Tabs */}
+          <div style={{ display: "flex", flexDirection: "row", gap: 8, marginBottom: 16 }}>
+            {(["history", "files"] as const).map(tab => {
+              const isActive = activeTab === tab;
+              const Icon = tab === "history" ? Clock : Folder;
+              const label = tab === "history" ? "История" : "Файлы";
+              return (
+                <div
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    paddingTop: 10, paddingBottom: 10,
+                    borderRadius: 10, cursor: "pointer",
+                    backgroundColor: isActive ? primary + "18" : "transparent",
+                  }}
+                >
+                  <Icon size={16} color={isActive ? primary : "#8FA3BF"} />
+                  <span style={{ fontSize: 14, fontWeight: isActive ? 600 : 400, color: isActive ? primary : "#8FA3BF" }}>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Tab content */}
+          {activeTab === "history" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Add button */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                paddingTop: 12, paddingBottom: 12,
+                borderRadius: 10, backgroundColor: primary, cursor: "pointer",
+              }}>
+                <Plus size={18} color="#fff" />
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>Добавить запись</span>
+              </div>
+
+              {/* History items */}
+              {SAMPLE_HISTORY.map((item, i) => {
+                const isResolved = item.eventType === "resolved";
+                const borderColor = isResolved ? "#4CAF50" : item.priority === "urgent" ? "#F44336" : primary;
+                return (
+                  <div key={item.id}>
+                    {i === 0 || SAMPLE_HISTORY[i - 1].date !== item.date ? (
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#8FA3BF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, marginTop: i > 0 ? 8 : 0 }}>
+                        {item.date}
+                      </div>
+                    ) : null}
+                    <div style={{
+                      padding: 12, borderRadius: 10,
+                      backgroundColor: "#F8FAFC",
+                      borderLeft: `3px solid ${borderColor}`,
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: primary, backgroundColor: primary + "20", borderRadius: 6, padding: "2px 8px" }}>
+                            {item.toothId}
+                          </span>
+                          {isResolved && (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "#4CAF50", backgroundColor: "#4CAF5020", borderRadius: 6, padding: "2px 8px" }}>
+                              Вылечен
+                            </span>
+                          )}
+                          {item.priority === "urgent" && !isResolved && (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "#F44336", backgroundColor: "#F4433620", borderRadius: 6, padding: "2px 8px" }}>
+                              Срочно
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 11, color: "#8FA3BF" }}>{item.source === "ai" ? "ИИ" : "Вы"}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "#1A2B4A", lineHeight: 1.4 }}>{item.reason}</div>
+                      {(item.doctorName || item.clinicName) && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #E8EDF3" }}>
+                          {item.doctorName && <div style={{ fontSize: 11, color: "#8FA3BF" }}>Врач: {item.doctorName}</div>}
+                          {item.clinicName && <div style={{ fontSize: 11, color: "#8FA3BF" }}>Клиника: {item.clinicName}</div>}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, backgroundColor: "#F1F5F9", cursor: "pointer" }}>
+                          <ChevronRight size={14} color="#8FA3BF" />
+                          <span style={{ fontSize: 12, color: "#8FA3BF" }}>Подробнее</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 32, paddingBottom: 32, gap: 8 }}>
+              <Folder size={32} color="#D0DAEC" />
+              <div style={{ fontSize: 14, color: "#8FA3BF", textAlign: "center" }}>Нет файлов</div>
+              <div style={{ fontSize: 12, color: "#B0BEC5", textAlign: "center" }}>Добавьте снимки, КТ или документы</div>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* Bottom tab bar simulation */}
+      <div style={{
+        position: "fixed", bottom: 0, left: 0, right: 0,
+        height: 70, backgroundColor: "#fff",
+        borderTop: "1px solid #E8EDF3",
+        display: "flex", alignItems: "flex-start", justifyContent: "space-around",
+        paddingTop: 10,
+      }}>
+        {[
+          { icon: "🏠", label: "Главная" },
+          { icon: "🦷", label: "Карта", active: true },
+          { icon: "💬", label: "ИИ" },
+          { icon: "👤", label: "Профиль" },
+        ].map(tab => (
+          <div key={tab.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 20 }}>{tab.icon}</span>
+            <span style={{ fontSize: 10, fontWeight: tab.active ? 600 : 400, color: tab.active ? primary : "#8FA3BF" }}>{tab.label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
+const card: React.CSSProperties = {
+  margin: "0 16px",
+  backgroundColor: "#fff",
+  borderRadius: 18,
+  padding: 16,
+  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+};
