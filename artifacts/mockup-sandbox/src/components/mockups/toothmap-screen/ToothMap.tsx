@@ -1,22 +1,37 @@
 import { useState } from "react";
 import {
-  Zap, Slash, Square, Droplet, Wind, Circle, CheckCircle,
-  Info, Clock, Folder, Plus, ChevronRight, X
+  CheckCircle, Info, Clock, Folder, Plus, ChevronRight, X
 } from "lucide-react";
+import toothSprite from "@/assets/tooth-problems.png";
 
 const UPPER_TEETH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_TEETH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 
 const primary = "#4A90D9";
 
-const PROBLEM_CONFIG: Record<string, { label: string; color: string; Icon: any }> = {
-  pain:        { label: "Боль",            color: "#F44336", Icon: Zap },
-  chip:        { label: "Скол",            color: "#9C27B0", Icon: Slash },
-  filling:     { label: "Пломба",          color: "#2196F3", Icon: Square },
-  bleeding:    { label: "Кровоточивость",  color: "#E91E63", Icon: Droplet },
-  sensitivity: { label: "Чувствительность",color: "#FF9800", Icon: Wind },
-  cavity:      { label: "Кариес",          color: "#795548", Icon: Circle },
-  treated:     { label: "Вылечен",         color: "#4CAF50", Icon: CheckCircle },
+// Sprite grid 3×3:
+// row0: Кариес | Чувствительность | Боль
+// row1: Скол/трещина | Потемнение | Налет/зубной камень
+// row2: Шатается | Десна/воспаление | Другое
+function spriteStyle(col: number, row: number, size = 48): React.CSSProperties {
+  return {
+    width: size, height: size,
+    backgroundImage: `url(${toothSprite})`,
+    backgroundSize: "300% 300%",
+    backgroundPosition: `${col * 50}% ${row * 50}%`,
+    backgroundRepeat: "no-repeat",
+    flexShrink: 0,
+  };
+}
+
+const PROBLEM_CONFIG: Record<string, { label: string; color: string; sprite?: [number, number]; Icon?: any }> = {
+  pain:        { label: "Боль",             color: "#F44336", sprite: [2, 0] },
+  chip:        { label: "Скол",             color: "#9C27B0", sprite: [0, 1] },
+  filling:     { label: "Пломба",           color: "#2196F3", sprite: [2, 1] },
+  bleeding:    { label: "Кровоточивость",   color: "#E91E63", sprite: [1, 2] },
+  sensitivity: { label: "Чувствительность", color: "#FF9800", sprite: [1, 0] },
+  cavity:      { label: "Кариес",           color: "#795548", sprite: [0, 0] },
+  treated:     { label: "Вылечен",          color: "#4CAF50", Icon: CheckCircle },
 };
 
 const SAMPLE_PROBLEMS: Record<number, string[]> = {
@@ -230,7 +245,10 @@ export function ToothMap() {
                     backgroundColor: isActive ? cfg.color + "18" : "#F1F5F9",
                     cursor: "pointer",
                   }}>
-                    <cfg.Icon size={16} color={isActive ? cfg.color : "#B0BEC5"} />
+                    {cfg.sprite
+                      ? <div style={{ ...spriteStyle(cfg.sprite[0], cfg.sprite[1], 24), opacity: isActive ? 1 : 0.45 }} />
+                      : cfg.Icon && <cfg.Icon size={16} color={isActive ? cfg.color : "#B0BEC5"} />
+                    }
                     <span style={{ fontSize: 13, color: isActive ? cfg.color : "#555" }}>{cfg.label}</span>
                   </div>
                 );
@@ -326,13 +344,17 @@ export function ToothMap() {
         {/* ── LEGEND SECTION ── */}
         <div style={{ padding: "0 16px" }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1A2B4A", marginBottom: 12 }}>Типы проблем</div>
-          <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {Object.entries(PROBLEM_CONFIG).map(([key, cfg]) => (
-              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, width: "44%" }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: cfg.color + "20", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <cfg.Icon size={14} color={cfg.color} />
-                </div>
-                <span style={{ fontSize: 12, color: "#1A2B4A" }}>{cfg.label}</span>
+              <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: "calc(33% - 8px)" }}>
+                {cfg.sprite ? (
+                  <div style={spriteStyle(cfg.sprite[0], cfg.sprite[1], 56)} />
+                ) : (
+                  <div style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: cfg.color + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {cfg.Icon && <cfg.Icon size={26} color={cfg.color} />}
+                  </div>
+                )}
+                <span style={{ fontSize: 11, color: "#4A5568", textAlign: "center", lineHeight: 1.3 }}>{cfg.label}</span>
               </div>
             ))}
           </div>
